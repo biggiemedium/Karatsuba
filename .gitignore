@@ -1,0 +1,109 @@
+# Karatsuba
+#
+# The rule behind all of it: nothing that a clean checkout can regenerate, and
+# nothing that belongs to one machine rather than to the project. A fresh clone
+# plus `gradlew build` has to be enough.
+#
+# Two things below are deliberately NOT ignored, because a clone cannot rebuild
+# itself without them:
+#   gradle/wrapper/gradle-wrapper.jar   - the wrapper bootstraps itself with this
+#   gradle/wrapper/gradle-wrapper.properties
+# That is why there is no blanket `*.jar` rule here.
+
+# ---------------------------------------------------------------- Gradle
+
+# Matches ./build and core/build alike: a pattern with no leading slash applies
+# at every level, which is what covers the subproject without naming it.
+build/
+.gradle/
+out/
+classes/
+buildSrc/build/
+
+# Local-only Gradle state that occasionally appears next to the wrapper.
+gradle-app.setting
+.gradletasknamecache
+
+# ------------------------------------------------------------------ Loom
+
+# The dev game instance: worlds, options, logs, and the config profiles the
+# client writes at `run/karatsuba/`. All of it is one machine's play state, and
+# the account manager's saved sessions live here too -- so this stays ignored.
+run/
+
+# Loom's own working directories.
+.fabric/
+remappedSrc/
+remappedSources/
+
+# ------------------------------------------------------------------ Java
+
+*.class
+*.hprof
+
+# JVM crash dumps, which land in the working directory.
+hs_err_pid*.log
+replay_pid*.log
+
+# ------------------------------------------------------------------- IDEs
+
+# IntelliJ / Android Studio
+.idea/
+.idea_modules/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Editor scratch files
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+
+# ----------------------------------------------------------- Operating system
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --------------------------------------------------------------- Credentials
+
+# Nothing in the project writes these today -- the account manager keeps sessions
+# under `run/`, which is already ignored. They are here so that the first time
+# someone adds a local secret, the default is that it stays local.
+.env
+*.env
+secrets.properties
+local.properties
+*.keystore
+*.jks
+
+# ------------------------------------------------------------------- Logs
+
+# Anything running outside `run/` still drops these in the working directory.
+logs/
+crash-reports/
+*.log

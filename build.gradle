@@ -1,0 +1,115 @@
+plugins {
+	id 'fabric-loom' version '1.9-SNAPSHOT'
+	id 'maven-publish'
+}
+
+// Core must be evaluated before the jar block below can read its source sets.
+evaluationDependsOn(':core')
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+// NanoVG is the adapter's 2D backend. Minecraft ships LWJGL 3.3.3 but not the
+// NanoVG bindings, so we add those and their natives ourselves. Each is fetched
+// without transitives: pulling lwjgl core in would put a second copy on the
+// classpath alongside the one the game already loaded.
+def lwjgl_version = '3.3.3'
+def nanovg_natives = ['natives-windows', 'natives-linux', 'natives-macos', 'natives-macos-arm64']
+
+configurations {
+	// Compiled and run against, and folded into the mod jar by the jar task below.
+	nanovg
+	implementation.extendsFrom nanovg
+}
+
+loom {
+	// Keeps client-only code in src/client so it can never leak onto a server.
+	splitEnvironmentSourceSets()
+
+	mods {
+		register(project.mod_id) {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Minecraft-Client-Core, as a local module so it can be edited in place.
+	implementation project(':core')
+
+	nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}") { transitive = false }
+	nanovg_natives.each { classifier ->
+		nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}:${classifier}") { transitive = false }
+	}
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 21
+}
+
+processResources {
+	def props = [
+		mod_id           : project.mod_id,
+		mod_name         : project.mod_name,
+		version          : project.version,
+		minecraft_version: project.minecraft_version,
+		loader_version   : project.loader_version
+	]
+
+	inputs.properties props
+
+	filesMatching('fabric.mod.json') {
+		expand props
+	}
+}
+
+jar {
+	inputs.property 'archivesName', project.base.archivesName
+
+	// Core is a plain library, not a mod, so Loom will not nest it. Fold its
+	// classes into the mod jar or the built mod hits NoClassDefFoundError.
+	// evaluationDependsOn above is what makes core's sourceSets readable here.
+	from project(':core').sourceSets.main.output
+
+	// Same for NanoVG and its natives: LWJGL finds a native by scanning the
+	// classpath, so flattening the natives jars in is what makes them loadable.
+	from(configurations.nanovg.collect { zipTree(it) }) {
+		exclude 'META-INF/**', 'module-info.class'
+	}
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+	from('LICENSE') {
+		rename { "${it}_${inputs.properties.archivesName}" }
+	}
+}
+
+publishing {
+	publications {
+		create('mavenJava', MavenPublication) {
+			artifactId = project.archives_base_name
+			from components.java
+		}
+	}
+
+	repositories {
+		// Add publishing targets here.
+	}
+}

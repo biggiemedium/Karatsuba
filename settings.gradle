@@ -1,0 +1,15 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'Karatsuba'
+
+// Local copy of Minecraft-Client-Core, editable in place (see core/build.gradle).
+include 'core'

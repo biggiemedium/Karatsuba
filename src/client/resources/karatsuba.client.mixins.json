@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.px.karatsuba.adapter.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ClientPlayerEntityMixin",
+		"KeyboardMixin",
+		"MinecraftClientAccessor",
+		"MinecraftClientMixin",
+		"MouseMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
