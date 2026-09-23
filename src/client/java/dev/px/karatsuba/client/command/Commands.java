@@ -23,6 +23,7 @@ public final class Commands {
     public static Command[] all() {
         return new Command[]{
                 new HelpCommand(),
+                new AccountCommand(),
                 new ToggleCommand(),
                 new ConfigCommand(),
                 new FriendCommand(),

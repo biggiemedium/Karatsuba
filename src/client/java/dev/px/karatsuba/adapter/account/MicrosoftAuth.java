@@ -84,13 +84,29 @@ public final class MicrosoftAuth {
     }
 
     /**
+     * A completed sign-in.
+     *
+     * <p>Carries the refresh token as well as the session, because the caller is
+     * the only thing that knows where to keep it. Microsoft issues a fresh one on
+     * every exchange and invalidates the old, so whatever stored the last one has
+     * to replace it or the next sign-in falls back to the browser.
+     *
+     * @param refreshToken may be null if the service declined to issue one
+     */
+    public record Login(Session session, String refreshToken) {
+    }
+
+    /**
      * Runs the whole chain, blocking until the user finishes or it expires.
+     *
+     * <p>This is the one that opens a browser. Prefer {@link #refresh} when a
+     * token has been kept, and fall back to this when it is refused.
      *
      * @throws IOException on a transport failure, a rejection, or a timeout. The
      *         message is written to be shown to the user, because
      *         {@code AuthResult.failure} puts it straight on screen.
      */
-    public static Session login() throws IOException {
+    public static Login login() throws IOException {
         JsonObject device = beginDeviceCode();
         String deviceCode = device.get("device_code").getAsString();
         String userCode = device.get("user_code").getAsString();
@@ -101,15 +117,61 @@ public final class MicrosoftAuth {
                 ? device.get("expires_in").getAsLong()
                 : DEFAULT_EXPIRY_SECONDS;
 
-        promptUser(userCode, verificationUri);
+        // The spec makes this optional and Microsoft does not always send it. When
+        // it does, it is the same page with the code already filled in, which
+        // removes the one step of this flow a person can get wrong.
+        String openUri = device.has("verification_uri_complete")
+                ? device.get("verification_uri_complete").getAsString()
+                : verificationUri;
 
-        String msaToken = pollForToken(deviceCode, intervalSeconds, expirySeconds);
+        promptUser(userCode, verificationUri, openUri);
+
+        return complete(pollForTokens(deviceCode, intervalSeconds, expirySeconds));
+    }
+
+    /**
+     * Signs in again with a token kept from a previous sign-in, with no browser
+     * and no waiting.
+     *
+     * <p>What makes a saved account worth saving. The device code flow takes a
+     * person up to fifteen minutes and cannot be automated; this takes a second
+     * and is the difference between a list of accounts and a list of reminders.
+     *
+     * @throws IOException if the token has expired or been revoked, in which case
+     *         the caller should fall back to {@link #login()}
+     */
+    public static Login refresh(String refreshToken) throws IOException {
+        String body = "grant_type=refresh_token"
+                + "&client_id=" + encode(clientId)
+                + "&refresh_token=" + encode(refreshToken)
+                + "&scope=" + encode(SCOPE);
+
+        return complete(object(Http.post(TOKEN_URL, body, FORM)));
+    }
+
+    /**
+     * The half of the chain that is the same either way: Microsoft token in,
+     * Minecraft session out.
+     *
+     * <p>Split so the device code flow and the refresh flow cannot drift apart;
+     * everything after the first exchange is identical and there is no reason for
+     * two copies of it.
+     */
+    private static Login complete(JsonObject tokens) throws IOException {
+        String msaToken = tokens.get("access_token").getAsString();
+
         JsonObject xbl = authenticateWithXbox(msaToken);
         String xstsToken = authorizeWithXsts(xbl.get("Token").getAsString());
         String userHash = userHashOf(xbl);
         String minecraftToken = loginWithXbox(userHash, xstsToken);
 
-        return profileOf(minecraftToken);
+        // Only present because SCOPE asks for offline_access. Absent is not an
+        // error; it only means the next sign-in goes the long way round.
+        String refreshToken = tokens.has("refresh_token")
+                ? tokens.get("refresh_token").getAsString()
+                : null;
+
+        return new Login(profileOf(minecraftToken), refreshToken);
     }
 
     // ------------------------------------------------------------ device code
@@ -126,14 +188,22 @@ public final class MicrosoftAuth {
      * handing a URI to the OS from a pool thread is the kind of thing that works
      * until the one platform where it does not.
      */
-    private static void promptUser(String userCode, String verificationUri) {
+    private static void promptUser(String userCode, String verificationUri, String openUri) {
         Core.notifications().info("Sign in to Microsoft",
                 "Enter " + userCode + " at " + verificationUri + " (copied to your clipboard)");
 
         GameThread.run(() -> {
+            // Chat as well as the notification, because a notification times out
+            // and a sign-in does not: the code is good for fifteen minutes and the
+            // player may well have looked away. On the game thread with the rest,
+            // because the chat HUD is no safer to touch from a worker than the
+            // clipboard is.
+            Core.platform().printMessage("Sign in at " + verificationUri
+                    + " with code " + userCode + " (copied to your clipboard)");
+
             Core.platform().setClipboard(userCode);
             try {
-                Util.getOperatingSystem().open(URI.create(verificationUri));
+                Util.getOperatingSystem().open(URI.create(openUri));
             } catch (RuntimeException failure) {
                 // A headless or locked-down desktop cannot open a browser, and that
                 // is not a failed login: the code and the URL are already on screen.
@@ -150,7 +220,7 @@ public final class MicrosoftAuth {
      * response body into the exception message rather than discarding it, which is
      * what makes "still waiting" distinguishable from "declined" here at all.
      */
-    private static String pollForToken(String deviceCode, long intervalSeconds, long expirySeconds)
+    private static JsonObject pollForTokens(String deviceCode, long intervalSeconds, long expirySeconds)
             throws IOException {
 
         String body = "grant_type=urn:ietf:params:oauth:grant-type:device_code"
@@ -162,7 +232,7 @@ public final class MicrosoftAuth {
 
         while (System.currentTimeMillis() < deadline) {
             try {
-                return object(Http.post(TOKEN_URL, body, FORM)).get("access_token").getAsString();
+                return object(Http.post(TOKEN_URL, body, FORM));
             } catch (IOException pending) {
                 String message = pending.getMessage() == null ? "" : pending.getMessage();
                 if (message.contains("slow_down")) {

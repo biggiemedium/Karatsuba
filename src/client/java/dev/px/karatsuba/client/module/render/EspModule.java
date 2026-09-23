@@ -12,8 +12,8 @@ import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.MultiEnumSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.util.render.ColorUtil;
-import dev.px.karatsuba.adapter.game.Entities;
-import dev.px.karatsuba.adapter.game.GameEntity;
+import dev.px.karatsuba.adapter.game.entity.Entities;
+import dev.px.karatsuba.adapter.game.entity.GameEntity;
 
 import java.util.List;
 

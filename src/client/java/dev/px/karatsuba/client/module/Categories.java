@@ -19,7 +19,9 @@ public enum Categories implements Category {
     MOVEMENT("Movement", 1, "movement"),
     RENDER("Render", 2, "eye"),
     PLAYER("Player", 3, "player"),
-    MISC("Misc", 4, "gear");
+    UTILITY("Utility", 4, "wrench"),
+    EXPLOIT("Exploit", 5, "bug"),
+    MISC("Misc", 6, "gear");
 
     /**
      * Registers every category.

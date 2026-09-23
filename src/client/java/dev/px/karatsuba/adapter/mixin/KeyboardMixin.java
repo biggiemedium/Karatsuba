@@ -1,6 +1,6 @@
 package dev.px.karatsuba.adapter.mixin;
 
-import dev.px.karatsuba.adapter.event.InputBridge;
+import dev.px.karatsuba.adapter.input.InputBridge;
 import net.minecraft.client.Keyboard;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

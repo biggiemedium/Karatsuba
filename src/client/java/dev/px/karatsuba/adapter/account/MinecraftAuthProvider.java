@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.account;
 
+import dev.px.core.Core;
 import dev.px.core.account.Account;
 import dev.px.core.account.AccountType;
 import dev.px.core.account.AuthProvider;
@@ -48,17 +49,53 @@ public final class MinecraftAuthProvider implements AuthProvider {
      */
     private static final String OFFLINE_PREFIX = "OfflinePlayer:";
 
+    /**
+     * Where a refresh token is kept between sessions.
+     *
+     * <p>{@code Account} metadata, which Core persists with the rest of the
+     * config. See the class note on what that means.
+     */
+    public static final String REFRESH_TOKEN = "msaRefreshToken";
+
     @Override
     public AuthResult authenticate(Account account) {
         if (account.getType() != AccountType.MICROSOFT) {
             return authenticateOffline(account.getName());
         }
         try {
-            return AuthResult.success(MicrosoftAuth.login());
+            MicrosoftAuth.Login login = signIn(account);
+            // Written back every time: Microsoft invalidates the old token on each
+            // exchange, so keeping the previous one would work exactly once.
+            account.setMeta(REFRESH_TOKEN, login.refreshToken());
+            return AuthResult.success(login.session());
         } catch (IOException failure) {
             // The messages out of MicrosoftAuth are written for a person to read,
             // so they go through unchanged; AuthResult puts them straight on screen.
             return AuthResult.failure(failure.getMessage());
+        }
+    }
+
+    /**
+     * Uses a kept token if there is one, and falls back to the browser if it is
+     * refused.
+     *
+     * <p>The fallback is the part that matters. A refresh token expires, and is
+     * revoked by a password change or by signing out elsewhere &mdash; treating
+     * that as a failed login would leave a saved account permanently broken with
+     * no way back except deleting it.
+     */
+    private static MicrosoftAuth.Login signIn(Account account) throws IOException {
+        String stored = account.getMeta(REFRESH_TOKEN, null);
+        if (stored == null || stored.isEmpty()) {
+            return MicrosoftAuth.login();
+        }
+        try {
+            return MicrosoftAuth.refresh(stored);
+        } catch (IOException stale) {
+            Core.log().info("Stored sign-in for " + account.getName()
+                    + " was refused; asking for a fresh one");
+            account.setMeta(REFRESH_TOKEN, null);
+            return MicrosoftAuth.login();
         }
     }
 

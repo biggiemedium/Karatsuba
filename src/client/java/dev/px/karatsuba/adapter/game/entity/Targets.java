@@ -1,0 +1,138 @@
+package dev.px.karatsuba.adapter.game.entity;
+
+import dev.px.core.math.Box;
+import dev.px.core.math.Direction;
+import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.adapter.world.Voxels;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+
+/**
+ * What the crosshair is on.
+ *
+ * <p>The game answers this once a frame and leaves the result in a field, as one
+ * of three shapes: nothing, a block, or an entity. Every module that wants it
+ * otherwise writes the same null check, the same type test and the same cast
+ * &mdash; and gets a raw {@code BlockPos} or {@code Entity} at the end of it,
+ * which is exactly what a module should not be holding.
+ *
+ * <p>So this reads the field once and hands back Core types. {@link #block()} and
+ * {@link #entity(float)} return null rather than empty values, because "looking
+ * at nothing" is a real and common answer that a caller has to branch on anyway.
+ *
+ * <pre>{@code
+ * Targets.Block looking = Targets.block();
+ * if (looking != null) {
+ *     Render.boxOutline(looking.getShape(), 1.5f, colour);
+ * }
+ * }</pre>
+ *
+ * <p><b>Game thread only.</b> The crosshair target is recomputed every frame.
+ */
+public final class Targets {
+
+    private Targets() {
+    }
+
+    /** A block under the crosshair, in Core's vocabulary. */
+    @Getter
+    @RequiredArgsConstructor
+    public static final class Block {
+
+        /** Grid position of the block. */
+        private final Vec3i position;
+
+        /** Which face the ray entered through. */
+        private final Direction face;
+
+        /**
+         * The block's outline in world space, already offset onto its position.
+         *
+         * <p>The real shape rather than a unit cube, so a slab is half height and
+         * a fence is a post. This is the same box the vanilla wireframe traces,
+         * which is why an overlay drawn to it lines up exactly.
+         */
+        private final Box shape;
+
+        /** Registry id, for example {@code minecraft:oak_stairs}. */
+        private final String blockId;
+    }
+
+    /** @return whether the crosshair is on a block */
+    public static boolean hasBlock() {
+        return hitResult() instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK;
+    }
+
+    /** @return whether the crosshair is on an entity */
+    public static boolean hasEntity() {
+        return hitResult() instanceof EntityHitResult;
+    }
+
+    /**
+     * @return the block under the crosshair, or null
+     *
+     * <p>Null both when nothing is targeted and when the world has gone, so a
+     * caller needs one check rather than three.
+     */
+    public static Block block() {
+        ClientWorld world = MinecraftClient.getInstance().world;
+        if (world == null || !(hitResult() instanceof BlockHitResult hit)
+                || hit.getType() != HitResult.Type.BLOCK) {
+            return null;
+        }
+        BlockPos pos = hit.getBlockPos();
+        BlockState state = world.getBlockState(pos);
+        if (state.isAir()) {
+            return null;
+        }
+        return new Block(
+                Voxels.toVec3i(pos),
+                Voxels.toCore(hit.getSide()),
+                outlineOf(world, pos, state),
+                net.minecraft.registry.Registries.BLOCK.getId(state.getBlock()).toString());
+    }
+
+    /**
+     * @param partialTicks the frame's interpolation; pass 1 outside a render pass
+     * @return the entity under the crosshair as a snapshot, or null
+     */
+    public static GameEntity entity(float partialTicks) {
+        if (!(hitResult() instanceof EntityHitResult hit)) {
+            return null;
+        }
+        Entity found = hit.getEntity();
+        return found == null ? null : GameEntity.of(found, partialTicks);
+    }
+
+    /**
+     * The block's outline box, in world space.
+     *
+     * <p>Taken from the game's own outline shape so it matches the wireframe
+     * exactly. An empty shape &mdash; which some blocks genuinely have &mdash;
+     * falls back to the full cube, because an overlay of zero size reads as a bug
+     * rather than as the block having no outline.
+     */
+    private static Box outlineOf(ClientWorld world, BlockPos pos, BlockState state) {
+        var shape = state.getOutlineShape(world, pos);
+        if (shape.isEmpty()) {
+            return Box.of(pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1d, pos.getY() + 1d, pos.getZ() + 1d);
+        }
+        net.minecraft.util.math.Box bounds = shape.getBoundingBox();
+        return Box.of(
+                pos.getX() + bounds.minX, pos.getY() + bounds.minY, pos.getZ() + bounds.minZ,
+                pos.getX() + bounds.maxX, pos.getY() + bounds.maxY, pos.getZ() + bounds.maxZ);
+    }
+
+    private static HitResult hitResult() {
+        return MinecraftClient.getInstance().crosshairTarget;
+    }
+}

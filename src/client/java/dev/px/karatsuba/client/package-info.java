@@ -23,7 +23,7 @@
  *       <td>{@link dev.px.karatsuba.client.module.Categories}</td></tr>
  *   <tr><td>a command</td><td>{@code command/}</td>
  *       <td>{@link dev.px.karatsuba.client.command.Commands}</td></tr>
- *   <tr><td>a HUD element</td><td>{@code hud/}</td>
+ *   <tr><td>a HUD element</td><td>{@code hud/element/}</td>
  *       <td>{@link dev.px.karatsuba.client.hud.HudElements}</td></tr>
  *   <tr><td>a keyboard action</td><td>&mdash;</td>
  *       <td>{@link dev.px.karatsuba.client.input.Binds}</td></tr>
@@ -31,7 +31,40 @@
  *       <td>{@link dev.px.karatsuba.client.theme.Themes}</td></tr>
  *   <tr><td>a screen or widget</td><td>{@code gui/}, {@code gui/component/}</td>
  *       <td>nothing &mdash; screens are opened, not registered</td></tr>
+ *   <tr><td>something drawn over the game</td><td>{@code screen/}</td>
+ *       <td>{@link dev.px.karatsuba.client.screen.Overlays}</td></tr>
+ *   <tr><td>an arbiter for something two modules want</td><td>{@code service/}</td>
+ *       <td>{@link dev.px.karatsuba.client.service.Services}</td></tr>
  * </table>
+ *
+ * <h2>Modules never write contended state directly</h2>
+ * The hotbar slot, the player's velocity and the swing are all things more than
+ * one module may want in the same tick. Assigning them directly is how a client
+ * becomes a mesh of modules checking whether other modules are enabled, so each
+ * has an owner in {@code service/} and modules <em>ask</em>:
+ *
+ * <pre>{@code
+ * Services.slots().request(this, sword, ClaimPriority.HIGH);
+ * Services.motion().scaleHorizontal(this, 1.3d, ClaimPriority.NORMAL);
+ * Core.rotations().request(this, aim, RotationPriority.HIGH, 30f);
+ * }</pre>
+ *
+ * <p>A claim lasts one tick unless renewed, so nothing has to remember to let
+ * go. See {@code service/package-info} for the whole model.
+ *
+ * <h2>What the client draws, and when</h2>
+ * The adapter owns the frame and the keystroke; it owns nothing about what is in
+ * one. {@code screen/} is where that meets: an
+ * {@link dev.px.karatsuba.adapter.screen.Overlay} is handed the frame and the
+ * input, and decides what to draw and what a key means. Registration order there
+ * is draw order, and input is offered in the reverse, so the thing on top is the
+ * thing asked first.
+ *
+ * <p>That is why the HUD editor's appearance and key map are in
+ * {@link dev.px.karatsuba.client.screen.HudOverlay} and
+ * {@code HudEditorChrome} rather than in the adapter: Core supplies the editing
+ * arithmetic, the adapter supplies the cursor and the keystroke, and what it
+ * <em>looks like</em> is content, the same as a module or a HUD element.
  *
  * <p>{@link dev.px.karatsuba.client.Karatsuba} is the only file that knows the
  * order any of it happens in, and it never needs editing to add content.
@@ -46,10 +79,10 @@
  *   <caption>Where game state comes from</caption>
  *   <tr><th>You want</th><th>Ask</th></tr>
  *   <tr><td>the local player</td>
- *       <td>{@link dev.px.karatsuba.adapter.game.Players}</td></tr>
+ *       <td>{@link dev.px.karatsuba.adapter.game.player.Players}</td></tr>
  *   <tr><td>everything else alive</td>
- *       <td>{@link dev.px.karatsuba.adapter.game.Entities} &rarr;
- *           {@link dev.px.karatsuba.adapter.game.GameEntity}</td></tr>
+ *       <td>{@link dev.px.karatsuba.adapter.game.entity.Entities} &rarr;
+ *           {@link dev.px.karatsuba.adapter.game.entity.GameEntity}</td></tr>
  *   <tr><td>a setting the player owns</td>
  *       <td>{@link dev.px.karatsuba.adapter.game.Options}</td></tr>
  *   <tr><td>blocks and the grid</td>

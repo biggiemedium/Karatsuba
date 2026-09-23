@@ -1,6 +1,5 @@
 package dev.px.karatsuba.adapter.event;
 
-import dev.px.core.Core;
 import dev.px.core.event.impl.ScreenEvent;
 
 /**
@@ -33,19 +32,7 @@ import dev.px.core.event.impl.ScreenEvent;
  */
 public final class ScreenBridge {
 
-    private static volatile boolean armed;
-
     private ScreenBridge() {
-    }
-
-    /**
-     * Starts forwarding.
-     *
-     * <p>Same reason as {@link InputBridge#arm()}: the mixin is installed by the
-     * loader long before Core exists, and the title screen is set before that.
-     */
-    public static void arm() {
-        armed = true;
     }
 
     /**
@@ -56,7 +43,7 @@ public final class ScreenBridge {
      *         apply it
      */
     public static boolean onScreenChange(Object outgoing, Object incoming) {
-        if (!armed || outgoing == incoming) {
+        if (!Events.isArmed() || outgoing == incoming) {
             return false;
         }
         // Two posts rather than one so a subscriber can match on the screen it
@@ -65,10 +52,10 @@ public final class ScreenBridge {
         // state on close must not be skipped because something else vetoed.
         boolean cancelled = false;
         if (outgoing != null) {
-            cancelled = Core.bus().post(new ScreenEvent(outgoing, false)).isCancelled();
+            cancelled = Events.cancelled(new ScreenEvent(outgoing, false));
         }
         if (incoming != null) {
-            cancelled |= Core.bus().post(new ScreenEvent(incoming, true)).isCancelled();
+            cancelled |= Events.cancelled(new ScreenEvent(incoming, true));
         }
         return cancelled;
     }

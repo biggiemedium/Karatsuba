@@ -2,6 +2,10 @@ package dev.px.karatsuba.client.hud;
 
 import dev.px.core.Core;
 import dev.px.core.hud.HudElement;
+import dev.px.karatsuba.client.hud.element.ArrayListElement;
+import dev.px.karatsuba.client.hud.element.CoordinatesElement;
+import dev.px.karatsuba.client.hud.element.NotificationElement;
+import dev.px.karatsuba.client.hud.element.WatermarkElement;
 
 /**
  * The HUD catalogue.

@@ -4,14 +4,18 @@ import dev.px.core.Core;
 import dev.px.core.render.Render;
 import dev.px.core.util.CoreLogger;
 import dev.px.core.util.net.Http;
+import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
+import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.GameEventBridge;
-import dev.px.karatsuba.adapter.event.InputBridge;
-import dev.px.karatsuba.adapter.event.ScreenBridge;
-import dev.px.karatsuba.adapter.render.NanoVGFontProvider;
-import dev.px.karatsuba.adapter.render.NanoVGRender2D;
+import dev.px.karatsuba.adapter.game.player.Rotations;
+import dev.px.karatsuba.adapter.platform.MinecraftLogger;
+import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGRender2D;
+import dev.px.karatsuba.adapter.world.WorldCollisionSpace;
 
 /**
  * Plugs Minecraft into Core.
@@ -84,9 +88,20 @@ public final class MinecraftAdapter {
         // from a scraper when a host starts refusing requests.
         Http.setUserAgent(core.getClientName() + "/" + core.getClientVersion());
 
+        // The two movement seams. Both are optional to Core and inert until
+        // filled: without a sink, rotation claims are arbitrated and never
+        // applied; without a collision space, a simulation is a trajectory
+        // through solid rock. Neither throws when absent, which is why they can
+        // be installed here rather than needing to exist before build().
+        Rotations.install(core);
+        core.getSimulationService().setCollisionSpace(WorldCollisionSpace.INSTANCE);
+
         new GameEventBridge(render3D).install();
-        InputBridge.arm();
-        ScreenBridge.arm();
+
+        // Last: the mixins have been live since the loader ran, and this is the
+        // switch that lets them start posting. Everything above has to exist
+        // before the first packet or keystroke gets through.
+        Events.arm();
 
         // A crash or a killed process never reaches CLIENT_STOPPING, and the config
         // is only written on stop. The hook is a no-op once stop() has run, so the
@@ -110,12 +125,26 @@ public final class MinecraftAdapter {
         render3D = null;
     }
 
-    /** The live 2D backend, for loading textures against its context. */
-    public static NanoVGRender2D render2D() {
-        return render2D;
+    /**
+     * Points Microsoft sign-ins at a particular Azure application.
+     *
+     * <p>Separate from {@link #install} because it is a deployment detail rather
+     * than a seam: the client works without it, and the client that needs it
+     * needs exactly one value. Null or blank keeps the default.
+     */
+    public static void microsoftClientId(String clientId) {
+        MicrosoftAuth.setClientId(clientId);
     }
 
-    public static WorldRender3D render3D() {
-        return render3D;
+    /**
+     * The live 2D backend, for loading textures against its context.
+     *
+     * <p>The only piece of the backend anything needs a direct handle to: NanoVG
+     * keys textures and fonts to the context that created them, so {@code Assets}
+     * has to name it. Everything else draws through Core's {@code Render} facade
+     * and never learns which backend is installed.
+     */
+    public static NanoVGRender2D render2D() {
+        return render2D;
     }
 }

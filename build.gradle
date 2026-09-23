@@ -47,6 +47,16 @@ dependencies {
 	// Minecraft-Client-Core, as a local module so it can be edited in place.
 	implementation project(':core')
 
+	// Lombok, compile-time only: nothing lands in the jar, and no mod that depends
+	// on this one needs it. Declared for both source sets because Loom's
+	// splitEnvironmentSourceSets() gives `client` its own compile classpath, and an
+	// annotation processor on `main` alone would silently not run there -- which
+	// looks exactly like "@Getter did nothing".
+	compileOnly "org.projectlombok:lombok:${lombok_version}"
+	annotationProcessor "org.projectlombok:lombok:${lombok_version}"
+	clientCompileOnly "org.projectlombok:lombok:${lombok_version}"
+	clientAnnotationProcessor "org.projectlombok:lombok:${lombok_version}"
+
 	nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}") { transitive = false }
 	nanovg_natives.each { classifier ->
 		nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}:${classifier}") { transitive = false }

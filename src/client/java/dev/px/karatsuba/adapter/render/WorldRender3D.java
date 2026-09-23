@@ -22,7 +22,7 @@ import org.joml.Vector4f;
 /**
  * Core's world-space backend.
  *
- * <p>Split from {@link NanoVGRender2D} for the reason Core gives: a 2D vector
+ * <p>Split from {@link dev.px.karatsuba.adapter.render.nanovg.NanoVGRender2D NanoVGRender2D} for the reason Core gives: a 2D vector
  * library has no camera and no world space, so the two cannot be one backend.
  *
  * <p>Everything here draws in <em>camera-relative</em> coordinates. Minecraft

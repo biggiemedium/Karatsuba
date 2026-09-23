@@ -9,6 +9,8 @@ import dev.px.karatsuba.client.hud.HudElements;
 import dev.px.karatsuba.client.input.Binds;
 import dev.px.karatsuba.client.module.Categories;
 import dev.px.karatsuba.client.module.Modules;
+import dev.px.karatsuba.client.screen.Overlays;
+import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.theme.Themes;
 
 /**
@@ -33,6 +35,10 @@ import dev.px.karatsuba.client.theme.Themes;
  *   <li>{@link Binds} &mdash; {@code input/}, the keyboard actions that are not
  *       modules</li>
  *   <li>{@link Themes} &mdash; {@code theme/}, the accent palette</li>
+ *   <li>{@link Overlays} &mdash; {@code screen/}, what the client draws over the
+ *       game</li>
+ *   <li>{@link Services} &mdash; {@code service/}, the arbiters that decide which
+ *       module wins when two want the same thing</li>
  * </ul>
  */
 public final class Karatsuba {
@@ -43,8 +49,22 @@ public final class Karatsuba {
     /** Config and data land in {@code .minecraft/karatsuba/}. */
     private static final String DATA_FOLDER = "karatsuba";
 
+    /**
+     * The Azure application Microsoft sign-ins are made against.
+     *
+     * <p>Empty uses the vanilla launcher's public id, which is what ships and
+     * what most clients use. Put your own here if Microsoft starts refusing it
+     * with {@code unauthorized_client} or {@code invalid_client} &mdash; that
+     * error means the id, not the account, and it is the one login failure a
+     * player cannot do anything about.
+     *
+     * <p>An application you own also lets you see your own throttling and revoke
+     * your own consent. It needs the device code flow enabled and the
+     * {@code XboxLive.signin} scope.
+     */
+    private static final String MICROSOFT_CLIENT_ID = "";
+
     private static Core core;
-    private static AutoSave autoSave;
 
     private Karatsuba() {
     }
@@ -61,17 +81,26 @@ public final class Karatsuba {
 
         core = Core.builder(NAME, VERSION)
                 .platform(MinecraftAdapter.platform(DATA_FOLDER))
+                // Has to arrive here rather than through install() below: Core
+                // resolves its logger in the constructor and hands it to every
+                // service there. Without it Core falls back to System.out, which
+                // reaches neither latest.log nor a crash report.
+                .logger(MinecraftAdapter.logger(NAME))
                 .build();
 
         // Render backends, the font provider and the event bridges. Before start(),
         // because start() asks the font provider for the default font.
         MinecraftAdapter.install(core);
 
+        // Empty leaves the adapter's default in place, so this is safe to ship
+        // blank and is the one line to change if sign-ins start being refused.
+        MinecraftAdapter.microsoftClientId(MICROSOFT_CLIENT_ID);
+
         registerContent();
 
         // Installed before start() so the config load inside it is what first
         // clears the dirty flag, rather than a stray toggle marking us dirty at boot.
-        autoSave = AutoSave.install();
+        AutoSave.install();
 
         core.start();
     }
@@ -86,6 +115,10 @@ public final class Karatsuba {
      * them.
      */
     private static void registerContent() {
+        // First: modules reach these from their very first tick, and Core's
+        // container refuses a registration once start() has run.
+        Services.registerAll(core);
+
         Categories.registerAll(core);
         Themes.registerAll(core);
 
@@ -93,6 +126,10 @@ public final class Karatsuba {
         Commands.registerAll(core);
         HudElements.registerAll(core);
         Binds.registerAll(core);
+
+        // Not Core's: an overlay registers with the adapter, because being drawn
+        // into the game is a seam Core does not have. Order-independent.
+        Overlays.install();
 
         // After the binds exist, before start() loads over them. Core has no
         // section for action binds, so without this a rebind lasts until restart.
@@ -102,10 +139,5 @@ public final class Karatsuba {
     /** @return the running Core, or null before {@link #boot()} */
     public static Core core() {
         return core;
-    }
-
-    /** @return the autosave, so a shutdown path can flush without waiting for the timer */
-    public static AutoSave autoSave() {
-        return autoSave;
     }
 }

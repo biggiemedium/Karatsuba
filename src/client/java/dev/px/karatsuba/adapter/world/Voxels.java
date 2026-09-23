@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.world;
 
+import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import net.minecraft.client.MinecraftClient;
@@ -68,6 +69,24 @@ public final class Voxels {
 
     public static Vec3d toVec3d(Vec3 vector) {
         return new Vec3d(vector.getX(), vector.getY(), vector.getZ());
+    }
+
+    /**
+     * Core's box to the game's.
+     *
+     * <p>The two are the same six doubles in the same order, but they are
+     * different types and mixing them up compiles happily right up until a
+     * simulation sweeps against a region that is not where it thought.
+     */
+    public static net.minecraft.util.math.Box toGameBox(Box box) {
+        return new net.minecraft.util.math.Box(
+                box.getMinX(), box.getMinY(), box.getMinZ(),
+                box.getMaxX(), box.getMaxY(), box.getMaxZ());
+    }
+
+    /** The game's box to Core's. */
+    public static Box toBox(net.minecraft.util.math.Box box) {
+        return Box.of(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
     }
 
     public static Direction toGame(dev.px.core.math.Direction direction) {

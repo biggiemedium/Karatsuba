@@ -12,7 +12,7 @@ import dev.px.core.render.Render;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.screen.CoreScreen;
-import dev.px.karatsuba.adapter.screen.HudEditorHost;
+import dev.px.karatsuba.adapter.screen.OverlayHost;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -32,6 +32,10 @@ import net.minecraft.client.network.ServerInfo;
  * versions because only this file knows what a Fabric callback is. Everything here
  * is Fabric API rather than a mixin, except raw input, which Fabric does not expose
  * &mdash; see {@code InputBridge}.
+ *
+ * <p>It decides <em>when</em> a frame happens and nothing about what is in one.
+ * Modules draw from {@code Render2DEvent} and the client's interface draws through
+ * {@link OverlayHost}, so nothing here names a screen, a HUD element or a colour.
  */
 public final class GameEventBridge {
 
@@ -81,17 +85,24 @@ public final class GameEventBridge {
                 ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, delta) -> renderFrame2D()));
     }
 
+    /**
+     * One 2D frame: modules underneath, the client's overlays on top.
+     *
+     * <p>The order is the only thing decided here, and it is the order they stack.
+     * What an overlay is and what it draws is the client's; see
+     * {@link dev.px.karatsuba.adapter.screen.Overlay}.
+     */
     private void renderFrame2D() {
-        boolean guiOpen = Core.gui().isOpen() || Core.hud().isEditing();
+        boolean capturing = OverlayHost.isCapturing();
 
         // Before the early return below, not after it: out of a world there is
         // nothing to draw, and that is exactly when a leftover empty screen would
         // never get dismissed.
-        closeScreenIfCoreIsDone(guiOpen);
+        CoreScreen.closeIfIdle();
 
-        // Nothing to draw on the title screen: no HUD out of a world, and no GUI
-        // unless someone opened one.
-        if (!guiOpen && client.world == null) {
+        // Nothing to draw on the title screen: no world behind it, and nothing of
+        // ours open over it.
+        if (!capturing && client.world == null) {
             return;
         }
 
@@ -101,35 +112,10 @@ public final class GameEventBridge {
 
         Render.begin2D(width, height, Core.platform().getScreenScale());
         try {
-            // Modules first, under everything: Core subscribes to nothing and draws
-            // nothing on its own, so the HUD, the editor and the GUI are all drawn
-            // from here, in the order they stack.
             Core.bus().post(new Render2DEvent(partialTicks, width, height));
-
-            if (Core.hud().isEditing()) {
-                // Edit mode draws the elements itself, so that hidden ones can be
-                // shown faintly and the chrome can go over the top of them.
-                HudEditorHost.renderFrame(width, height);
-            } else {
-                Core.hud().drawAll();
-            }
-
-            Core.gui().renderFrame();
+            OverlayHost.render(width, height);
         } finally {
             Render.end2D();
-        }
-    }
-
-    /**
-     * Dismisses our screen once Core has nothing open in it.
-     *
-     * <p>Escape reaches Core, not the game, so Core is the one that decides the GUI
-     * is finished. Without this the click GUI would vanish and leave an empty screen
-     * over the world.
-     */
-    private void closeScreenIfCoreIsDone(boolean guiOpen) {
-        if (!guiOpen && client.currentScreen instanceof CoreScreen) {
-            client.setScreen(null);
         }
     }
 

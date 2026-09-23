@@ -4,6 +4,7 @@ import dev.px.core.event.StagedEvent;
 import dev.px.core.event.Stage;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
+import lombok.Getter;
 
 /**
  * The player's own tick, before and after the game runs it.
@@ -43,10 +44,11 @@ import dev.px.core.math.Vec3;
  *
  * <p>The fields are a snapshot in Core's types, taken when the event is posted. A
  * handler that needs live state asks
- * {@link dev.px.karatsuba.adapter.game.Players}; what is carried here is what was
+ * {@link dev.px.karatsuba.adapter.game.player.Players}; what is carried here is what was
  * true at the moment the stage began, which is what makes a PRE and a POST worth
  * comparing.
  */
+@Getter
 public final class PlayerUpdateEvent extends StagedEvent {
 
     /** Feet position as the stage began. */
@@ -57,25 +59,12 @@ public final class PlayerUpdateEvent extends StagedEvent {
 
     private final boolean onGround;
 
+    // Not @RequiredArgsConstructor: the stage belongs to the supertype, and a
+    // generated constructor cannot call super(...).
     public PlayerUpdateEvent(Stage stage, Vec3 position, Vec2 rotation, boolean onGround) {
         super(stage);
         this.position = position;
         this.rotation = rotation;
         this.onGround = onGround;
-    }
-
-    // Written out rather than generated: Lombok is Core's compile-time dependency,
-    // not the mod's, and the adapter has no business borrowing it.
-
-    public Vec3 getPosition() {
-        return position;
-    }
-
-    public Vec2 getRotation() {
-        return rotation;
-    }
-
-    public boolean isOnGround() {
-        return onGround;
     }
 }

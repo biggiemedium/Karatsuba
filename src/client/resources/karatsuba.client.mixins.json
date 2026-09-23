@@ -3,11 +3,20 @@
 	"package": "dev.px.karatsuba.adapter.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"CameraMixin",
+		"ClientConnectionMixin",
+		"ClientPlayNetworkHandlerMixin",
 		"ClientPlayerEntityMixin",
+		"ClientPlayerInteractionManagerMixin",
 		"KeyboardMixin",
+		"LivingEntityMixin",
 		"MinecraftClientAccessor",
 		"MinecraftClientMixin",
-		"MouseMixin"
+		"MouseMixin",
+		"PlayerMoveC2SPacketAccessor",
+		"SimpleOptionAccessor",
+		"SoundSystemMixin",
+		"WorldRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

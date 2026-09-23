@@ -2,10 +2,22 @@ package dev.px.karatsuba.client.module;
 
 import dev.px.core.Core;
 import dev.px.core.module.Module;
+import dev.px.karatsuba.client.module.combat.KillAuraModule;
+import dev.px.karatsuba.client.module.combat.VelocityModule;
+import dev.px.karatsuba.client.module.exploit.AntiHungerModule;
 import dev.px.karatsuba.client.module.misc.UpdateCheckModule;
+import dev.px.karatsuba.client.module.movement.SpeedModule;
 import dev.px.karatsuba.client.module.movement.SprintModule;
+import dev.px.karatsuba.client.module.render.BlockOverlayModule;
 import dev.px.karatsuba.client.module.render.EspModule;
+import dev.px.karatsuba.client.module.render.FreeCamModule;
 import dev.px.karatsuba.client.module.render.FullbrightModule;
+import dev.px.karatsuba.client.module.render.HoleEspModule;
+import dev.px.karatsuba.client.module.utility.AntiAfkModule;
+import dev.px.karatsuba.client.module.utility.AntiSoundModule;
+import dev.px.karatsuba.client.module.utility.AutoToolModule;
+import dev.px.karatsuba.client.module.utility.MiddleClickModule;
+import dev.px.karatsuba.client.module.utility.XCarryModule;
 
 /**
  * The module catalogue.
@@ -35,15 +47,31 @@ public final class Modules {
     public static Module[] all() {
         return new Module[]{
                 // Combat
+                new KillAuraModule(),
+                new VelocityModule(),
 
                 // Movement
+                new SpeedModule(),
                 new SprintModule(),
 
                 // Render
+                new BlockOverlayModule(),
                 new EspModule(),
+                new FreeCamModule(),
                 new FullbrightModule(),
+                new HoleEspModule(),
 
                 // Player
+
+                // Utility
+                new AntiAfkModule(),
+                new AntiSoundModule(),
+                new AutoToolModule(),
+                new MiddleClickModule(),
+                new XCarryModule(),
+
+                // Exploit
+                new AntiHungerModule(),
 
                 // Misc
                 new UpdateCheckModule(),

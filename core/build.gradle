@@ -1,5 +1,5 @@
 // Local copy of Minecraft-Client-Core (https://github.com/biggiemedium/Minecraft-Client-Core),
-// at release 1.5.
+// at release 1.7.
 //
 // Built as a plain Java subproject so it can be edited in place: Karatsuba
 // consumes it via `implementation project(':core')` instead of JitPack.
@@ -13,7 +13,7 @@ plugins {
 }
 
 group = 'dev.px'
-version = '1.5'
+version = '1.7'
 
 // Kept at 8 (as upstream) so Core stays portable across game versions. The mod
 // itself compiles at 21; depending on 8-targeted classes from 21 is fine.

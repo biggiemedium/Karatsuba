@@ -4,7 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.render.Texture;
 import dev.px.core.render.font.Font;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
-import dev.px.karatsuba.adapter.render.NanoVGTexture;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGTexture;
 
 import java.io.IOException;
 import java.io.InputStream;
