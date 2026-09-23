@@ -27,6 +27,7 @@ public final class Commands {
                 new ToggleCommand(),
                 new ConfigCommand(),
                 new FriendCommand(),
+                new RecordCommand(),
         };
     }
 }

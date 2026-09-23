@@ -7,6 +7,7 @@ import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.PlayerMoveEvent;
 import dev.px.karatsuba.adapter.event.game.PlayerUpdateEvent;
 import dev.px.karatsuba.adapter.game.player.Rotations;
+import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.network.ClientPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -76,6 +77,7 @@ public abstract class ClientPlayerEntityMixin {
 
     @Inject(method = "tickMovement", at = @At("HEAD"), cancellable = true)
     private void karatsuba$preMove(CallbackInfo callback) {
+        MotionBridge.beforeMovementTick();
         if (postMove(Stage.PRE)) {
             callback.cancel();
         }
@@ -84,6 +86,9 @@ public abstract class ClientPlayerEntityMixin {
     @Inject(method = "tickMovement", at = @At("TAIL"))
     private void karatsuba$postMove(CallbackInfo callback) {
         postMove(Stage.POST);
+        // After the event, so a velocity a handler wrote back is part of what
+        // Core is told this tick's move produced.
+        MotionBridge.afterMovementTick(self());
     }
 
     /**
@@ -125,10 +130,15 @@ public abstract class ClientPlayerEntityMixin {
     @Inject(method = "sendMovementPackets", at = @At("HEAD"))
     private void karatsuba$beforeMovementPackets(CallbackInfo callback) {
         Rotations.beforeMovementPackets();
+        // After the rotation is resolved, so Core is told the rotation that is
+        // about to be sent rather than the one the camera shows.
+        MotionBridge.beforeMovementPackets(self());
     }
 
     @Inject(method = "sendMovementPackets", at = @At("RETURN"))
     private void karatsuba$afterMovementPackets(CallbackInfo callback) {
+        // Before a silent rotation is put back, for the same reason.
+        MotionBridge.afterMovementPackets(self());
         Rotations.afterMovementPackets();
     }
 

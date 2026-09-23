@@ -30,6 +30,15 @@
  *   <li>{@link dev.px.karatsuba.adapter.world.WorldPathSpace} &mdash; what
  *       {@code AStar} is allowed to ask about the world, which is what makes Core's
  *       spatial utilities reachable from a running game at all.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.movement.MotionBridge} and
+ *       {@link dev.px.karatsuba.adapter.movement.MotionTracking} &mdash; what feeds
+ *       {@code SimulationService}: the player's own movement, scored every tick
+ *       against Core's simulation under a physics profile read from the player's
+ *       attributes, and every living thing nearby, for {@code predict}.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.movement.MinecraftPacketDescriber} &mdash;
+ *       what the timeline recorder needs to read a packet, with Core's own
+ *       {@code PacketEvent} and {@code MotionUpdateEvent} posted from the
+ *       network and player mixins.</li>
  * </ol>
  *
  * <h2>The one seam this package declares</h2>

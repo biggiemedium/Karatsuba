@@ -10,12 +10,15 @@ import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.GameEventBridge;
 import dev.px.karatsuba.adapter.game.player.Rotations;
+import dev.px.karatsuba.adapter.movement.MinecraftPacketDescriber;
+import dev.px.karatsuba.adapter.movement.MotionTracking;
 import dev.px.karatsuba.adapter.platform.MinecraftLogger;
 import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGRender2D;
 import dev.px.karatsuba.adapter.world.WorldCollisionSpace;
+import net.minecraft.SharedConstants;
 
 /**
  * Plugs Minecraft into Core.
@@ -95,6 +98,17 @@ public final class MinecraftAdapter {
         // be installed here rather than needing to exist before build().
         Rotations.install(core);
         core.getSimulationService().setCollisionSpace(WorldCollisionSpace.INSTANCE);
+
+        // What feeds the simulation: the player's own movement is observed and
+        // scored by MotionBridge from the player mixin, and everything else near
+        // them is recorded here, once a tick, for predict() and coast().
+        MotionTracking.install(core);
+
+        // The timeline's one piece of version knowledge. Without it a recording
+        // still works, with every packet named by its (obfuscated) class.
+        core.getTimelineRecorder().setDescriber(MinecraftPacketDescriber.INSTANCE);
+        core.getTimelineRecorder().putMetadata("gameVersion", SharedConstants.getGameVersion().getName());
+        core.getTimelineRecorder().putMetadata("client", core.getClientName() + " " + core.getClientVersion());
 
         new GameEventBridge(render3D).install();
 

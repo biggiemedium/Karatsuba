@@ -3,6 +3,7 @@ package dev.px.karatsuba.adapter.mixin;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.PlayerJumpEvent;
+import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -38,6 +39,20 @@ public abstract class LivingEntityMixin {
 
         if (Events.cancelled(event)) {
             callback.cancel();
+        }
+    }
+
+    /**
+     * The jump went ahead.
+     *
+     * <p>Not the same as the key being down: the game jumps only from the ground
+     * and only once its cooldown has run out, and a handler above may have
+     * refused it. The simulation is scored against what happened.
+     */
+    @Inject(method = "jump", at = @At("TAIL"))
+    private void karatsuba$jumped(CallbackInfo callback) {
+        if ((Object) this == MinecraftClient.getInstance().player) {
+            MotionBridge.jumped();
         }
     }
 }

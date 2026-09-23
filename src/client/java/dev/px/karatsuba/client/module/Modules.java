@@ -5,6 +5,7 @@ import dev.px.core.module.Module;
 import dev.px.karatsuba.client.module.combat.KillAuraModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.exploit.AntiHungerModule;
+import dev.px.karatsuba.client.module.misc.RecorderModule;
 import dev.px.karatsuba.client.module.misc.UpdateCheckModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
 import dev.px.karatsuba.client.module.movement.SprintModule;
@@ -74,6 +75,7 @@ public final class Modules {
                 new AntiHungerModule(),
 
                 // Misc
+                new RecorderModule(),
                 new UpdateCheckModule(),
         };
     }

@@ -2,6 +2,7 @@ package dev.px.karatsuba.adapter.mixin;
 
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.adapter.event.CorePacketEvents;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.ClientCommandEvent;
 import dev.px.karatsuba.adapter.event.game.MovementPacketEvent;
@@ -10,6 +11,7 @@ import dev.px.karatsuba.adapter.event.game.ScreenCloseEvent;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import io.netty.channel.ChannelHandlerContext;
 import net.minecraft.network.ClientConnection;
+import net.minecraft.network.NetworkSide;
 import net.minecraft.network.PacketCallbacks;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
@@ -28,6 +30,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * {@code send(Packet, PacketCallbacks)} both delegate to the three-argument form,
  * so injecting there sees each packet exactly once; {@code channelRead0} is where
  * everything inbound arrives before the game has looked at it.
+ *
+ * <p>Each posts the adapter's {@code PacketEvent} for modules and then Core's
+ * for Core itself (see {@link CorePacketEvents}); a third injection marks the
+ * inbound packets the game handles inline, for Core's applied phase.
  *
  * <h2>Threading</h2>
  * <b>{@code channelRead0} runs on a Netty worker</b>, so {@link PacketEvent.Receive}
@@ -59,23 +65,31 @@ public abstract class ClientConnectionMixin {
             at = @At("HEAD"), cancellable = true)
     private void karatsuba$send(Packet<?> packet, PacketCallbacks callbacks, boolean flush,
                                 CallbackInfo callback) {
-        if (Events.cancelled(new PacketEvent.Send(packet))) {
+        boolean refused = refusedOnSend(packet);
+        // After the adapter's handlers, so Core sees the packet as it will
+        // actually leave -- a rewritten position included.
+        if (isClientSide() && CorePacketEvents.sent(packet, refused)) {
+            refused = true;
+        }
+        if (refused) {
             callback.cancel();
-            return;
+        }
+    }
+
+    /** @return whether one of the adapter's handlers refused an outgoing packet */
+    private static boolean refusedOnSend(Packet<?> packet) {
+        if (Events.cancelled(new PacketEvent.Send(packet))) {
+            return true;
         }
         if (packet instanceof CloseHandledScreenC2SPacket close
                 && postScreenClose(close.getSyncId())) {
-            callback.cancel();
-            return;
+            return true;
         }
         if (packet instanceof ClientCommandC2SPacket command
                 && Events.cancelled(new ClientCommandEvent(actionOf(command.getMode())))) {
-            callback.cancel();
-            return;
+            return true;
         }
-        if (packet instanceof PlayerMoveC2SPacket move && postMovement(move)) {
-            callback.cancel();
-        }
+        return packet instanceof PlayerMoveC2SPacket move && postMovement(move);
     }
 
     /**
@@ -121,9 +135,47 @@ public abstract class ClientConnectionMixin {
             at = @At("HEAD"), cancellable = true)
     private void karatsuba$receive(ChannelHandlerContext context, Packet<?> packet,
                                    CallbackInfo callback) {
-        if (Events.cancelled(new PacketEvent.Receive(packet))) {
+        boolean refused = Events.cancelled(new PacketEvent.Receive(packet));
+        if (isClientSide() && CorePacketEvents.received(packet, refused)) {
+            refused = true;
+        }
+        if (refused) {
             callback.cancel();
         }
+    }
+
+    /**
+     * A packet the game handled right here on the Netty worker.
+     *
+     * <p>Most handlers begin with {@code NetworkThreadUtils.forceMainThread},
+     * which throws on this thread and re-runs the handler on the game thread;
+     * {@code NetworkThreadUtilsMixin} posts those as applied when they get there.
+     * The throw also means this point is never reached for them, because it sits
+     * inside the {@code try} that catches it. What does reach it is exactly the
+     * packets handled inline &mdash; keep-alives, pings &mdash; and Core's
+     * contract for those is received, then applied immediately after.
+     */
+    @Inject(method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/packet/Packet;)V",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/network/ClientConnection;handlePacket(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/listener/PacketListener;)V",
+                    shift = At.Shift.AFTER))
+    private void karatsuba$handledInline(ChannelHandlerContext context, Packet<?> packet,
+                                         CallbackInfo callback) {
+        if (isClientSide()) {
+            CorePacketEvents.applied(packet);
+        }
+    }
+
+    /**
+     * Whether this is the client's own connection.
+     *
+     * <p>{@code ClientConnection} is both ends of the pipe: in singleplayer the
+     * integrated server has one too, and its traffic runs through these same
+     * injections in the other direction. Core's events describe what the client
+     * said and heard, so the server's half is kept out of them.
+     */
+    private boolean isClientSide() {
+        return ((ClientConnection) (Object) this).getSide() == NetworkSide.CLIENTBOUND;
     }
 
     /**
