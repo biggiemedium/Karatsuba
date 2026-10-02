@@ -103,14 +103,18 @@
  *       game's own settings</td></tr>
  *   <tr><td>{@code event/}</td><td>game callbacks to Core events, and the frame
  *       loop; {@code event/game/} holds the events that name a game concept and so
- *       cannot live in Core</td></tr>
+ *       cannot live in Core, split into {@code player/}, {@code network/},
+ *       {@code render/} and {@code sound/}</td></tr>
  *   <tr><td>{@code input/}</td><td>GLFW to Core: {@code Keys} is the code-to-enum
  *       table, {@code InputBridge} decides whether a keystroke goes to the bus or
  *       to an overlay, {@code ActionBinds} runs the binds Core's own routing
  *       cannot</td></tr>
  *   <tr><td>{@code mixin/}</td><td>only what Fabric API does not expose: raw
  *       keyboard and mouse input, the screen swap, and write access to the
- *       session</td></tr>
+ *       session. Split by what is mixed into, with the same names as
+ *       {@code event/game/} where the two overlap: {@code input/},
+ *       {@code network/}, {@code player/}, {@code render/}, {@code sound/}, and
+ *       {@code game/} for the client object and its options</td></tr>
  *   <tr><td>{@code screen/}</td><td>the bare game screen, and the {@code Overlay}
  *       seam the client draws through</td></tr>
  *   <tr><td>{@code asset/}</td><td>images and fonts out of the mod jar, decoded

@@ -5,6 +5,7 @@ import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.attribute.EntityAttributes;
 
 /**
  * The local player, as questions with Core-typed answers.
@@ -134,6 +135,28 @@ public final class Players {
     public static float attackCooldown() {
         ClientPlayerEntity self = player();
         return self == null ? 0f : self.getAttackCooldownProgress(0f);
+    }
+
+    /**
+     * Starts the attack cooldown over, as landing a hit does.
+     *
+     * <p>For a hit the game never processed &mdash; one a module intercepted
+     * &mdash; so the next swing is timed as if this one had landed.
+     */
+    public static void resetAttackCooldown() {
+        ClientPlayerEntity self = player();
+        if (self != null) {
+            self.resetLastAttackedTicks();
+        }
+    }
+
+    /**
+     * @return the player's attack damage with what they are holding, before the
+     *         cooldown, criticals and enchantments are applied; 0 in a menu
+     */
+    public static float attackDamage() {
+        ClientPlayerEntity self = player();
+        return self == null ? 0f : (float) self.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
     }
 
     /** @return whether the player is standing in water */

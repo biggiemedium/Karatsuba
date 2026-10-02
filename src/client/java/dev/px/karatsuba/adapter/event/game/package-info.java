@@ -6,6 +6,21 @@
  * compiles without Minecraft on the classpath is that no event in it mentions a
  * packet, a sound or a camera. This package is where those go.
  *
+ * <h2>Where things are</h2>
+ * Split by what the event is about, with the same names as the {@code mixin/}
+ * folders that post them, so an event and its call site are found under one word.
+ *
+ * <table>
+ *   <caption>What each folder holds</caption>
+ *   <tr><td>{@code player/}</td><td>the local player's tick, movement and
+ *       jump, what it hits, and what hits it</td></tr>
+ *   <tr><td>{@code network/}</td><td>packets, and the semantic events read out
+ *       of them: the movement packet, client commands, a container closing</td></tr>
+ *   <tr><td>{@code render/}</td><td>the camera and what the game draws in the
+ *       world</td></tr>
+ *   <tr><td>{@code sound/}</td><td>what the client plays</td></tr>
+ * </table>
+ *
  * <h2>The shape every event here takes</h2>
  * <ol>
  *   <li><b>Core types on the outside.</b> A field is a {@code Vec3}, a
@@ -31,25 +46,25 @@
  *   <caption>Which Core base an event extends</caption>
  *   <tr><th>Base</th><th>Use when</th></tr>
  *   <tr><td>{@code Event}</td><td>a pure notification &mdash;
- *       {@link dev.px.karatsuba.adapter.event.game.CameraEvent}, which is
+ *       {@link dev.px.karatsuba.adapter.event.game.render.CameraEvent}, which is
  *       mutated rather than cancelled</td></tr>
  *   <tr><td>{@code CancellableEvent}</td><td>a handler may suppress the action
- *       &mdash; {@link dev.px.karatsuba.adapter.event.game.SoundPlayEvent},
- *       {@link dev.px.karatsuba.adapter.event.game.BlockOutlineEvent}</td></tr>
+ *       &mdash; {@link dev.px.karatsuba.adapter.event.game.sound.SoundPlayEvent},
+ *       {@link dev.px.karatsuba.adapter.event.game.render.BlockOutlineEvent}</td></tr>
  *   <tr><td>{@code StagedEvent}</td><td>the same call site fires before and after
  *       the action &mdash;
- *       {@link dev.px.karatsuba.adapter.event.game.PlayerUpdateEvent},
- *       {@link dev.px.karatsuba.adapter.event.game.PlayerMoveEvent}</td></tr>
+ *       {@link dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent},
+ *       {@link dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent}</td></tr>
  * </table>
  *
  * <p>A handler may declare a supertype and receive every subclass, which is why
- * {@link dev.px.karatsuba.adapter.event.game.PacketEvent} is one class with two
+ * {@link dev.px.karatsuba.adapter.event.game.network.PacketEvent} is one class with two
  * nested halves: {@code @Subscribe} on {@code PacketEvent} sees both directions,
  * and on {@code PacketEvent.Send} sees only outgoing.
  *
  * <h2>Threading</h2>
  * Everything here is posted on the game thread except
- * {@link dev.px.karatsuba.adapter.event.game.PacketEvent.Receive}, which arrives
+ * {@link dev.px.karatsuba.adapter.event.game.network.PacketEvent.Receive}, which arrives
  * on a Netty worker. That one is marked, and the rule for it is the ordinary one:
  * hand anything touching game state to {@code Core.threads().sync(...)}.
  */

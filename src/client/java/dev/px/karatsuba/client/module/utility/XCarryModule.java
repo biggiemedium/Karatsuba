@@ -3,7 +3,7 @@ package dev.px.karatsuba.client.module.utility;
 import dev.px.core.event.Subscribe;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
-import dev.px.karatsuba.adapter.event.game.ScreenCloseEvent;
+import dev.px.karatsuba.adapter.event.game.network.ScreenCloseEvent;
 
 /**
  * Keeps items in the four crafting slots of the player's own inventory.

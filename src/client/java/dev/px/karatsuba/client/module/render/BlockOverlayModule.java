@@ -13,7 +13,7 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.ColorSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.adapter.event.game.BlockOutlineEvent;
+import dev.px.karatsuba.adapter.event.game.render.BlockOutlineEvent;
 import dev.px.karatsuba.adapter.game.entity.Targets;
 
 /**

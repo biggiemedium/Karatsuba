@@ -6,6 +6,7 @@ import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.SpawnGroup;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -41,10 +42,17 @@ public final class GameEntity {
     private final boolean player;
     private final boolean hostile;
     private final boolean friend;
+    private final Kind kind;
+    private final boolean invisible;
+    private final boolean hurt;
+    private final float absorption;
+    private final boolean sneaking;
 
     private GameEntity(int id, String name, Vec3 position, Vec3 eyePosition, Box hitbox,
                        Vec2 rotation, float health, float maxHealth,
-                       boolean player, boolean hostile, boolean friend) {
+                       boolean player, boolean hostile, boolean friend,
+                       Kind kind, boolean invisible, boolean hurt,
+                       float absorption, boolean sneaking) {
         this.id = id;
         this.name = name;
         this.position = position;
@@ -56,6 +64,11 @@ public final class GameEntity {
         this.player = player;
         this.hostile = hostile;
         this.friend = friend;
+        this.kind = kind;
+        this.invisible = invisible;
+        this.hurt = hurt;
+        this.absorption = absorption;
+        this.sneaking = sneaking;
     }
 
     /**
@@ -73,9 +86,13 @@ public final class GameEntity {
 
         float health = 0f;
         float maxHealth = 0f;
+        boolean hurt = false;
+        float absorption = 0f;
         if (entity instanceof LivingEntity living) {
             health = living.getHealth();
             maxHealth = living.getMaxHealth();
+            hurt = living.hurtTime > 0;
+            absorption = living.getAbsorptionAmount();
         }
 
         Vec3 position = interpolated(entity, partialTicks);
@@ -93,7 +110,34 @@ public final class GameEntity {
                 entity instanceof Monster,
                 // Core owns the friends list; the adapter only reports the answer,
                 // so a module never has to know where friendship is stored.
-                isPlayer && Core.social().isFriend(name));
+                isPlayer && Core.social().isFriend(name),
+                kindOf(entity, isPlayer),
+                entity.isInvisible(),
+                hurt,
+                absorption,
+                entity.isSneaking());
+    }
+
+    /**
+     * Sorts an entity into one of the four buckets a module filters by.
+     *
+     * <p>By spawn group rather than by class hierarchy, because the spawn group is
+     * the game's own answer to "what sort of thing is this" and it is one lookup.
+     * Everything that is neither a monster nor a land animal &mdash; fish, bats,
+     * villagers, golems, armour stands &mdash; is neutral.
+     */
+    private static Kind kindOf(Entity entity, boolean isPlayer) {
+        if (isPlayer) {
+            return Kind.PLAYER;
+        }
+        SpawnGroup group = entity.getType().getSpawnGroup();
+        if (group == SpawnGroup.MONSTER) {
+            return Kind.MONSTER;
+        }
+        if (group == SpawnGroup.CREATURE) {
+            return Kind.ANIMAL;
+        }
+        return Kind.NEUTRAL;
     }
 
     private static Vec3 interpolated(Entity entity, float partialTicks) {
@@ -178,6 +222,40 @@ public final class GameEntity {
         return friend;
     }
 
+    /** @return which of the four filter buckets this entity falls in */
+    public Kind getKind() {
+        return kind;
+    }
+
+    /** @return whether the entity is invisible, by potion or by nature */
+    public boolean isInvisible() {
+        return invisible;
+    }
+
+    /** @return whether it is still flashing red from being hit. Never true for non-living entities. */
+    public boolean isHurt() {
+        return hurt;
+    }
+
+    /** @return extra hearts from absorption, on top of {@link #getHealth()}; 0 for non-living entities */
+    public float getAbsorption() {
+        return absorption;
+    }
+
+    public boolean isSneaking() {
+        return sneaking;
+    }
+
+    /** @return the hitbox height, in blocks */
+    public double getHeight() {
+        return hitbox.getMax().getY() - hitbox.getMin().getY();
+    }
+
+    /** @return the hitbox width, in blocks. Hitboxes are square, so X and Z agree. */
+    public double getWidth() {
+        return hitbox.getMax().getX() - hitbox.getMin().getX();
+    }
+
     public double distanceTo(Vec3 from) {
         return from.distanceTo(position);
     }
@@ -185,5 +263,16 @@ public final class GameEntity {
     @Override
     public String toString() {
         return "GameEntity[" + name + " @ " + position + "]";
+    }
+
+    /** What sort of entity this is, in the buckets a module filters by. */
+    public enum Kind {
+        PLAYER,
+        /** Hostile mobs: zombies, creepers, endermen. */
+        MONSTER,
+        /** Land animals: cows, pigs, wolves, horses. */
+        ANIMAL,
+        /** Everything else alive: fish, bats, villagers, golems. */
+        NEUTRAL
     }
 }

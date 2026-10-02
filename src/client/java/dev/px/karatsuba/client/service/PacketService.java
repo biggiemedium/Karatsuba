@@ -10,7 +10,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.service.Service;
 import dev.px.core.util.CoreLogger;
-import dev.px.karatsuba.adapter.event.game.PacketEvent;
+import dev.px.karatsuba.adapter.event.game.network.PacketEvent;
 import lombok.Getter;
 
 import java.util.ArrayList;

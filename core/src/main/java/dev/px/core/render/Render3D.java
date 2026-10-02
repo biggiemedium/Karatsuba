@@ -40,6 +40,24 @@ public interface Render3D {
     void line(Vec3 from, Vec3 to, float thickness, Color color);
 
     /**
+     * A flat filled triangle in world space.
+     *
+     * <p>Visible from both sides, so winding does not matter. The building block
+     * for anything that is not a box: markers, arrows, faceted shapes.
+     */
+    void triangle(Vec3 a, Vec3 b, Vec3 c, Color color);
+
+    /**
+     * A flat filled quad in world space, corners given in order around its edge.
+     *
+     * <p>Unlike {@link #box}, it need not be axis-aligned, which is what lets a
+     * panel face the camera &mdash; a health bar beside an entity, say. Visible from
+     * both sides. Non-planar corners are drawn, but as two triangles meeting at a
+     * fold.
+     */
+    void quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, Color color);
+
+    /**
      * A UV sphere.
      *
      * @param segments latitude and longitude divisions; 16 is smooth enough at

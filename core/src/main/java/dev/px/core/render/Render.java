@@ -303,6 +303,14 @@ public final class Render {
         backend3D.line(from, to, thickness, color);
     }
 
+    public static void triangle3D(Vec3 a, Vec3 b, Vec3 c, Color color) {
+        backend3D.triangle(a, b, c, color);
+    }
+
+    public static void quad3D(Vec3 a, Vec3 b, Vec3 c, Vec3 d, Color color) {
+        backend3D.quad(a, b, c, d, color);
+    }
+
     public static void sphere(Vec3 center, float radius, Color color) {
         backend3D.sphere(center, radius, 16, color);
     }

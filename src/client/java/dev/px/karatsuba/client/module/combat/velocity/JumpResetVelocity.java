@@ -4,7 +4,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.adapter.event.game.KnockbackEvent;
+import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.mode.SubMode;

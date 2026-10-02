@@ -2,71 +2,132 @@ package dev.px.karatsuba.client.module.render;
 
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.Render3DEvent;
-import dev.px.core.module.Module;
+import dev.px.core.math.Vec3;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
 import dev.px.core.render.Render;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.ColorSetting;
 import dev.px.core.setting.impl.EnumSetting;
-import dev.px.core.setting.impl.MultiEnumSetting;
+import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.util.render.ColorUtil;
+import dev.px.karatsuba.adapter.event.game.render.WorldOverlayEvent;
 import dev.px.karatsuba.adapter.game.entity.Entities;
 import dev.px.karatsuba.adapter.game.entity.GameEntity;
+import dev.px.karatsuba.client.module.mode.ModalModule;
+import dev.px.karatsuba.client.module.mode.SubMode;
+import dev.px.karatsuba.client.module.render.esp.Box2DEsp;
+import dev.px.karatsuba.client.module.render.esp.BoxEsp;
+import dev.px.karatsuba.client.module.render.esp.EspMode;
+import dev.px.karatsuba.client.module.render.esp.FilledEsp;
+import dev.px.karatsuba.client.module.render.esp.R6Esp;
+import dev.px.karatsuba.client.module.render.esp.WireframeEsp;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Outlines nearby entities in the world.
+ * Shows entities through walls.
+ *
+ * <p>Ported from Leapfrog's {@code ESP}: its four modes, its tracers, its
+ * per-type filters and colours, and its range. Karatsuba's own Filled shape is kept
+ * as another mode, and 2D Box draws in screen space over the HUD.
  *
  * <p>The worked example for <b>{@code Render3D}</b>, the half of the render facade
- * that needs a camera. {@code Render.boxOutline} and {@code Render.tracer} take
- * world coordinates and Core hands them to whatever backend the adapter installed
- * &mdash; this file never learns that a projection matrix exists, and it never
- * mentions a screen coordinate.
+ * that needs a camera, and for what owning a frame means. This class decides
+ * <em>which</em> entities and <em>what colour</em>; a mode decides only how one
+ * looks. In between it turns depth testing off &mdash; which is the entire
+ * difference between an outline that shows through walls and one that hides
+ * behind them &mdash; and turns it back on afterwards, so nothing drawn after ESP
+ * in the same frame inherits it.
  *
- * <p>It is also where several other systems meet, which is why it is worth reading
- * as a whole rather than for the drawing:
- *
- * <ul>
- *   <li><b>Settings</b> register by being declared, and five of the nine types are
- *       here. {@code visibleWhen} hides the tracer colour when tracers are off,
- *       so the panel never shows a control that does nothing.</li>
- *   <li><b>The event bus</b> delivers {@link Render3DEvent} to an annotated method,
- *       and stops delivering it the moment the module is switched off. There is no
- *       {@code if (!isEnabled()) return} here because there does not need to be.</li>
- *   <li><b>The adapter seam</b> supplies the entities. {@link GameEntity} is a
- *       snapshot in Core's own types, so nothing below is tied to a game version.</li>
- * </ul>
+ * <p>The adapter seam supplies the entities. {@link GameEntity} is a snapshot in
+ * Core's own types, so nothing below is tied to a game version.
  */
-@ModuleInfo(name = "ESP", description = "Outlines entities through the world", category = "Render")
-public final class EspModule extends Module {
+@ModuleInfo(name = "ESP", description = "Shows entities through walls", category = "Render")
+public final class EspModule extends ModalModule<EspModule.Mode> {
 
-    private final MultiEnumSetting<Target> targets =
-            multi("Targets", Target.class, Target.PLAYERS, Target.HOSTILES)
-                    .describe("Which entities are worth drawing");
+    public enum Mode {
+        BOX,
+        BOX_2D,
+        R6,
+        WIREFRAME,
+        FILLED
+    }
 
-    private final EnumSetting<Shape> shape = enumOf("Shape", Shape.BOX);
+    // ---------------------------------------------------------------- modes
 
-    private final NumberSetting<Double> range = decimal("Range", 64d, 8d, 128d)
-            .describe("How far out to look, in blocks");
+    private final BoxEsp box = attach(new BoxEsp());
+    private final GroupSetting boxPanel = panelFor(box);
 
-    private final NumberSetting<Float> thickness = number("Thickness", 1.5f, 0.5f, 4f).step(0.1f);
+    private final Box2DEsp box2D = attach(new Box2DEsp());
+    private final GroupSetting box2DPanel = panelFor(box2D);
 
-    private final BooleanSetting healthTint = bool("Health Tint", true)
-            .describe("Fade the outline from green to red as a target is hurt");
+    private final R6Esp r6 = attach(new R6Esp());
+    private final GroupSetting r6Panel = panelFor(r6);
 
-    private final ColorSetting neutral = color("Neutral", Color.of(120, 200, 255))
-            .describe("Used when the health tint is off, and for anything with no health");
+    private final WireframeEsp wireframe = attach(new WireframeEsp());
+    private final GroupSetting wireframePanel = panelFor(wireframe);
 
-    private final ColorSetting friends = color("Friends", Color.of(120, 255, 150));
+    private final FilledEsp filled = attach(new FilledEsp());
+    private final GroupSetting filledPanel = panelFor(filled);
+
+    // -------------------------------------------------------------- tracers
 
     private final BooleanSetting tracers = bool("Tracers", false)
-            .describe("Draw a line from the crosshair to each target");
-
-    private final ColorSetting tracerColor = color("Tracer Colour", Color.of(255, 255, 255, 120))
+            .describe("A line from the crosshair to each entity");
+    private final NumberSetting<Float> tracerWidth = number("Tracer Width", 1.5f, 0.5f, 4f).step(0.1f)
             .visibleWhen(tracers);
+    private final ColorSetting tracerColor = color("Tracer Color", Color.WHITE)
+            .visibleWhen(tracers);
+    // R6 draws its tracers to the feet in each entity's own colour, as Leapfrog's
+    // did, so the target choice means nothing there and is hidden.
+    private final EnumSetting<TracerTarget> tracerTarget = enumOf("Tracer Target", TracerTarget.FEET)
+            .visibleWhen(() -> tracers.isOn() && getMode() != Mode.R6);
+
+    private final GroupSetting tracerGroup = group("Tracers", true)
+            .containing(tracers, tracerWidth, tracerColor, tracerTarget);
+
+    // -------------------------------------------------------------- targets
+
+    private final BooleanSetting players = bool("Players", true);
+    private final BooleanSetting monsters = bool("Monsters", false);
+    private final BooleanSetting neutrals = bool("Neutrals", false)
+            .describe("Everything alive that is neither a monster nor an animal: fish, bats, villagers, golems");
+    private final BooleanSetting animals = bool("Animals", false);
+    private final BooleanSetting invisibles = bool("Invisible", true)
+            .describe("Include entities that are invisible");
+    private final BooleanSetting friends = bool("Friends", false)
+            .describe("Include friends, in their own colour. Off leaves them out entirely");
+
+    private final GroupSetting targetGroup = group("Targets", true)
+            .containing(players, monsters, neutrals, animals, invisibles, friends);
+
+    // --------------------------------------------------------------- colors
+
+    private final ColorSetting playerColor = color("Player Color", Color.rgb(0x00FF00))
+            .visibleWhen(players);
+    private final ColorSetting friendColor = color("Friend Color", Color.rgb(0x00B7FF))
+            .visibleWhen(() -> players.isOn() && friends.isOn());
+    private final ColorSetting monsterColor = color("Monster Color", Color.rgb(0xFF5555))
+            .visibleWhen(monsters);
+    private final ColorSetting animalColor = color("Animal Color", Color.rgb(0x55FF55))
+            .visibleWhen(animals);
+    private final ColorSetting neutralColor = color("Neutral Color", Color.rgb(0xFFFF55))
+            .visibleWhen(neutrals);
+    private final BooleanSetting healthTint = bool("Health Tint", false)
+            .describe("Colour by health, green to red, instead of by type. Friends keep their colour");
+
+    private final GroupSetting colorGroup = group("Colors", false)
+            .containing(playerColor, friendColor, monsterColor, animalColor, neutralColor, healthTint);
+
+    private final NumberSetting<Integer> distance = integer("Distance", 75, 0, 300)
+            .describe("How far out to look, in blocks");
+
+    public EspModule() {
+        super(Mode.BOX);
+    }
 
     /**
      * Draws one frame.
@@ -77,72 +138,116 @@ public final class EspModule extends Module {
      */
     @Subscribe
     private void onRender3D(Render3DEvent event) {
-        List<GameEntity> found = Entities.nearby(event.getPartialTicks(), range.getDouble());
+        float partialTicks = event.getPartialTicks();
+        List<GameEntity> targets = targets(partialTicks);
+        if (targets.isEmpty()) {
+            return;
+        }
+        SubMode<Mode> active = getActiveMode();
 
-        for (GameEntity entity : found) {
-            if (!wanted(entity)) {
-                continue;
+        Render.setDepthTest(false);
+        try {
+            if (active instanceof EspMode mode) {
+                mode.render(this, targets, partialTicks);
             }
-            Color color = colorFor(entity);
-
-            switch (shape.get()) {
-                case BOX -> Render.boxOutline(entity.getHitbox(), thickness.getFloat(), color);
-                case FILLED -> Render.boxFilledOutline(entity.getHitbox(),
-                        color.withAlpha(40), color, thickness.getFloat());
-                case SPHERE -> Render.sphereOutline(entity.getPosition().add(0d, 1d, 0d),
-                        1f, 16, thickness.getFloat(), color);
-            }
-
             if (tracers.isOn()) {
-                Render.tracer(entity.getEyePosition(), thickness.getFloat(), tracerColor.resolve());
+                drawTracers(targets);
             }
+        } finally {
+            Render.setDepthTest(true);
         }
-    }
-
-    /** @return whether this entity is one of the kinds the user asked for */
-    private boolean wanted(GameEntity entity) {
-        if (entity.isFriend()) {
-            // Friends are drawn whenever players are, and in their own colour. A
-            // separate toggle would be a fourth way to say the same thing.
-            return targets.has(Target.PLAYERS);
-        }
-        if (entity.isPlayer()) {
-            return targets.has(Target.PLAYERS);
-        }
-        return targets.has(entity.isHostile() ? Target.HOSTILES : Target.PASSIVES);
     }
 
     /**
-     * @return the outline colour for one entity
+     * The screen-space half, for modes that draw over the HUD.
      *
-     * <p>Friend beats health: who someone is matters more than how hurt they are,
-     * and a friend fading to red reads as a warning about the wrong thing.
+     * <p>On the world overlay layer rather than Core's top 2D layer, so an open
+     * screen covers the boxes the way it covers the world behind it. Projection
+     * uses the camera from this frame's world pass, so the boxes line up with
+     * where the entities were just rendered.
      */
-    private Color colorFor(GameEntity entity) {
+    @Subscribe
+    private void onWorldOverlay(WorldOverlayEvent event) {
+        if (!(getActiveMode() instanceof EspMode mode)) {
+            return;
+        }
+        float partialTicks = event.getPartialTicks();
+        List<GameEntity> targets = targets(partialTicks);
+        if (!targets.isEmpty()) {
+            mode.render2D(this, targets, partialTicks);
+        }
+    }
+
+    private void drawTracers(List<GameEntity> targets) {
+        boolean r6Style = getMode() == Mode.R6;
+        for (GameEntity entity : targets) {
+            Vec3 end = r6Style ? entity.getPosition() : tracerEnd(entity);
+            Color color = r6Style ? colorFor(entity) : tracerColor.resolve();
+            Render.tracer(end, tracerWidth.getFloat(), color);
+        }
+    }
+
+    private Vec3 tracerEnd(GameEntity entity) {
+        return switch (tracerTarget.get()) {
+            case FEET -> entity.getPosition();
+            case TORSO -> entity.getPosition().add(0d, entity.getHeight() / 2d, 0d);
+            case HEAD -> entity.getEyePosition();
+        };
+    }
+
+    /** @return the entities in range that the filters let through */
+    private List<GameEntity> targets(float partialTicks) {
+        List<GameEntity> nearby = Entities.nearby(partialTicks, distance.getInt());
+        List<GameEntity> wanted = new ArrayList<>(nearby.size());
+        for (GameEntity entity : nearby) {
+            if (shouldRender(entity)) {
+                wanted.add(entity);
+            }
+        }
+        return wanted;
+    }
+
+    /** @return whether the filters let this entity through */
+    private boolean shouldRender(GameEntity entity) {
+        if (entity.isInvisible() && !invisibles.isOn()) {
+            return false;
+        }
+        if (entity.isFriend() && !friends.isOn()) {
+            return false;
+        }
+        return switch (entity.getKind()) {
+            case PLAYER -> players.isOn();
+            case MONSTER -> monsters.isOn();
+            case ANIMAL -> animals.isOn();
+            case NEUTRAL -> neutrals.isOn();
+        };
+    }
+
+    /**
+     * The colour to draw an entity in, for whichever mode is running.
+     *
+     * <p>Friend beats everything: who someone is matters more than what they are or
+     * how hurt they are, and a friend fading to red reads as a warning about the
+     * wrong thing.
+     */
+    public Color colorFor(GameEntity entity) {
         if (entity.isFriend()) {
-            return friends.resolve();
+            return friendColor.resolve();
         }
-        if (!healthTint.isOn() || entity.getMaxHealth() <= 0f) {
-            return neutral.resolve();
+        if (healthTint.isOn() && entity.getMaxHealth() > 0f) {
+            return ColorUtil.health(entity.getHealth(), entity.getMaxHealth());
         }
-        return ColorUtil.health(entity.getHealth(), entity.getMaxHealth());
+        return switch (entity.getKind()) {
+            case PLAYER -> playerColor.resolve();
+            case MONSTER -> monsterColor.resolve();
+            case ANIMAL -> animalColor.resolve();
+            case NEUTRAL -> neutralColor.resolve();
+        };
     }
 
-    /** Extra text after the name in the ArrayList, so the mode is visible without opening the GUI. */
-    @Override
-    public String getDisplayInfo() {
-        return shape.displayValue();
-    }
-
-    public enum Target {
-        PLAYERS,
-        HOSTILES,
-        PASSIVES
-    }
-
-    public enum Shape {
-        BOX,
-        FILLED,
-        SPHERE
+    public enum TracerTarget {
+        FEET,
+        TORSO,
+        HEAD
     }
 }

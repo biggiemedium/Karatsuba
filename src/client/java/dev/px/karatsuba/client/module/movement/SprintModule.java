@@ -5,7 +5,7 @@ import dev.px.core.event.Subscribe;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.karatsuba.adapter.event.game.PlayerUpdateEvent;
+import dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent;
 import dev.px.karatsuba.adapter.game.player.Players;
 
 /**

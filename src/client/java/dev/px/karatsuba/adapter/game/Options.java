@@ -1,6 +1,6 @@
 package dev.px.karatsuba.adapter.game;
 
-import dev.px.karatsuba.adapter.mixin.SimpleOptionAccessor;
+import dev.px.karatsuba.adapter.mixin.game.SimpleOptionAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 

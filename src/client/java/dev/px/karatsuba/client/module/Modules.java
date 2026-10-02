@@ -5,6 +5,7 @@ import dev.px.core.module.Module;
 import dev.px.karatsuba.client.module.combat.KillAuraModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.exploit.AntiHungerModule;
+import dev.px.karatsuba.client.module.misc.FakePlayerModule;
 import dev.px.karatsuba.client.module.misc.RecorderModule;
 import dev.px.karatsuba.client.module.misc.UpdateCheckModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
@@ -14,6 +15,8 @@ import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
 import dev.px.karatsuba.client.module.render.FullbrightModule;
 import dev.px.karatsuba.client.module.render.HoleEspModule;
+import dev.px.karatsuba.client.module.render.NameTagsModule;
+import dev.px.karatsuba.client.module.render.RenderAdjustmentsModule;
 import dev.px.karatsuba.client.module.utility.AntiAfkModule;
 import dev.px.karatsuba.client.module.utility.AntiSoundModule;
 import dev.px.karatsuba.client.module.utility.AutoToolModule;
@@ -61,6 +64,8 @@ public final class Modules {
                 new FreeCamModule(),
                 new FullbrightModule(),
                 new HoleEspModule(),
+                new NameTagsModule(),
+                new RenderAdjustmentsModule(),
 
                 // Player
 
@@ -75,6 +80,7 @@ public final class Modules {
                 new AntiHungerModule(),
 
                 // Misc
+                new FakePlayerModule(),
                 new RecorderModule(),
                 new UpdateCheckModule(),
         };

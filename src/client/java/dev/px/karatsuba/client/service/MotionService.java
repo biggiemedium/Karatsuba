@@ -8,7 +8,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Vec3;
 import dev.px.core.service.Service;
-import dev.px.karatsuba.adapter.event.game.PlayerMoveEvent;
+import dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.service.claim.Claims;
 import lombok.Getter;

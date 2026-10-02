@@ -10,6 +10,8 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
+import dev.px.karatsuba.adapter.event.game.render.WorldOverlayEvent;
+import dev.px.karatsuba.adapter.render.GuiFrame;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.screen.CoreScreen;
 import dev.px.karatsuba.adapter.screen.OverlayHost;
@@ -22,6 +24,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ServerInfo;
 
 /**
@@ -71,38 +74,50 @@ public final class GameEventBridge {
     // -------------------------------------------------------------- 2D frame
 
     private void install2D() {
-        // The HUD renders before the screen does, so this fires even with a screen
-        // open. Bailing out there is what keeps it to one 2D frame per game frame.
-        HudRenderCallback.EVENT.register((context, tickCounter) -> {
-            if (client.currentScreen == null) {
-                renderFrame2D();
-            }
-        });
+        // The HUD renders before any screen does, so this fires with a screen open
+        // too. The world layer is drawn here every time, which is what puts it
+        // under the screen; the top layer only when no screen will draw it later.
+        HudRenderCallback.EVENT.register((context, tickCounter) ->
+                renderFrame2D(context, true, client.currentScreen == null));
 
-        // With a screen open the HUD callback has been skipped, so the frame comes
-        // from the screen instead. Registering per screen is how Fabric exposes it.
+        // With a screen open the top layer comes from the screen instead, after it
+        // has drawn, so the client's own overlays sit over it. Registering per
+        // screen is how Fabric exposes it.
         ScreenEvents.AFTER_INIT.register((ignored, screen, width, height) ->
-                ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, delta) -> renderFrame2D()));
+                ScreenEvents.afterRender(screen).register((s, context, mouseX, mouseY, delta) ->
+                        renderFrame2D(context, false, true)));
     }
 
     /**
-     * One 2D frame: modules underneath, the client's overlays on top.
+     * One 2D frame, in up to two layers.
+     *
+     * <ol>
+     *   <li><b>World layer</b> &mdash; {@link WorldOverlayEvent}: name tags, 2D
+     *       boxes, anything projected from the world. Drawn from the HUD pass, so a
+     *       screen covers it like it covers the game's own HUD.</li>
+     *   <li><b>Top layer</b> &mdash; Core's {@code Render2DEvent}, then the
+     *       client's overlays: the HUD elements and the client's menus, which have
+     *       to stay visible over screens.</li>
+     * </ol>
      *
      * <p>The order is the only thing decided here, and it is the order they stack.
      * What an overlay is and what it draws is the client's; see
      * {@link dev.px.karatsuba.adapter.screen.Overlay}.
      */
-    private void renderFrame2D() {
+    private void renderFrame2D(DrawContext context, boolean worldLayer, boolean topLayer) {
         boolean capturing = OverlayHost.isCapturing();
 
-        // Before the early return below, not after it: out of a world there is
-        // nothing to draw, and that is exactly when a leftover empty screen would
-        // never get dismissed.
-        CoreScreen.closeIfIdle();
+        if (topLayer) {
+            // Before the early return below, not after it: out of a world there is
+            // nothing to draw, and that is exactly when a leftover empty screen
+            // would never get dismissed.
+            CoreScreen.closeIfIdle();
+        }
 
+        boolean inWorld = client.world != null;
         // Nothing to draw on the title screen: no world behind it, and nothing of
         // ours open over it.
-        if (!capturing && client.world == null) {
+        if (!inWorld && !(topLayer && capturing)) {
             return;
         }
 
@@ -111,10 +126,19 @@ public final class GameEventBridge {
         float partialTicks = client.getRenderTickCounter().getTickDelta(false);
 
         Render.begin2D(width, height, Core.platform().getScreenScale());
+        // Open for the frame so a module can draw what only the game can, such as
+        // item icons; see GuiFrame.
+        GuiFrame.open(context);
         try {
-            Core.bus().post(new Render2DEvent(partialTicks, width, height));
-            OverlayHost.render(width, height);
+            if (worldLayer && inWorld) {
+                Core.bus().post(new WorldOverlayEvent(partialTicks, width, height));
+            }
+            if (topLayer) {
+                Core.bus().post(new Render2DEvent(partialTicks, width, height));
+                OverlayHost.render(width, height);
+            }
         } finally {
+            GuiFrame.close();
             Render.end2D();
         }
     }

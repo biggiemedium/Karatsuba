@@ -89,7 +89,7 @@
  *       <td>{@link dev.px.karatsuba.adapter.world.Voxels}</td></tr>
  *   <tr><td>a game-specific event</td>
  *       <td>{@code adapter.event.game}, e.g.
- *           {@link dev.px.karatsuba.adapter.event.game.PlayerUpdateEvent}</td></tr>
+ *           {@link dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent}</td></tr>
  * </table>
  *
  * <p>The rule is not purity for its own sake. A module that takes a

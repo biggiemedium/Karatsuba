@@ -30,6 +30,10 @@ final class NoRender3D implements Render3D {
 
     @Override public void line(Vec3 from, Vec3 to, float thickness, Color color) { }
 
+    @Override public void triangle(Vec3 a, Vec3 b, Vec3 c, Color color) { }
+
+    @Override public void quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, Color color) { }
+
     @Override public void sphere(Vec3 center, float radius, int segments, Color color) { }
 
     @Override public void sphereOutline(Vec3 center, float radius, int segments,

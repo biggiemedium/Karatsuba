@@ -8,9 +8,9 @@ import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.adapter.event.game.CameraEvent;
-import dev.px.karatsuba.adapter.event.game.PlayerJumpEvent;
-import dev.px.karatsuba.adapter.event.game.PlayerMoveEvent;
+import dev.px.karatsuba.adapter.event.game.render.CameraEvent;
+import dev.px.karatsuba.adapter.event.game.player.PlayerJumpEvent;
+import dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
 

@@ -7,7 +7,7 @@ import dev.px.core.account.AuthProvider;
 import dev.px.core.account.AuthResult;
 import dev.px.core.account.Session;
 import dev.px.karatsuba.adapter.concurrent.GameThread;
-import dev.px.karatsuba.adapter.mixin.MinecraftClientAccessor;
+import dev.px.karatsuba.adapter.mixin.game.MinecraftClientAccessor;
 import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;

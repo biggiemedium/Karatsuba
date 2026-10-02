@@ -6,7 +6,7 @@ import dev.px.core.event.impl.PacketEvent;
  * Posts Core's own {@link PacketEvent}, alongside the adapter's.
  *
  * <p>Two packet events exist and they answer different callers. The adapter's
- * {@link dev.px.karatsuba.adapter.event.game.PacketEvent} is what modules match
+ * {@link dev.px.karatsuba.adapter.event.game.network.PacketEvent} is what modules match
  * on by name. Core's is what Core itself listens to &mdash; the timeline recorder
  * above all &mdash; and it has a third phase the adapter's does not:
  * {@link PacketEvent.Phase#APPLIED}, the moment the game thread actually handles

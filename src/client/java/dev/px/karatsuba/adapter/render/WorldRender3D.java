@@ -66,6 +66,10 @@ public final class WorldRender3D implements Render3D {
         // Outlines and tracers are meant to read as overlays, so back faces stay in.
         RenderSystem.disableCull();
         RenderSystem.depthMask(false);
+        // Every frame starts depth-tested, whatever the last one ended on. Without
+        // this, one module drawing through walls would leave every module after it
+        // drawing through walls too, from the next frame on.
+        depthTest = true;
         applyDepthTest();
     }
 
@@ -152,6 +156,25 @@ public final class WorldRender3D implements Render3D {
         edge(buffer, color,
                 rx(from.getX()), ry(from.getY()), rz(from.getZ()),
                 rx(to.getX()), ry(to.getY()), rz(to.getZ()));
+        draw(buffer);
+    }
+
+    @Override
+    public void triangle(Vec3 a, Vec3 b, Vec3 c, Color color) {
+        BufferBuilder buffer = begin(VertexFormat.DrawMode.TRIANGLES);
+        vertex(buffer, color, a);
+        vertex(buffer, color, b);
+        vertex(buffer, color, c);
+        draw(buffer);
+    }
+
+    @Override
+    public void quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, Color color) {
+        BufferBuilder buffer = begin(VertexFormat.DrawMode.QUADS);
+        vertex(buffer, color, a);
+        vertex(buffer, color, b);
+        vertex(buffer, color, c);
+        vertex(buffer, color, d);
         draw(buffer);
     }
 

@@ -3,8 +3,8 @@ package dev.px.karatsuba.client.module.combat.velocity;
 import dev.px.core.event.Subscribe;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.adapter.event.game.KnockbackEvent;
-import dev.px.karatsuba.adapter.event.game.MovementPacketEvent;
+import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
+import dev.px.karatsuba.adapter.event.game.network.MovementPacketEvent;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.mode.SubMode;
 

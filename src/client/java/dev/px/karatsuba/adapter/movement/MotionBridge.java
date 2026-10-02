@@ -9,7 +9,7 @@ import dev.px.core.movement.simulation.MotionState;
 import dev.px.core.movement.simulation.MovementInput;
 import dev.px.core.util.math.PhysicsProfile;
 import dev.px.karatsuba.adapter.event.Events;
-import dev.px.karatsuba.adapter.mixin.LivingEntityInvoker;
+import dev.px.karatsuba.adapter.mixin.player.LivingEntityInvoker;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.util.PlayerInput;

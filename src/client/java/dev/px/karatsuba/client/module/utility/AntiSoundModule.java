@@ -5,7 +5,7 @@ import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.MultiEnumSetting;
 import dev.px.core.setting.impl.StringSetting;
-import dev.px.karatsuba.adapter.event.game.SoundPlayEvent;
+import dev.px.karatsuba.adapter.event.game.sound.SoundPlayEvent;
 
 import java.util.Locale;
 
