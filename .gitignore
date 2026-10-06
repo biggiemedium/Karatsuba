@@ -48,7 +48,12 @@ replay_pid*.log
 # ------------------------------------------------------------------- IDEs
 
 # IntelliJ / Android Studio
-.idea/
+# Everything but the shared run configurations ("Client (Debug)", "Server (Debug)").
+# Loom's generated ones are left out: they hold this machine's absolute paths and
+# Loom rewrites them on every Gradle sync.
+.idea/*
+!.idea/runConfigurations/
+.idea/runConfigurations/Minecraft_*.xml
 .idea_modules/
 *.iml
 *.ipr

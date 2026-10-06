@@ -3,11 +3,14 @@ package dev.px.core;
 import dev.px.core.account.AccountService;
 import dev.px.core.command.CommandRegistry;
 import dev.px.core.concurrent.ThreadService;
+import dev.px.core.config.ConfigLocation;
 import dev.px.core.config.ConfigService;
-import dev.px.core.config.SettingsSection;
-import dev.px.core.config.ToggleableSection;
+import dev.px.core.config.section.SettingsSection;
+import dev.px.core.config.section.ToggleableSection;
+import dev.px.core.entity.EntityService;
 import dev.px.core.event.EventBus;
 import dev.px.core.event.bus.CoreEventBus;
+import dev.px.core.hook.GameHooks;
 import dev.px.core.event.Priority;
 import dev.px.core.event.Stage;
 import dev.px.core.event.impl.ClientLifecycleEvent;
@@ -23,6 +26,11 @@ import dev.px.core.module.ThreadedModule;
 import dev.px.core.movement.rotation.RotationService;
 import dev.px.core.movement.simulation.SimulationService;
 import dev.px.core.movement.timeline.TimelineRecorder;
+import dev.px.core.network.NetworkService;
+import dev.px.core.network.anticheat.AntiCheatService;
+import dev.px.core.network.lag.LagService;
+import dev.px.core.network.server.ServerService;
+import dev.px.core.network.tps.TpsService;
 import dev.px.core.notification.NotificationService;
 import dev.px.core.platform.Platform;
 import dev.px.core.render.Render;
@@ -32,6 +40,7 @@ import dev.px.core.service.ServiceContainer;
 import dev.px.core.shader.ShaderService;
 import dev.px.core.setting.SettingChangeEvent;
 import dev.px.core.social.SocialService;
+import dev.px.core.target.TargetService;
 import dev.px.core.util.ConsoleLogger;
 import dev.px.core.util.CoreLogger;
 import lombok.Getter;
@@ -98,6 +107,14 @@ public final class Core {
     private final RotationService rotationService;
     private final SimulationService simulationService;
     private final TimelineRecorder timelineRecorder;
+    private final NetworkService networkService;
+    private final ServerService serverService;
+    private final TpsService tpsService;
+    private final LagService lagService;
+    private final AntiCheatService antiCheatService;
+    private final GameHooks gameHooks;
+    private final EntityService entityService;
+    private final TargetService targetService;
 
     private boolean started;
 
@@ -116,6 +133,9 @@ public final class Core {
         Module.bindBus(bus);
 
         this.threadService = services.register(new ThreadService(logger, builder.threadPoolSize));
+        // Where the adapter tells Core about the game; warns when a hook something
+        // needs is never called.
+        this.gameHooks = services.register(new GameHooks(logger, bus, platform, threadService));
         this.configService = services.register(new ConfigService(logger, bus, platform));
         this.fontService = services.register(new FontService(logger));
         this.themeService = services.register(new ThemeService());
@@ -138,9 +158,24 @@ public final class Core {
         // Useful with nothing installed: the tracker needs no world, and a
         // simulation with no collision space is simply a ballistic one.
         this.simulationService = services.register(new SimulationService(logger, bus));
+        // Where the adapter's packets come in. Inert until it posts PacketEvents;
+        // everything below reads them through the one describer installed here.
+        this.networkService = services.register(new NetworkService(logger, bus));
+        this.serverService = services.register(new ServerService(bus, networkService));
+        this.tpsService = services.register(new TpsService(bus, networkService));
+        this.lagService = services.register(new LagService(bus, networkService, platform));
+        this.antiCheatService = services.register(
+                new AntiCheatService(logger, bus, networkService, serverService));
+        // Reads nothing until the adapter installs an EntitySource and the client
+        // registers a tracker; targeting is queries over the trackers and holds
+        // no state of its own.
+        this.entityService = services.register(new EntityService(logger, bus));
+        this.targetService = services.register(new TargetService(entityService));
         // Subscribes to nothing until a recording begins, so registering it
         // unconditionally costs a client that never records nothing at all.
         this.timelineRecorder = services.register(new TimelineRecorder(logger, bus));
+        // Reads packets through the network's describer, so the adapter installs one, once.
+        timelineRecorder.setDescriber(networkService::describe);
 
         ThreadedModule.bindThreadService(threadService);
 
@@ -214,8 +249,9 @@ public final class Core {
         configService.register(new SettingsSection("notifications", notificationService));
         configService.register(new SettingsSection("integrations", integrationService));
         configService.register(new SettingsSection("commands", commandRegistry.getPrefix()));
-        configService.register(socialService);
-        configService.register(accountService);
+        // Who your friends and alts are does not change with the profile you play.
+        configService.register(socialService, ConfigLocation.shared("friends"));
+        configService.register(accountService, ConfigLocation.shared("accounts"));
         configService.register(hudService);
         configService.register(guiService);
     }
@@ -335,10 +371,64 @@ public final class Core {
      *
      * <p>Idle until {@link TimelineRecorder#begin} is called. Packets read as
      * their class name until the adapter installs a
-     * {@link dev.px.core.movement.timeline.PacketDescriber}.
+     * {@link dev.px.core.network.packet.PacketDescriber} on {@link #network()}.
      */
     public static TimelineRecorder timeline() {
         return get().timelineRecorder;
+    }
+
+    /**
+     * Where the adapter's packets come into Core, and where its
+     * {@link dev.px.core.network.packet.PacketDescriber} is installed.
+     *
+     * <p>Also a place to hear about traffic already described, through a
+     * {@link dev.px.core.network.PacketListener}.
+     */
+    public static NetworkService network() {
+        return get().networkService;
+    }
+
+    /** Which server the player is on: address, brand, software, proxy, channels. */
+    public static ServerService server() {
+        return get().serverService;
+    }
+
+    /** The server's tick rate, estimated from its world clock. */
+    public static TpsService tps() {
+        return get().tpsService;
+    }
+
+    /** Ping, packet rates, and whether the server has gone silent. */
+    public static LagService lag() {
+        return get().lagService;
+    }
+
+    /**
+     * Everything the adapter tells Core about the game: ticks, the world, packets,
+     * input, chat, rendering. Each method posts the event Core and your modules
+     * listen for, and Core warns when one something needs is never called.
+     */
+    public static GameHooks hooks() {
+        return get().gameHooks;
+    }
+
+    /**
+     * The world, read once a tick through the adapter's
+     * {@link dev.px.core.entity.EntitySource} and handed to the client's
+     * {@link dev.px.core.entity.EntityTracker}s, which are looked up here by class.
+     */
+    public static EntityService entities() {
+        return get().entityService;
+    }
+
+    /** Finding targets: selectors, sorts and locks over the trackers in {@link #entities()}. */
+    public static TargetService targets() {
+        return get().targetService;
+    }
+
+    /** Which anticheat the server probably runs, with the evidence for it. */
+    public static AntiCheatService anticheat() {
+        return get().antiCheatService;
     }
 
     public static Platform platform() {

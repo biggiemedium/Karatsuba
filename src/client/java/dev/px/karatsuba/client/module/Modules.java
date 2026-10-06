@@ -7,6 +7,7 @@ import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.exploit.AntiHungerModule;
 import dev.px.karatsuba.client.module.misc.FakePlayerModule;
 import dev.px.karatsuba.client.module.misc.RecorderModule;
+import dev.px.karatsuba.client.module.misc.ServerAlertsModule;
 import dev.px.karatsuba.client.module.misc.UpdateCheckModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
 import dev.px.karatsuba.client.module.movement.SprintModule;
@@ -82,6 +83,7 @@ public final class Modules {
                 // Misc
                 new FakePlayerModule(),
                 new RecorderModule(),
+                new ServerAlertsModule(),
                 new UpdateCheckModule(),
         };
     }

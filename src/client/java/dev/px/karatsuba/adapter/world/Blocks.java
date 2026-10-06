@@ -1,6 +1,7 @@
 package dev.px.karatsuba.adapter.world;
 
 import dev.px.core.math.Vec3i;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.Registries;
@@ -78,6 +79,36 @@ public final class Blocks {
         }
         BlockState state = world.getBlockState(pos);
         return Registries.BLOCK.getId(state.getBlock()).toString();
+    }
+
+    /**
+     * @return how this cell's block stands up to explosions, as a wall
+     *
+     * <p>Named blocks rather than a blast-resistance threshold: anvils, enchanting
+     * tables and netherite blocks resist explosions too, but are either not full
+     * cubes or not what anyone walls a hole with. Ender chests are, which is why
+     * they count despite their lower resistance &mdash; a crystal still cannot
+     * break one.
+     */
+    public static BlastResistance blastResistance(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return BlastResistance.NONE;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        if (world.isOutOfHeightLimit(pos)) {
+            return BlastResistance.NONE;
+        }
+        Block block = world.getBlockState(pos).getBlock();
+        if (block == net.minecraft.block.Blocks.BEDROCK) {
+            return BlastResistance.UNBREAKABLE;
+        }
+        if (block == net.minecraft.block.Blocks.OBSIDIAN
+                || block == net.minecraft.block.Blocks.CRYING_OBSIDIAN
+                || block == net.minecraft.block.Blocks.ENDER_CHEST) {
+            return BlastResistance.RESISTANT;
+        }
+        return BlastResistance.NONE;
     }
 
     /** @return whether this cell is air, which is not the same as being passable */

@@ -5,11 +5,12 @@ import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.DriftMonitor;
 import dev.px.core.movement.timeline.EntryType;
-import dev.px.core.movement.timeline.PacketKind;
+import dev.px.core.network.packet.PacketKind;
 import dev.px.core.movement.timeline.Timeline;
 import dev.px.core.movement.timeline.TimelineJson;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.karatsuba.adapter.game.player.Players;
+import dev.px.karatsuba.adapter.network.MinecraftPacketKind;
 
 import java.io.File;
 import java.io.IOException;
@@ -131,7 +132,7 @@ public final class RecorderModule extends Module {
     private boolean keeps(PacketKind kind) {
         return switch (packets.getValue()) {
             case ALL -> true;
-            case MOVEMENT -> kind != PacketKind.OTHER && kind != PacketKind.WORLD_STATE;
+            case MOVEMENT -> !kind.is(PacketKind.OTHER) && !kind.is(MinecraftPacketKind.WORLD_STATE);
             case NONE -> false;
         };
     }

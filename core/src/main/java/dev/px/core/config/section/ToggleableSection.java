@@ -1,5 +1,7 @@
-package dev.px.core.config;
+package dev.px.core.config.section;
 
+import dev.px.core.config.ConfigSection;
+import dev.px.core.config.io.Json;
 import com.google.gson.JsonObject;
 import dev.px.core.module.Toggleable;
 import dev.px.core.registry.Registry;

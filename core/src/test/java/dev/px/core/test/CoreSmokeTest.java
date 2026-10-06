@@ -4,6 +4,7 @@ import dev.px.core.test.harness.Checks;
 import dev.px.core.test.harness.TestClient;
 import dev.px.core.test.suite.CommandTests;
 import dev.px.core.test.suite.ConcurrentTests;
+import dev.px.core.test.suite.ConfigStorageTests;
 import dev.px.core.test.suite.ConfigTests;
 import dev.px.core.test.suite.EventTests;
 import dev.px.core.test.suite.GuiTests;
@@ -13,6 +14,7 @@ import dev.px.core.test.suite.HudLayoutTests;
 import dev.px.core.test.suite.MathTests;
 import dev.px.core.test.suite.ModuleTests;
 import dev.px.core.test.suite.MovementTests;
+import dev.px.core.test.suite.NetworkTests;
 import dev.px.core.test.suite.RegistryTests;
 import dev.px.core.test.suite.RotationTests;
 import dev.px.core.test.suite.ServiceTests;
@@ -21,6 +23,8 @@ import dev.px.core.test.suite.ShaderTests;
 import dev.px.core.test.suite.ShapeTests;
 import dev.px.core.test.suite.SimulationTests;
 import dev.px.core.test.suite.SpatialTests;
+import dev.px.core.test.suite.HookTests;
+import dev.px.core.test.suite.TargetingTests;
 import dev.px.core.test.suite.TimelineTests;
 import dev.px.core.test.suite.UtilTests;
 
@@ -55,6 +59,7 @@ public final class CoreSmokeTest {
         UtilTests.run();
         SpatialTests.run();
         MovementTests.run();
+        ConfigStorageTests.run();
 
         TestClient client = TestClient.boot();
 
@@ -72,6 +77,9 @@ public final class CoreSmokeTest {
         RotationTests.run(client);
         SimulationTests.run(client);
         TimelineTests.run(client);
+        NetworkTests.run(client);
+        TargetingTests.run(client);
+        HookTests.run(client);
 
         // Config runs last: it mutates state across every other section, so
         // running it earlier would leave the others reading a loaded profile.

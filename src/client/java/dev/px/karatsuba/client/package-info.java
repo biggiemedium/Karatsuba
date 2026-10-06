@@ -35,7 +35,25 @@
  *       <td>{@link dev.px.karatsuba.client.screen.Overlays}</td></tr>
  *   <tr><td>an arbiter for something two modules want</td><td>{@code service/}</td>
  *       <td>{@link dev.px.karatsuba.client.service.Services}</td></tr>
+ *   <tr><td>server software to recognise from a brand</td><td>&mdash;</td>
+ *       <td>{@link dev.px.karatsuba.client.network.Servers}</td></tr>
+ *   <tr><td>an anticheat signature</td><td>&mdash;</td>
+ *       <td>{@link dev.px.karatsuba.client.network.AntiCheats}</td></tr>
+ *   <tr><td>a config section of its own</td><td>{@code config/}</td>
+ *       <td>{@link dev.px.karatsuba.client.config.ConfigLayout}, for its file</td></tr>
  * </table>
+ *
+ * <h2>The connection</h2>
+ * TPS, ping, lag spikes, the server's software and its probable anticheat are
+ * all Core's: {@code Core.tps()}, {@code Core.lag()}, {@code Core.server()} and
+ * {@code Core.anticheat()}. The adapter feeds them from the game and this package
+ * only reads the answers &mdash; the HUD elements, {@code Server Alerts} and
+ * {@code .server}. {@code debug/} keeps the running record behind the Debug HUD
+ * element: every described packet, measured movement, and a log of rubberbands
+ * (the adapter's {@code ServerTeleportEvent}), lag spikes, anticheat verdicts,
+ * knockback and servers joined. What can be <em>named</em> is the client's, in
+ * {@code network/}, because a list of server software or anticheats is a
+ * judgement about the ecosystem, not something the game can say.
  *
  * <h2>Modules never write contended state directly</h2>
  * The hotbar slot, the player's velocity and the swing are all things more than
@@ -71,8 +89,12 @@
  * {@code config/} holds how state reaches disk.
  *
  * <h2>Reaching the game from here</h2>
- * <strong>Nothing in this package imports {@code net.minecraft}, and that is
- * checked rather than hoped for</strong> &mdash; grep it and the answer is zero.
+ * <strong>Nothing in this package references {@code net.minecraft}, and that is
+ * checked rather than hoped for</strong>: {@code gradlew verifyClientIndependence},
+ * part of {@code check} and so of every {@code build}, fails if any compiled class
+ * here refers to Minecraft, Mojang, Fabric or Mixin. It reads the class files
+ * rather than the imports, so a fully qualified name or an adapter method that
+ * hands back a game type is caught too.
  * The game is reached through the seams in {@code adapter.game}:
  *
  * <table>

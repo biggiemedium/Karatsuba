@@ -10,7 +10,8 @@ import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.GameEventBridge;
 import dev.px.karatsuba.adapter.game.player.Rotations;
-import dev.px.karatsuba.adapter.movement.MinecraftPacketDescriber;
+import dev.px.karatsuba.adapter.network.MinecraftPacketDescriber;
+import dev.px.karatsuba.adapter.network.NetworkBridge;
 import dev.px.karatsuba.adapter.movement.MotionTracking;
 import dev.px.karatsuba.adapter.platform.MinecraftLogger;
 import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
@@ -104,9 +105,15 @@ public final class MinecraftAdapter {
         // them is recorded here, once a tick, for predict() and coast().
         MotionTracking.install(core);
 
-        // The timeline's one piece of version knowledge. Without it a recording
-        // still works, with every packet named by its (obfuscated) class.
-        core.getTimelineRecorder().setDescriber(MinecraftPacketDescriber.INSTANCE);
+        // The one piece of packet knowledge, installed on the network service so
+        // the timeline, TPS, lag, server and anticheat services all read through
+        // it. Without it lag still works from arrivals alone, and a recording
+        // names every packet by its (obfuscated) class.
+        core.getNetworkService().setDescriber(MinecraftPacketDescriber.INSTANCE);
+
+        // What the packets do not carry: the server's registered channels, which
+        // Fabric decodes itself, and the world's tick rate.
+        new NetworkBridge().install();
         core.getTimelineRecorder().putMetadata("gameVersion", SharedConstants.getGameVersion().getName());
         core.getTimelineRecorder().putMetadata("client", core.getClientName() + " " + core.getClientVersion());
 

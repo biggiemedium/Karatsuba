@@ -4,7 +4,11 @@ import dev.px.core.Core;
 import dev.px.core.hud.HudElement;
 import dev.px.karatsuba.client.hud.element.ArrayListElement;
 import dev.px.karatsuba.client.hud.element.CoordinatesElement;
+import dev.px.karatsuba.client.hud.element.DebugElement;
 import dev.px.karatsuba.client.hud.element.NotificationElement;
+import dev.px.karatsuba.client.hud.element.PingElement;
+import dev.px.karatsuba.client.hud.element.ServerElement;
+import dev.px.karatsuba.client.hud.element.TpsElement;
 import dev.px.karatsuba.client.hud.element.WatermarkElement;
 
 /**
@@ -29,6 +33,10 @@ public final class HudElements {
                 new CoordinatesElement(),
                 new ArrayListElement(),
                 new NotificationElement(),
+                new TpsElement(),
+                new PingElement(),
+                new ServerElement(),
+                new DebugElement(),
         };
     }
 }

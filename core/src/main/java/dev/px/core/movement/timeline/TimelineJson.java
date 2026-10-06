@@ -12,6 +12,7 @@ import dev.px.core.event.impl.PacketEvent.Phase;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.movement.simulation.MovementInput;
+import dev.px.core.network.packet.PacketDescription;
 import dev.px.core.util.Validate;
 
 import java.io.BufferedReader;
@@ -100,7 +101,7 @@ public final class TimelineJson {
             json.addProperty("packetType", entry.getPacketType());
         }
         if (entry.getKind() != null) {
-            json.addProperty("kind", entry.getKind().name());
+            json.addProperty("kind", entry.getKind());
         }
         if (entry.isCancelled()) {
             json.addProperty("cancelled", true);
@@ -249,9 +250,7 @@ public final class TimelineJson {
             entry.direction = Direction.valueOf(json.get("direction").getAsString());
         }
         entry.packetType = string(json, "packetType");
-        if (json.has("kind")) {
-            entry.kind = PacketKind.valueOf(json.get("kind").getAsString());
-        }
+        entry.kind = string(json, "kind");
         entry.cancelled = json.has("cancelled") && json.get("cancelled").getAsBoolean();
         if (json.has("linkedSeq")) {
             entry.linkedSeq = json.get("linkedSeq").getAsLong();

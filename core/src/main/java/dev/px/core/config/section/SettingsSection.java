@@ -1,5 +1,6 @@
-package dev.px.core.config;
+package dev.px.core.config.section;
 
+import dev.px.core.config.ConfigSection;
 import com.google.gson.JsonObject;
 import dev.px.core.setting.Setting;
 import dev.px.core.setting.SettingHolder;

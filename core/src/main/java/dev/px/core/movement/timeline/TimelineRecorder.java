@@ -9,6 +9,8 @@ import dev.px.core.event.impl.PacketEvent.Direction;
 import dev.px.core.event.impl.PacketEvent.Phase;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
+import dev.px.core.network.packet.PacketDescriber;
+import dev.px.core.network.packet.PacketDescription;
 import dev.px.core.service.Service;
 import dev.px.core.util.CoreLogger;
 import dev.px.core.util.Validate;
@@ -26,7 +28,7 @@ import java.util.function.Predicate;
  * was doing at the time, in one exactly-ordered timeline.
  *
  * <pre>{@code
- * Core.timeline().setDescriber(new MyPacketDescriber());   // once, from the adapter
+ * Core.network().setDescriber(new MyPacketDescriber());    // once, from the adapter
  *
  * Core.timeline().begin("velocity test");
  * // ... play ...
@@ -67,8 +69,8 @@ import java.util.function.Predicate;
  * <h2>Links</h2>
  *
  * <p>An inbound packet posted RECEIVED and then APPLIED with the same instance
- * gets two entries, the second pointing at the first. An applied packet whose
- * kind {@link PacketKind#isCorrection() is a correction} is followed immediately
+ * gets two entries, the second pointing at the first. An applied packet the
+ * describer marked {@link PacketDescription#asCorrection() as a correction} is followed immediately
  * by a {@link EntryType#CORRECTION} entry pointing at it, with the seq of the
  * client's last reported motion in its {@code clientSeq} field, so the state
  * being overruled is one lookup away.
@@ -144,7 +146,13 @@ public final class TimelineRecorder implements Service {
 
     // ------------------------------------------------------------- settings
 
-    /** @param describer how to read the adapter's packets, or null for {@link PacketDescriber#DEFAULT} */
+    /**
+     * @param describer how to read the adapter's packets, or null for {@link PacketDescriber#DEFAULT}
+     *
+     * <p>A booted client already reads through {@code Core.network()}'s describer,
+     * so an adapter installs its describer there and never calls this. It is for a
+     * recorder used on its own, or one that should read packets differently.
+     */
     public void setDescriber(PacketDescriber describer) {
         this.describer = describer != null ? describer : PacketDescriber.DEFAULT;
         this.warnedAboutDescriber = false;
@@ -325,7 +333,7 @@ public final class TimelineRecorder implements Service {
             if (entry.phase == Phase.RECEIVED && !entry.cancelled) {
                 pending.put(key, recorded.getSeq());
             }
-            if (entry.phase == Phase.APPLIED && !entry.cancelled && description.getKind().isCorrection()) {
+            if (entry.phase == Phase.APPLIED && !entry.cancelled && description.isCorrection()) {
                 TimelineEntry.Builder correction = TimelineEntry.builder(EntryType.CORRECTION).describe(description);
                 correction.direction = Direction.INBOUND;
                 correction.linkedSeq = recorded.getSeq();

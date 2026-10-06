@@ -35,10 +35,15 @@
  *       {@code SimulationService}: the player's own movement, scored every tick
  *       against Core's simulation under a physics profile read from the player's
  *       attributes, and every living thing nearby, for {@code predict}.</li>
- *   <li>{@link dev.px.karatsuba.adapter.movement.MinecraftPacketDescriber} &mdash;
- *       what the timeline recorder needs to read a packet, with Core's own
- *       {@code PacketEvent} and {@code MotionUpdateEvent} posted from the
- *       network and player mixins.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.network.MinecraftPacketDescriber} &mdash;
+ *       what Core needs to read a packet: the timeline recorder, and the roles
+ *       {@code Core.tps()}, {@code Core.lag()}, {@code Core.server()} and
+ *       {@code Core.anticheat()} read. Core's own {@code PacketEvent} and
+ *       {@code MotionUpdateEvent} are posted from the network and player
+ *       mixins.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.network.NetworkBridge} &mdash; what those
+ *       services need that no packet carries: the channels a server registers,
+ *       which Fabric decodes itself, and the world's tick rate.</li>
  * </ol>
  *
  * <h2>The one seam this package declares</h2>

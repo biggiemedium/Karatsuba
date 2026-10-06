@@ -26,6 +26,11 @@ configurations {
 	implementation.extendsFrom nanovg
 }
 
+// Mixin's hot-swap agent is the sponge-mixin jar itself, which sits in Gradle's
+// cache under a hash. prepareDevClient copies it to one fixed path so the debug
+// client's run configuration can name it.
+def devMixinAgent = file('.gradle/dev-agents/sponge-mixin.jar')
+
 loom {
 	// Keeps client-only code in src/client so it can never leak onto a server.
 	splitEnvironmentSourceSets()
@@ -35,6 +40,62 @@ loom {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
+	}
+
+	runs {
+		// A client-only mod has nothing to run on Loom's dedicated server, and its
+		// runServer task would share a name with dev/server's Paper one, so that
+		// `gradlew runServer` started both. The dev server is dev/server.
+		remove(getByName('server'))
+
+		// The client under JetBrains Runtime with hot reload: DCEVM redefines
+		// classes structurally (new fields and methods, not just bodies),
+		// HotswapAgent refreshes what caches them, and Mixin's own agent re-applies
+		// a mixin whose body changed. The IDE equivalent is the shared
+		// "Client (Debug)" run configuration, written by hand because it needs JBR
+		// as its JRE and Loom's generated configurations cannot name one.
+		clientDebug {
+			inherit client
+			configName = 'Client (Debug)'
+			ideConfigGenerated false
+			vmArgs '-XX:+AllowEnhancedClassRedefinition', '-XX:HotswapAgent=fatjar',
+					// HotswapAgent patches classes the game loads, such as Log4j's,
+					// to call back into itself. Fabric's loader hides everything not
+					// on the game's own classpath from those classes, the agent
+					// included, so without this the client dies before its first log
+					// line with NoClassDefFoundError: org/hotswap/agent/...
+					'-Dfabric.debug.disableClassPathIsolation=true',
+					'-Dmixin.hotSwap=true', "-javaagent:${devMixinAgent.absolutePath}"
+			// Offline name, so the dev server's ops list knows who this is.
+			programArgs '--username', project.dev_username
+		}
+	}
+}
+
+// Loom registers its run tasks before the server run above is removed, so its
+// runServer outlives it. Disabled, `gradlew runServer` runs only dev/server's.
+tasks.named('runServer') {
+	enabled = false
+	setDependsOn([])
+	group = null
+	description = 'Disabled: the mod is client-only. The dev server is :dev:server:runServer.'
+}
+
+def prepareDevClient = tasks.register('prepareDevClient', Copy) {
+	group = 'dev client'
+	description = 'Copies the Mixin hot-swap agent to .gradle/dev-agents for the debug client.'
+	from(configurations.clientRuntimeClasspath.filter { it.name.startsWith('sponge-mixin-') })
+	into(devMixinAgent.parentFile)
+	rename { devMixinAgent.name }
+}
+
+tasks.named('runClientDebug') {
+	group = 'dev client'
+	dependsOn prepareDevClient
+	// The flags above exist only in JetBrains Runtime; any other JVM refuses to start.
+	javaLauncher = javaToolchains.launcherFor {
+		languageVersion = JavaLanguageVersion.of(project.jbr_version as int)
+		vendor = JvmVendorSpec.JETBRAINS
 	}
 }
 
@@ -109,6 +170,52 @@ jar {
 	from('LICENSE') {
 		rename { "${it}_${inputs.properties.archivesName}" }
 	}
+}
+
+// The client package must not know the game exists: it is written against Core
+// and the adapter's seams, and the adapter alone bridges to Minecraft. Checked on
+// the compiled classes rather than the imports, because a fully qualified name in
+// the source, or calling an adapter method that hands back a game type, puts the
+// game into a class file without any import to grep for.
+def clientPackage = 'dev/px/karatsuba/client'
+def gameNamespaces = ['net/minecraft/', 'com/mojang/', 'net/fabricmc/', 'org/spongepowered/']
+
+tasks.register('verifyClientIndependence') {
+	group = 'verification'
+	description = "Fails if anything in ${clientPackage.replace('/', '.')} references Minecraft, Fabric or Mixin."
+	def classesDirs = sourceSets.client.output.classesDirs
+	dependsOn tasks.named('compileClientJava')
+	inputs.files(classesDirs)
+
+	doLast {
+		def violations = []
+		classesDirs.each { dir ->
+			def root = new File(dir, clientPackage)
+			if (!root.exists()) {
+				return
+			}
+			root.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+				if (!file.name.endsWith('.class')) {
+					return
+				}
+				// Class and member references sit in the constant pool as plain
+				// internal names, so a byte search finds every one of them.
+				def bytes = new String(file.bytes, 'ISO-8859-1')
+				def hits = gameNamespaces.findAll { bytes.contains(it) }
+				if (hits) {
+					violations << "  ${dir.toPath().relativize(file.toPath())} -> ${hits.join(', ')}"
+				}
+			}
+		}
+		if (violations) {
+			throw new GradleException("The client package references the game. Reach it through an " +
+					"adapter seam instead (see client/package-info.java):\n" + violations.join('\n'))
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn 'verifyClientIndependence'
 }
 
 publishing {

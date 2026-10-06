@@ -6,6 +6,8 @@ import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.movement.simulation.MotionState;
 import dev.px.core.movement.simulation.MovementInput;
+import dev.px.core.network.packet.PacketDescription;
+import dev.px.core.network.packet.PacketKind;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
@@ -53,7 +55,12 @@ public final class TimelineEntry {
     private final Direction direction;
     private final Phase phase;
     private final String packetType;
-    private final PacketKind kind;
+    /**
+     * The name of the describer's {@link PacketKind}. A name rather than the kind
+     * itself, because a recording outlives the code that made it: it reads back
+     * from JSON the same with or without your kinds on the classpath.
+     */
+    private final String kind;
     private final boolean cancelled;
 
     /**
@@ -119,6 +126,11 @@ public final class TimelineEntry {
         return type == EntryType.PACKET;
     }
 
+    /** @return whether this packet was filed under {@code kind}, compared by name */
+    public boolean isKind(PacketKind kind) {
+        return kind != null && this.kind != null && this.kind.equals(kind.getName());
+    }
+
     public boolean hasLink() {
         return linkedSeq != NO_LINK;
     }
@@ -166,7 +178,7 @@ public final class TimelineEntry {
         Direction direction;
         Phase phase;
         String packetType;
-        PacketKind kind;
+        String kind;
         boolean cancelled;
         long linkedSeq = NO_LINK;
         String correlationKey;
@@ -187,7 +199,7 @@ public final class TimelineEntry {
 
         Builder describe(PacketDescription description) {
             packetType = description.getType();
-            kind = description.getKind();
+            kind = description.getKind().getName();
             position = description.getPosition();
             velocity = description.getVelocity();
             rotation = description.getRotation();

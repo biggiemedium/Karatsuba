@@ -28,6 +28,7 @@ public final class Commands {
                 new ConfigCommand(),
                 new FriendCommand(),
                 new RecordCommand(),
+                new ServerCommand(),
         };
     }
 }

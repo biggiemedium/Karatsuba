@@ -20,12 +20,13 @@ import dev.px.core.setting.Setting;
  * saved bind onto the wrong one.
  *
  * <p>This is also the shape to copy for any client-owned state worth keeping. A
- * {@code ConfigSection} is three methods, it joins the same profile file as
- * everything else, and it is saved and loaded by the same machinery.
+ * {@code ConfigSection} is three methods, it gets a file of its own in each
+ * profile ({@code binds.json}; see {@link ConfigLayout}), and it is saved and
+ * loaded by the same machinery as everything else.
  */
 public final class BindsSection implements ConfigSection {
 
-    private static final String ID = "binds";
+    static final String ID = "binds";
 
     private BindsSection() {
     }

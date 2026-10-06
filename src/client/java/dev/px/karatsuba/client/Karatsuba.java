@@ -5,10 +5,14 @@ import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.client.command.Commands;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.config.BindsSection;
+import dev.px.karatsuba.client.config.ConfigLayout;
+import dev.px.karatsuba.client.debug.DebugMonitor;
 import dev.px.karatsuba.client.hud.HudElements;
 import dev.px.karatsuba.client.input.Binds;
 import dev.px.karatsuba.client.module.Categories;
 import dev.px.karatsuba.client.module.Modules;
+import dev.px.karatsuba.client.network.AntiCheats;
+import dev.px.karatsuba.client.network.Servers;
 import dev.px.karatsuba.client.screen.Overlays;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.theme.Themes;
@@ -39,6 +43,10 @@ import dev.px.karatsuba.client.theme.Themes;
  *       game</li>
  *   <li>{@link Services} &mdash; {@code service/}, the arbiters that decide which
  *       module wins when two want the same thing</li>
+ *   <li>{@link Servers}, {@link AntiCheats} &mdash; {@code network/}, what
+ *       Core's server and anticheat detection can recognise</li>
+ *   <li>{@link ConfigLayout} &mdash; {@code config/}, which file each part of the
+ *       config is saved in</li>
  * </ul>
  */
 public final class Karatsuba {
@@ -131,9 +139,22 @@ public final class Karatsuba {
         // into the game is a seam Core does not have. Order-independent.
         Overlays.install();
 
+        // What Core's network services can recognise: server software from a
+        // brand, and anticheats from the evidence. Core ships neither list.
+        Servers.registerAll(core);
+        AntiCheats.registerAll(core);
+
+        // Collects packets, movement and alerts for the Debug HUD element from
+        // boot, so a rubberband that happened before it was switched on still
+        // shows in its log.
+        DebugMonitor.install();
+
         // After the binds exist, before start() loads over them. Core has no
         // section for action binds, so without this a rebind lasts until restart.
         BindsSection.install();
+
+        // Before start(), which is the first load: one file per section.
+        ConfigLayout.install();
     }
 
     /** @return the running Core, or null before {@link #boot()} */

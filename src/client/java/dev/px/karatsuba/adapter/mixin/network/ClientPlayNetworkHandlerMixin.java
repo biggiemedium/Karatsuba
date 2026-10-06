@@ -5,13 +5,18 @@ import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.network.WeatherEvent;
 import dev.px.karatsuba.adapter.event.game.network.WorldTimeEvent;
 import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
+import dev.px.karatsuba.adapter.event.game.player.ServerTeleportEvent;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -103,6 +108,58 @@ public abstract class ClientPlayNetworkHandlerMixin {
         if (change != null && Events.cancelled(new WeatherEvent(change, packet.getValue()))) {
             callback.cancel();
         }
+    }
+
+    // -------------------------------------------------------------- teleports
+
+    /**
+     * Where the player was when the current teleport began; null outside one.
+     * Instance state is safe: a handler belongs to one connection, and teleports
+     * are applied one at a time on the game thread.
+     */
+    @Unique
+    private Vec3 karatsuba$teleportFrom;
+
+    /** Whether the next teleport is the server placing the player after a join or respawn. */
+    @Unique
+    private boolean karatsuba$expectSpawn = true;
+
+    @Inject(method = "onGameJoin", at = @At("TAIL"))
+    private void karatsuba$onGameJoin(GameJoinS2CPacket packet, CallbackInfo callback) {
+        karatsuba$expectSpawn = true;
+    }
+
+    @Inject(method = "onPlayerRespawn", at = @At("TAIL"))
+    private void karatsuba$onPlayerRespawn(PlayerRespawnS2CPacket packet, CallbackInfo callback) {
+        karatsuba$expectSpawn = true;
+    }
+
+    /**
+     * Before the position is set. Same injection point as the time and weather
+     * hooks, so this runs once, on the game thread, with the player still where
+     * the client last put them.
+     */
+    @Inject(method = "onPlayerPositionLook",
+            at = @At(value = "INVOKE", shift = At.Shift.AFTER,
+                    target = "Lnet/minecraft/network/NetworkThreadUtils;forceMainThread(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/listener/PacketListener;Lnet/minecraft/util/thread/ThreadExecutor;)V"))
+    private void karatsuba$beforePositionLook(PlayerPositionLookS2CPacket packet, CallbackInfo callback) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        karatsuba$teleportFrom = player == null ? null : Vec3.of(player.getX(), player.getY(), player.getZ());
+    }
+
+    /** After it is set and confirmed, so the event reports where the player actually ended up. */
+    @Inject(method = "onPlayerPositionLook", at = @At("TAIL"))
+    private void karatsuba$afterPositionLook(PlayerPositionLookS2CPacket packet, CallbackInfo callback) {
+        Vec3 from = karatsuba$teleportFrom;
+        karatsuba$teleportFrom = null;
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (from == null || player == null) {
+            return;
+        }
+        boolean spawn = karatsuba$expectSpawn;
+        karatsuba$expectSpawn = false;
+        Events.post(new ServerTeleportEvent(from, Vec3.of(player.getX(), player.getY(), player.getZ()),
+                packet.teleportId(), spawn));
     }
 
     /** @return the weather change a game state reason stands for, or null if it is not weather */

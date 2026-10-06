@@ -1,0 +1,71 @@
+// A local Paper server with Grim, for testing the client against an anticheat.
+//
+//   gradlew runServer            (or the "Server (Debug)" run configuration)
+//
+// Offline mode, so the dev client joins as `dev_username` with no account, and
+// localhost:25565 is all there is to type. Paper is the same version as the mod
+// (minecraft_version) and Grim is pinned to grim_version, a Modrinth version id,
+// both in gradle.properties.
+//
+// The server lives in dev/server/run/, which is ignored: worlds, logs and the
+// downloaded jars are one machine's state. What is shared is config/, the
+// starting server.properties, copied in only when the run folder has none, so
+// edits made to the live file are never overwritten.
+
+plugins {
+    id 'xyz.jpenilla.run-paper' version '3.0.2'
+}
+
+def runFolder = file('run')
+def devUsername = rootProject.property('dev_username') as String
+
+// What offline mode calls a player: the UUID the server derives from the name.
+def offlineUuid = UUID.nameUUIDFromBytes("OfflinePlayer:${devUsername}".getBytes('UTF-8'))
+
+def prepareDevServer = tasks.register('prepareDevServer') {
+    group = 'dev server'
+    description = 'Seeds dev/server/run with server.properties and ops the dev player, once.'
+    def properties = file('config/server.properties')
+    inputs.file(properties)
+    outputs.upToDateWhen { new File(runFolder, 'server.properties').exists() && new File(runFolder, 'ops.json').exists() }
+
+    doLast {
+        runFolder.mkdirs()
+        def serverProperties = new File(runFolder, 'server.properties')
+        if (!serverProperties.exists()) {
+            serverProperties.text = properties.text
+        }
+        // Op the dev player, so /grim, /gamemode and /tp work from the first join.
+        def ops = new File(runFolder, 'ops.json')
+        if (!ops.exists()) {
+            ops.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([[
+                    uuid               : offlineUuid.toString(),
+                    name               : devUsername,
+                    level              : 4,
+                    bypassesPlayerLimit: true,
+            ]]))
+        }
+    }
+}
+
+tasks.named('runServer') {
+    group = 'dev server'
+    dependsOn prepareDevServer
+
+    minecraftVersion(rootProject.property('minecraft_version') as String)
+    runDirectory = runFolder
+
+    downloadPlugins {
+        modrinth('grimac', rootProject.property('grim_version') as String)
+    }
+
+    // Offline whatever server.properties says, so the dev client never needs a
+    // login. Passed as an argument rather than trusted to the file.
+    args('--online-mode', 'false')
+
+    // Agrees to the Minecraft EULA (https://aka.ms/MinecraftEULA) for this local
+    // server, so the first run starts instead of stopping to ask.
+    systemProperty('com.mojang.eula.agree', 'true')
+
+    jvmArgs('-Xms1G', '-Xmx2G')
+}
