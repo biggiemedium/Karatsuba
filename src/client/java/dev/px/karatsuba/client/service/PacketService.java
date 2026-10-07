@@ -60,7 +60,8 @@ import java.util.function.Consumer;
  * <h2>When not to use this</h2>
  * A packet with a meaning has an event of its own &mdash;
  * {@code MovementPacketEvent}, {@code KnockbackEvent},
- * {@code ClientCommandEvent}, {@code ScreenCloseEvent}. Those carry Core types,
+ * {@code ClientCommandEvent}, {@code ScreenCloseEvent}, {@code PlacementResultEvent}
+ * (the server settling a placed block, from its sequence acknowledgement). Those carry Core types,
  * arrive on the right thread, and survive a rename that would silently break a
  * string match. Use this for packets nothing has named yet, and when a module
  * needs one often enough, name it.

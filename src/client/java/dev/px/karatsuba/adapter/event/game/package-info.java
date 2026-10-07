@@ -19,6 +19,8 @@
  *   <tr><td>{@code render/}</td><td>the camera and what the game draws in the
  *       world</td></tr>
  *   <tr><td>{@code sound/}</td><td>what the client plays</td></tr>
+ *   <tr><td>{@code combat/}</td><td>crystals appearing and totems popping, posted
+ *       by {@code adapter.combat.CombatBridge}</td></tr>
  * </table>
  *
  * <h2>The shape every event here takes</h2>

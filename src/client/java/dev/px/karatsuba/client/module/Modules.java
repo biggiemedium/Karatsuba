@@ -2,7 +2,14 @@ package dev.px.karatsuba.client.module;
 
 import dev.px.core.Core;
 import dev.px.core.module.Module;
+import dev.px.karatsuba.client.module.combat.AutoTotemModule;
+import dev.px.karatsuba.client.module.combat.AutoXPModule;
+import dev.px.karatsuba.client.module.combat.BedAuraModule;
+import dev.px.karatsuba.client.module.combat.CrystalAuraModule;
+import dev.px.karatsuba.client.module.combat.HoleFillModule;
 import dev.px.karatsuba.client.module.combat.KillAuraModule;
+import dev.px.karatsuba.client.module.combat.SurroundModule;
+import dev.px.karatsuba.client.module.combat.WebAuraModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.exploit.AntiHungerModule;
 import dev.px.karatsuba.client.module.misc.FakePlayerModule;
@@ -11,6 +18,7 @@ import dev.px.karatsuba.client.module.misc.ServerAlertsModule;
 import dev.px.karatsuba.client.module.misc.UpdateCheckModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
 import dev.px.karatsuba.client.module.movement.SprintModule;
+import dev.px.karatsuba.client.module.player.InteractModule;
 import dev.px.karatsuba.client.module.render.BlockOverlayModule;
 import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
@@ -52,7 +60,14 @@ public final class Modules {
     public static Module[] all() {
         return new Module[]{
                 // Combat
+                new AutoTotemModule(),
+                new AutoXPModule(),
+                new BedAuraModule(),
+                new CrystalAuraModule(),
+                new HoleFillModule(),
                 new KillAuraModule(),
+                new SurroundModule(),
+                new WebAuraModule(),
                 new VelocityModule(),
 
                 // Movement
@@ -69,6 +84,7 @@ public final class Modules {
                 new RenderAdjustmentsModule(),
 
                 // Player
+                new InteractModule(),
 
                 // Utility
                 new AntiAfkModule(),

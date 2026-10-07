@@ -3,6 +3,8 @@ package dev.px.karatsuba.adapter.world;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.BlockPos;
@@ -128,6 +130,29 @@ public final class Voxels {
     public static boolean isStandable(ClientWorld world, BlockPos pos) {
         return !world.isOutOfHeightLimit(pos)
                 && world.getBlockState(pos).isSideSolidFullSquare(world, pos, Direction.UP);
+    }
+
+    /**
+     * How a block stands up to explosions, as a wall. The one definition behind
+     * {@link Blocks#blastResistance} and the combat library's hole walls.
+     *
+     * <p>Named blocks rather than a blast-resistance threshold: anvils, enchanting
+     * tables and netherite blocks resist explosions too, but are either not full
+     * cubes or not what anyone walls a hole with. Ender chests are, which is why
+     * they count despite their lower resistance &mdash; a crystal still cannot
+     * break one.
+     */
+    public static BlastResistance blastResistance(BlockState state) {
+        Block block = state.getBlock();
+        if (block == net.minecraft.block.Blocks.BEDROCK) {
+            return BlastResistance.UNBREAKABLE;
+        }
+        if (block == net.minecraft.block.Blocks.OBSIDIAN
+                || block == net.minecraft.block.Blocks.CRYING_OBSIDIAN
+                || block == net.minecraft.block.Blocks.ENDER_CHEST) {
+            return BlastResistance.RESISTANT;
+        }
+        return BlastResistance.NONE;
     }
 
     /**

@@ -21,14 +21,17 @@ not calls `Core.threads().runPendingSync()` from its game loop instead; see §8.
 
 Optional: `RotationSink` if you want Core arbitrating rotations — two methods,
 and modules stop fighting over the head; `CollisionSpace` if you want movement
-simulation — one method, and the motion tracker works without it; `ShaderBackend` if you use `shader` —
+simulation and prediction — one method; `ShaderBackend` if you use `shader` —
 one class of ordinary GL, and nothing else in Core notices whether it exists; `AuthProvider` (alt manager),
 `PresenceProvider` / `MediaProvider`, a `PacketDescriber` on `Core.network()` with your own packet kinds plus `PacketEvent`
 posts if you want TPS, ping, server and anticheat detection — and your server software and anticheat signatures, since
 none ship — see §11 — an `EntitySource` plus trackers of the game's own
-types if you want `Core.entities()` and targeting — see §12 — and `MotionUpdateEvent` posts on top if you want
-timeline recordings — see §10, and `PathSpace` if you use `util.spatial` — one lambda saying which cells your agent
-can occupy is enough to run `AStar` against your world.
+types if you want `Core.entities()` and targeting — see §12 — reporting the positions the server sent, with a
+`positionStamp`, and an `EntityPhysics` with each entity's effects and attributes, if you want `Core.prediction()` to
+predict other players well — see §10 — and `MotionUpdateEvent` posts on top if you want
+timeline recordings — see §10, `PathSpace` if you use `util.spatial` — one lambda saying which cells your agent
+can occupy is enough to run `AStar` against your world — and a `BlockView` (one method: the shape in a cell) plus
+whatever `CellTest`s a library asks for if you use `world` or anything built on it, such as the combat library.
 
 Core runs headless without any of these. The test suite boots it with none
 installed, which is how the seam stays honest.
@@ -75,7 +78,7 @@ never fired, naming the call to make and everything idle without it:
 
 ```
 No TickEvent after 5s in a world, so these are idle: Core, ServerService, EntityService, RotationService,
-SimulationService, LagService, AntiCheatService, KillAura. Call Core.hooks().tickStart() and tickEnd(),
+LagService, AntiCheatService, KillAura. Call Core.hooks().tickStart() and tickEnd(),
 around every game tick from your adapter (or post TickEvent yourself).
 ```
 

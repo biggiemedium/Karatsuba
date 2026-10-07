@@ -3,10 +3,12 @@ package dev.px.karatsuba.adapter.mixin.player;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.player.PlayerJumpEvent;
+import dev.px.karatsuba.adapter.game.entity.PositionStamped;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -25,7 +27,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * control down.
  */
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityMixin {
+public abstract class LivingEntityMixin implements PositionStamped {
+
+    /** Positions the server has sent this entity. See {@link PositionStamped}. */
+    @Unique
+    private long karatsuba$positionStamp;
+
+    @Override
+    public long karatsuba$positionStamp() {
+        return karatsuba$positionStamp;
+    }
+
+    /**
+     * Every position the server sends a living entity &mdash; absolute, relative
+     * or a sync &mdash; arrives here before the game starts easing toward it.
+     */
+    @Inject(method = "updateTrackedPositionAndAngles", at = @At("HEAD"))
+    private void karatsuba$positionSent(double x, double y, double z, float yaw, float pitch,
+                                        int interpolationSteps, CallbackInfo callback) {
+        karatsuba$positionStamp++;
+    }
 
     @Inject(method = "jump", at = @At("HEAD"), cancellable = true)
     private void karatsuba$jump(CallbackInfo callback) {

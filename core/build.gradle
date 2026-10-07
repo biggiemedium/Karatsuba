@@ -1,5 +1,5 @@
 // Local copy of Minecraft-Client-Core (https://github.com/biggiemedium/Minecraft-Client-Core),
-// at release 2.0.
+// at release 2.2.
 //
 // Built as a plain Java subproject so it can be edited in place: Karatsuba
 // consumes it via `implementation project(':core')` instead of JitPack.
@@ -10,10 +10,13 @@
 
 plugins {
     id 'java'
+    // Checks, FakePlatform and RecordingLogger, shared with :combat's tests so
+    // they run headless the same way Core's do.
+    id 'java-test-fixtures'
 }
 
 group = 'dev.px'
-version = '2.0'
+version = '2.2'
 
 // Kept at 8 (as upstream) so Core stays portable across game versions. The mod
 // itself compiles at 21; depending on 8-targeted classes from 21 is fine.

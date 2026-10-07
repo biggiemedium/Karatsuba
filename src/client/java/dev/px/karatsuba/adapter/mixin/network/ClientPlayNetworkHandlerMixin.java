@@ -49,8 +49,18 @@ public abstract class ClientPlayNetworkHandlerMixin {
      * being written back into the packet, and the vanilla body is skipped. That
      * keeps the packet immutable and puts the one assignment in the one place,
      * using the same setter the game would have used.
+     *
+     * <p>After {@code forceMainThread}, not at HEAD. The handler is entered twice:
+     * first on the Netty worker, where that call hands the packet to the game
+     * thread and leaves, then on the game thread. At HEAD this ran on the worker:
+     * the event was posted off-thread, the player's velocity was written while the
+     * game thread might be mid-tick, and cancelling there stopped the packet ever
+     * reaching the game thread at all.
      */
-    @Inject(method = "onEntityVelocityUpdate", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "onEntityVelocityUpdate",
+            at = @At(value = "INVOKE", shift = At.Shift.AFTER,
+                    target = "Lnet/minecraft/network/NetworkThreadUtils;forceMainThread(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/listener/PacketListener;Lnet/minecraft/util/thread/ThreadExecutor;)V"),
+            cancellable = true)
     private void karatsuba$onEntityVelocityUpdate(EntityVelocityUpdateS2CPacket packet,
                                                   CallbackInfo callback) {
         ClientPlayerEntity player = MinecraftClient.getInstance().player;

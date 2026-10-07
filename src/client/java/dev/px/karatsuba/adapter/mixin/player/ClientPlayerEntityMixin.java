@@ -45,6 +45,9 @@ public abstract class ClientPlayerEntityMixin {
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void karatsuba$preTick(CallbackInfo callback) {
+        // Every tick resolves its rotation afresh, even one whose end was skipped
+        // because a handler cancelled the tick before it ran.
+        Rotations.endOfTick();
         if (postUpdate(Stage.PRE)) {
             callback.cancel();
         }
@@ -53,6 +56,7 @@ public abstract class ClientPlayerEntityMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void karatsuba$postTick(CallbackInfo callback) {
         postUpdate(Stage.POST);
+        Rotations.endOfTick();
     }
 
     /**
@@ -77,10 +81,22 @@ public abstract class ClientPlayerEntityMixin {
 
     @Inject(method = "tickMovement", at = @At("HEAD"), cancellable = true)
     private void karatsuba$preMove(CallbackInfo callback) {
+        // First: the move must happen at the yaw the packet will carry.
+        Rotations.beforeMovementTick();
         MotionBridge.beforeMovementTick();
         if (postMove(Stage.PRE)) {
             callback.cancel();
         }
+    }
+
+    /**
+     * The keys, the moment the game has read them: corrected for a silent
+     * rotation before anything uses them. See {@code Rotations.correctInput}.
+     */
+    @Inject(method = "tickMovement",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/input/Input;tick()V", shift = At.Shift.AFTER))
+    private void karatsuba$afterInput(CallbackInfo callback) {
+        Rotations.correctInput(self().input);
     }
 
     @Inject(method = "tickMovement", at = @At("TAIL"))
@@ -120,12 +136,9 @@ public abstract class ClientPlayerEntityMixin {
     // ------------------------------------------------------------- rotations
 
     /**
-     * Resolves the tick's rotation just before the game sends it.
-     *
-     * <p>The last moment that is still inside the tick, so every module has filed
-     * its claim, and the first moment that matters, because what leaves here is
-     * what the server believes. {@code Rotations} owns what happens; this only
-     * says when.
+     * A silent rotation goes in for the packets, if the movement tick did not
+     * already put it in place (correction off, or the move was skipped).
+     * {@code Rotations} owns what happens; this only says when.
      */
     @Inject(method = "sendMovementPackets", at = @At("HEAD"))
     private void karatsuba$beforeMovementPackets(CallbackInfo callback) {

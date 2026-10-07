@@ -8,16 +8,23 @@ import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.adapter.event.Events;
+import dev.px.karatsuba.adapter.combat.Combat;
 import dev.px.karatsuba.adapter.event.GameEventBridge;
+import dev.px.karatsuba.adapter.game.entity.CrystalTracker;
+import dev.px.karatsuba.adapter.game.entity.LivingTracker;
+import dev.px.karatsuba.adapter.game.entity.MinecraftEntitySource;
+import dev.px.karatsuba.adapter.game.entity.PlayerTracker;
 import dev.px.karatsuba.adapter.game.player.Rotations;
 import dev.px.karatsuba.adapter.network.MinecraftPacketDescriber;
 import dev.px.karatsuba.adapter.network.NetworkBridge;
-import dev.px.karatsuba.adapter.movement.MotionTracking;
+import dev.px.karatsuba.adapter.movement.EntityRules;
+import dev.px.karatsuba.adapter.movement.MotionBridge;
 import dev.px.karatsuba.adapter.platform.MinecraftLogger;
 import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGRender2D;
+import dev.px.karatsuba.adapter.world.PlacementSync;
 import dev.px.karatsuba.adapter.world.WorldCollisionSpace;
 import net.minecraft.SharedConstants;
 
@@ -101,9 +108,25 @@ public final class MinecraftAdapter {
         core.getSimulationService().setCollisionSpace(WorldCollisionSpace.INSTANCE);
 
         // What feeds the simulation: the player's own movement is observed and
-        // scored by MotionBridge from the player mixin, and everything else near
-        // them is recorded here, once a tick, for predict() and coast().
-        MotionTracking.install(core);
+        // scored by MotionBridge from the player mixin. Other entities need no
+        // feed: Core.prediction() reads Core.entities()' trackers.
+        MotionBridge.install(core);
+
+        // The world as Core.entities() sees it: read once a tick, the server's
+        // positions for everyone else, and the trackers everything else builds on
+        // (targeting, Core.prediction(), the combat library). The prediction gets
+        // each entity's own movement rules: its effects arrive in its attributes.
+        core.getEntityService().setSource(MinecraftEntitySource.INSTANCE);
+        core.getEntityService().registerAll(new LivingTracker(), new PlayerTracker(), new CrystalTracker());
+        core.getPredictionService().setPhysics(EntityRules.INSTANCE);
+
+        // Follows each block the client places ahead of the server until the
+        // server settles it, and takes back any it never answers: no ghost blocks.
+        PlacementSync.install(core);
+
+        // The combat library, wired to this version. After the trackers: the kit
+        // reads them by class.
+        Combat.install(core);
 
         // The one piece of packet knowledge, installed on the network service so
         // the timeline, TPS, lag, server and anticheat services all read through

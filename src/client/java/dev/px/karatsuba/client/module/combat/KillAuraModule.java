@@ -19,6 +19,7 @@ import dev.px.karatsuba.adapter.game.entity.GameEntity;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.service.Services;
+import dev.px.karatsuba.client.service.action.Action;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
 import java.util.List;
@@ -37,11 +38,12 @@ import java.util.List;
  * <ul>
  *   <li>{@code Core.rotations()} for the head, {@link RotationPriority#HIGH},
  *       stepped so the turn traces out instead of snapping.</li>
- *   <li>{@code Services.slots()} for the weapon, {@link ClaimPriority#HIGH} so
+ *   <li>{@code Services.inventory()} for the weapon, {@link ClaimPriority#HIGH} so
  *       it beats an auto-tool asking at NORMAL &mdash; a fight is worth more
  *       than a faster pickaxe.</li>
- *   <li>{@code Services.interactions()} for the swing, so two combat modules
- *       cannot both hit the same tick.</li>
+ *   <li>{@code Services.actions()} for the swing, so two combat modules
+ *       cannot both hit the same tick, and nothing is sent that the server's
+ *       view of the player could not have hit.</li>
  * </ul>
  *
  * <p><b>It does not name another module anywhere</b>, and it has no
@@ -101,7 +103,7 @@ public final class KillAuraModule extends Module {
         if (autoWeapon.isOn()) {
             int weapon = Inventories.bestWeaponSlot();
             if (weapon != Inventories.NOT_FOUND) {
-                Services.slots().request(this, weapon, ClaimPriority.HIGH);
+                Services.inventory().request(this, weapon, ClaimPriority.HIGH);
             }
         }
 
@@ -111,8 +113,12 @@ public final class KillAuraModule extends Module {
 
         // The cooldown gate is last, so the head and the hotbar keep tracking
         // between swings rather than only on the tick one lands.
+        // Turning is this module's own (its rotation settings); the service still
+        // waits until the rotation the server has looks at the target.
         if (Players.attackCooldown() >= COOLDOWN_READY) {
-            Services.interactions().attack(this, target.getId(), ClaimPriority.HIGH);
+            Services.actions().submit(this, Action.attack(target.getId())
+                    .rotate(false)
+                    .priority(ClaimPriority.HIGH));
         }
     }
 

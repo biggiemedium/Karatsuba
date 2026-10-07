@@ -60,7 +60,7 @@ public final class AutoToolModule extends Module {
         }
 
         blockName = shortName(target.getBlockId());
-        Services.slots().request(this, tool, ClaimPriority.NORMAL);
+        Services.inventory().request(this, tool, ClaimPriority.NORMAL);
     }
 
     /** {@code minecraft:oak_log} reads better as {@code oak_log} in a HUD row. */

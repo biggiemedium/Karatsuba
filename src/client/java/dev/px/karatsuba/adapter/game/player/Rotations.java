@@ -2,13 +2,19 @@ package dev.px.karatsuba.adapter.game.player;
 
 import dev.px.core.Core;
 import dev.px.core.math.Vec2;
+import dev.px.core.movement.MovementCorrection;
 import dev.px.core.movement.rotation.RotationMode;
 import dev.px.core.movement.rotation.RotationService;
 import dev.px.core.movement.rotation.RotationSink;
 import dev.px.karatsuba.adapter.event.Events;
+import dev.px.karatsuba.adapter.event.game.player.RotationClaimEvent;
 import dev.px.karatsuba.adapter.game.Options;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.util.PlayerInput;
+
+import java.util.function.BooleanSupplier;
 
 /**
  * How this game writes the player's rotation.
@@ -63,6 +69,12 @@ public final class Rotations {
     private static float stashedYaw;
     private static float stashedPitch;
 
+    /** Whether this tick's rotation has been resolved: once a tick, by whichever hook comes first. */
+    private static boolean resolved;
+
+    /** Whether silent rotations steer the movement too, with the keys corrected. See {@link #movementCorrection}. */
+    private static BooleanSupplier correction = () -> true;
+
     /** Last value handed to Core, so an unchanged slider does not invalidate its cache. */
     private static double appliedSensitivity = Double.NaN;
 
@@ -75,41 +87,146 @@ public final class Rotations {
     }
 
     /**
-     * Resolves the tick's rotation and, for a silent one, swaps it in.
+     * Resolves the tick's rotation before the game moves the player, and with
+     * movement correction on, puts a silent rotation in place for the move too.
      *
-     * <p>Called at the head of the game's own {@code sendMovementPackets}. That
-     * is the latest point still inside the tick, which is the property worth
-     * having: every module subscription point &mdash; {@code TickEvent},
-     * {@code PlayerUpdateEvent}, {@code PlayerMoveEvent}, either stage &mdash;
-     * has already run, so no module is ever silently a tick late in claiming the
-     * rotation.
+     * <p>Called at the head of {@code tickMovement}. A server that simulates
+     * movement &mdash; Grim does, every tick &mdash; works out where the player
+     * should be from the keys they reported and the yaw in their movement packet.
+     * The game moves the player by the yaw it has <em>during</em> the move. So the
+     * rotation has to be in place before the move, not just before the packet:
+     * otherwise the player walks by one yaw and reports another, and every tick
+     * spent walking while a silent rotation is held is a simulation failure.
      *
-     * <p><b>The cost of that placement, stated plainly:</b> in
-     * {@link RotationMode#CLIENT} the yaw is assigned after {@code tickMovement}
-     * has already turned the held keys into velocity, so <em>this</em> tick's
-     * motion used the previous yaw and the body follows the head one tick later.
-     * The camera and the outgoing packet are both correct immediately; only the
-     * walking direction lags.
+     * <ul>
+     *   <li>{@link RotationMode#CLIENT}: the yaw is assigned here, before the move,
+     *       so the camera, the walk and the packet all agree this tick. The keys
+     *       are the player's own, relative to where they now look.</li>
+     *   <li>{@link RotationMode#SILENT} with correction on: the silent yaw stands
+     *       in for the camera's through the move and the packets, and
+     *       {@link #correctInput} turns the held keys into the keys that walk the
+     *       same way at that yaw. The camera's is put back after the packets.</li>
+     *   <li>{@link RotationMode#SILENT} with correction off: swapped in only around
+     *       the packets, as before &mdash; the player walks where they steer, and a
+     *       simulating anticheat sees the mismatch.</li>
+     * </ul>
      *
-     * <p>That is the right trade, because the alternative &mdash; applying before
-     * movement &mdash; makes any module that claims from {@code PlayerUpdateEvent}
-     * a tick late instead, which is far harder to notice. A module that needs the
-     * body to keep its intended heading despite the turn should use
-     * {@code MovementCorrection} rather than move this call.
+     * <p>Claims made after this point apply next tick. {@code RotationClaimEvent}
+     * is posted here, so anything aiming claims in time, from where the player
+     * stands before this tick's move.
      */
-    public static void beforeMovementPackets() {
-        if (!Events.isArmed()) {
+    public static void beforeMovementTick() {
+        resolve();
+        if (correction.getAsBoolean()) {
+            swapInSilent();
+        }
+    }
+
+    /**
+     * Rewrites the keys just read so they walk where the player is steering at the
+     * yaw the game will use, while a silent rotation stands in for the camera.
+     *
+     * <p>Called straight after the game reads the keyboard ({@code Input.tick}),
+     * before it scales the keys for sneaking or using an item, decides on
+     * sprinting, or sends them to the server. The keys themselves are rewritten,
+     * not only the movement numbers: since 1.21.2 the client reports which keys
+     * it holds ({@code PlayerInputC2SPacket}), and Grim narrows the inputs it
+     * simulates to those keys, so the two must agree. Everything after this
+     * &mdash; the scaling, sprinting, the input packet &mdash; then follows from
+     * the rewritten keys exactly as it would from a real keyboard.
+     *
+     * <p>{@code MovementCorrection.Mode.STRICT}: only the eight directions a
+     * keyboard has, because Grim tries only those (-1, 0 or 1 on each axis). The
+     * cost is up to 22.5&deg; of drift from where the player steered.
+     */
+    public static void correctInput(Input input) {
+        ClientPlayerEntity self = player();
+        if (!stashed || self == null || input == null) {
             return;
         }
+        float applied = self.getYaw();
+        if (!MovementCorrection.isNeeded(stashedYaw, applied)) {
+            return;
+        }
+        PlayerInput keys = input.playerInput;
+        float forward = axis(keys.forward(), keys.backward());
+        float strafe = axis(keys.left(), keys.right());
+        MovementCorrection.Input fixed = MovementCorrection.correct(stashedYaw, forward, strafe, applied);
+
+        input.playerInput = new PlayerInput(
+                fixed.getForward() > 0f, fixed.getForward() < 0f,
+                fixed.getStrafe() > 0f, fixed.getStrafe() < 0f,
+                keys.jump(), keys.sneak(), keys.sprint());
+        // What KeyboardInput.tick derives from those keys: -1, 0 or 1 each.
+        input.movementForward = fixed.getForward();
+        input.movementSideways = fixed.getStrafe();
+    }
+
+    /**
+     * Resolves the rotation if the movement tick did not, and puts a silent one
+     * in place for the packets.
+     *
+     * <p>The movement tick is skipped when a module cancels it (Free Cam does);
+     * the packets still need a rotation.
+     */
+    public static void beforeMovementPackets() {
+        resolve();
+        swapInSilent();
+    }
+
+    /**
+     * Puts the player's real rotation back once the packets have gone.
+     *
+     * <p>The pending value is dropped either way: a claim lasts one tick unless
+     * renewed, and a rotation that outlived its claim is exactly the bug the lease
+     * model exists to prevent.
+     */
+    public static void afterMovementPackets() {
+        pendingSilent = null;
+        restore();
+    }
+
+    /**
+     * The end of the player's tick: anything still swapped in is put back, and
+     * the next tick resolves afresh. A tick whose packets never went out would
+     * otherwise leave the camera on the silent rotation.
+     */
+    public static void endOfTick() {
+        pendingSilent = null;
+        restore();
+        resolved = false;
+    }
+
+    /**
+     * Whether a silent rotation is applied to the movement as well as the packets,
+     * with the keys corrected to match. On unless switched off: a server that
+     * simulates movement flags every tick walked under a silent rotation without it.
+     */
+    public static void movementCorrection(BooleanSupplier on) {
+        correction = on == null ? () -> true : on;
+    }
+
+    /** Resolves the tick's rotation once: claims, then Core writes it through the sink. */
+    private static void resolve() {
+        if (!Events.isArmed() || resolved) {
+            return;
+        }
+        resolved = true;
         syncSensitivity();
+
+        // Last call: anything that aims claims here.
+        Events.post(new RotationClaimEvent());
 
         // Writes through the sink: CLIENT assigns the fields, SILENT parks the
         // value below. Does nothing at all when no module holds the rotation.
         Core.rotations().apply();
+    }
 
+    /** Stands a pending silent rotation in for the camera's, remembering the camera's. */
+    private static void swapInSilent() {
         Vec2 silent = pendingSilent;
         ClientPlayerEntity self = player();
-        if (silent == null || self == null) {
+        if (silent == null || self == null || stashed) {
             return;
         }
         stashedYaw = self.getYaw();
@@ -120,26 +237,20 @@ public final class Rotations {
         self.setPitch(silent.getPitch());
     }
 
-    /**
-     * Puts the player's real rotation back.
-     *
-     * <p>At the tail of the same call, so the swap is invisible to everything
-     * except the packet builder between the two. The pending value is dropped
-     * either way: a claim lasts one tick unless renewed, and a rotation that
-     * outlived its claim is exactly the bug the lease model exists to prevent.
-     */
-    public static void afterMovementPackets() {
-        pendingSilent = null;
+    private static void restore() {
         if (!stashed) {
             return;
         }
         stashed = false;
-
         ClientPlayerEntity self = player();
         if (self != null) {
             self.setYaw(stashedYaw);
             self.setPitch(stashedPitch);
         }
+    }
+
+    private static float axis(boolean positive, boolean negative) {
+        return (positive ? 1f : 0f) - (negative ? 1f : 0f);
     }
 
     /**

@@ -1,12 +1,17 @@
 package dev.px.karatsuba.adapter.game.entity;
 
+import dev.px.core.math.Box;
+import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.game.player.Players;
+import dev.px.karatsuba.adapter.world.Voxels;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +56,65 @@ public final class Entities {
     public static GameEntity self(float partialTicks) {
         ClientPlayerEntity self = MinecraftClient.getInstance().player;
         return self == null ? null : GameEntity.of(self, partialTicks);
+    }
+
+    /**
+     * @return the hitbox of the entity with this id, where the last tick left it;
+     *         null when no such entity is in the world
+     *
+     * <p>The box the server measures reach and look rays against: the tick's,
+     * not interpolated for a frame, and widened by the game's targeting margin
+     * for the few entities that have one.
+     */
+    public static Box hitbox(int entityId) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        if (entity == null || entity.isRemoved()) {
+            return null;
+        }
+        return Voxels.toBox(entity.getBoundingBox().expand(entity.getTargetingMargin()));
+    }
+
+    /**
+     * @return whether a look ray from {@code eye} along {@code rotation} meets the
+     *         entity's {@link #hitbox} within {@code range}; false when it is gone
+     *
+     * <p>The check the game makes when picking the entity under the crosshair,
+     * asked of any rotation: in particular the one the server was last sent.
+     */
+    public static boolean lookHits(int entityId, Vec3 eye, Vec2 rotation, double range) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        if (entity == null || entity.isRemoved()) {
+            return false;
+        }
+        net.minecraft.util.math.Box box = entity.getBoundingBox().expand(entity.getTargetingMargin());
+        Vec3d from = Voxels.toVec3d(eye);
+        if (box.contains(from)) {
+            return true;
+        }
+        Vec3d to = from.add(Vec3d.fromPolar(rotation.getPitch(), rotation.getYaw()).multiply(range));
+        return box.raycast(from, to).isPresent();
+    }
+
+    /**
+     * @return how many experience orbs lie within {@code range} blocks of the
+     *         player's feet: experience already thrown and not yet picked up
+     */
+    public static int experienceOrbsNear(double range) {
+        ClientWorld world = world();
+        ClientPlayerEntity self = MinecraftClient.getInstance().player;
+        if (world == null || self == null) {
+            return 0;
+        }
+        double squared = range * range;
+        int count = 0;
+        for (Entity entity : world.getEntities()) {
+            if (entity instanceof ExperienceOrbEntity && entity.isAlive() && entity.squaredDistanceTo(self) <= squared) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

@@ -22,7 +22,7 @@ import dev.px.core.Core;
  *
  * <pre>{@code
  * Core.rotations().request(this, aim, RotationPriority.HIGH, 30f);
- * Services.slots().request(this, sword, ClaimPriority.HIGH);
+ * Services.inventory().request(this, sword, ClaimPriority.HIGH);
  * Services.motion().scaleHorizontal(this, 1.3d, ClaimPriority.NORMAL);
  * }</pre>
  *
@@ -34,9 +34,9 @@ import dev.px.core.Core;
  */
 public final class Services {
 
-    private static SlotService slots;
+    private static InventoryService inventory;
     private static MotionService motion;
-    private static InteractionService interactions;
+    private static ActionService actions;
     private static PacketService packets;
 
     private Services() {
@@ -50,19 +50,20 @@ public final class Services {
      * out through {@code dependsOn()} if one ever did.
      */
     public static void registerAll(Core core) {
-        slots = core.getServices().register(new SlotService(core.getBus()));
+        inventory = core.getServices().register(new InventoryService(core.getBus()));
         motion = core.getServices().register(new MotionService(core.getBus()));
-        interactions = core.getServices().register(new InteractionService(core.getBus()));
+        actions = core.getServices().register(new ActionService(core.getBus()));
         packets = core.getServices().register(new PacketService(core.getBus(), core.getLogger()));
     }
 
     /**
-     * Arbitration for the hotbar.
+     * The hotbar and the offhand: visible slot claims, silent swaps, the offhand,
+     * and what the server believes is held.
      *
      * @throws IllegalStateException if called before {@link #registerAll}
      */
-    public static SlotService slots() {
-        return require(slots, "SlotService");
+    public static InventoryService inventory() {
+        return require(inventory, "InventoryService");
     }
 
     /** Arbitration for the player's velocity, per axis group. */
@@ -70,9 +71,12 @@ public final class Services {
         return require(motion, "MotionService");
     }
 
-    /** Arbitration for attacking and using, one of each per tick. */
-    public static InteractionService interactions() {
-        return require(interactions, "InteractionService");
+    /**
+     * The player's hands: one attack and one right-click a tick, turned toward,
+     * held, checked and sent the same way for every module.
+     */
+    public static ActionService actions() {
+        return require(actions, "ActionService");
     }
 
     /**

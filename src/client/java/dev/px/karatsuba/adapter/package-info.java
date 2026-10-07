@@ -30,11 +30,10 @@
  *   <li>{@link dev.px.karatsuba.adapter.world.WorldPathSpace} &mdash; what
  *       {@code AStar} is allowed to ask about the world, which is what makes Core's
  *       spatial utilities reachable from a running game at all.</li>
- *   <li>{@link dev.px.karatsuba.adapter.movement.MotionBridge} and
- *       {@link dev.px.karatsuba.adapter.movement.MotionTracking} &mdash; what feeds
+ *   <li>{@link dev.px.karatsuba.adapter.movement.MotionBridge} &mdash; what feeds
  *       {@code SimulationService}: the player's own movement, scored every tick
  *       against Core's simulation under a physics profile read from the player's
- *       attributes, and every living thing nearby, for {@code predict}.</li>
+ *       attributes.</li>
  *   <li>{@link dev.px.karatsuba.adapter.network.MinecraftPacketDescriber} &mdash;
  *       what Core needs to read a packet: the timeline recorder, and the roles
  *       {@code Core.tps()}, {@code Core.lag()}, {@code Core.server()} and

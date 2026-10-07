@@ -14,6 +14,10 @@ rootProject.name = 'Karatsuba'
 // Local copy of Minecraft-Client-Core, editable in place (see core/build.gradle).
 include 'core'
 
+// Core's optional combat library (crystal/bed/anchor searches, holes, traps,
+// placement), also a local copy. Depends on :core.
+include 'combat'
+
 // A local Paper server running Grim, offline, for testing against an anticheat
 // without an account. Not part of the mod; see dev/server/build.gradle.
 include 'dev:server'

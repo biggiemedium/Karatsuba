@@ -62,7 +62,7 @@
  * has an owner in {@code service/} and modules <em>ask</em>:
  *
  * <pre>{@code
- * Services.slots().request(this, sword, ClaimPriority.HIGH);
+ * Services.inventory().request(this, sword, ClaimPriority.HIGH);
  * Services.motion().scaleHorizontal(this, 1.3d, ClaimPriority.NORMAL);
  * Core.rotations().request(this, aim, RotationPriority.HIGH, 30f);
  * }</pre>

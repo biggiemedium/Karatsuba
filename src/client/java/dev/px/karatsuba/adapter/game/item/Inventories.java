@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.game.item;
 
+import dev.px.karatsuba.adapter.mixin.player.ClientPlayerInteractionManagerInvoker;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
@@ -11,6 +12,10 @@ import net.minecraft.component.type.AttributeModifiersComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -84,6 +89,36 @@ public final class Inventories {
             }
         }
         return NOT_FOUND;
+    }
+
+    /** @return whether the item in the main hand is this one; namespace optional, as for {@link #findInHotbar} */
+    public static boolean holding(String itemId) {
+        return itemId != null && matches(heldItem(), itemId);
+    }
+
+    /** @return whether the item in the offhand is this one; namespace optional, as for {@link #findInHotbar} */
+    public static boolean offhandHolds(String itemId) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        return player != null && itemId != null && matches(idOf(player.getOffHandStack()), itemId);
+    }
+
+    /**
+     * @return how many of this item the player carries: the whole inventory, the
+     *         offhand and the armour slots; namespace optional, as for {@link #findInHotbar}
+     */
+    public static int count(String itemId) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || itemId == null) {
+            return 0;
+        }
+        int total = 0;
+        for (int slot = 0; slot < inventory.size(); slot++) {
+            ItemStack stack = inventory.getStack(slot);
+            if (matches(idOf(stack), itemId)) {
+                total += stack.getCount();
+            }
+        }
+        return total;
     }
 
     /** @return whether the hotbar holds this item anywhere */
@@ -236,6 +271,126 @@ public final class Inventories {
             selectSlot(previous);
         }
         return used;
+    }
+
+    // -------------------------------------------------------------- offhand
+
+    /** @return the registry id of the item in the offhand, or an empty string */
+    public static String offhandItem() {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        return player == null ? "" : idOf(player.getOffHandStack());
+    }
+
+    /**
+     * @return the main-inventory slot (9 to 35, not the hotbar) holding this item,
+     *         or {@link #NOT_FOUND}; namespace optional
+     */
+    public static int findInInventory(String itemId) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || itemId == null) {
+            return NOT_FOUND;
+        }
+        for (int slot = HOTBAR_SIZE; slot < PlayerInventory.MAIN_SIZE; slot++) {
+            if (matches(idOf(inventory.getStack(slot)), itemId)) {
+                return slot;
+            }
+        }
+        return NOT_FOUND;
+    }
+
+    /**
+     * Swaps a hotbar slot's item with the offhand, as pressing the swap-hands key
+     * (F) with that slot selected does.
+     *
+     * <p>No inventory click: the slot is selected and told to the server, the
+     * swap-hands action sent, and the slot the player had selected put back and
+     * told to the server again. What was in the offhand ends up in that hotbar
+     * slot. The server makes the swap and sends both slots back.
+     *
+     * @return whether it was sent
+     */
+    public static boolean swapHotbarWithOffhand(int slot) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        PlayerInventory inventory = inventory();
+        if (player == null || inventory == null || player.isSpectator() || slot < 0 || slot >= HOTBAR_SIZE) {
+            return false;
+        }
+        int previous = inventory.selectedSlot;
+        selectSlotNow(slot);
+        player.networkHandler.sendPacket(new PlayerActionC2SPacket(
+                PlayerActionC2SPacket.Action.SWAP_ITEM_WITH_OFFHAND, BlockPos.ORIGIN, Direction.DOWN));
+        selectSlotNow(previous);
+        return true;
+    }
+
+    // --------------------------------------------------------- server's view
+
+    /**
+     * @return the hotbar slot the server believes is selected: the last one the
+     *         game told it, or {@link #NOT_FOUND} out of a world
+     *
+     * <p>Differs from {@link #selectedSlot()} between a selection and the next
+     * time the game sends it, which is when a silent swap holds an item the hotbar
+     * does not show.
+     */
+    public static int serverSlot() {
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+        if (interactions == null || inventory() == null) {
+            return NOT_FOUND;
+        }
+        return ((ClientPlayerInteractionManagerInvoker) interactions).karatsuba$getLastSelectedSlot();
+    }
+
+    /** @return the registry id of the item in the slot the server believes is selected, or an empty string */
+    public static String serverHeldItem() {
+        int slot = serverSlot();
+        return slot == NOT_FOUND ? "" : itemAt(slot);
+    }
+
+    /** @return whether the server believes this item is in the main hand; namespace optional */
+    public static boolean serverHolding(String itemId) {
+        return itemId != null && matches(serverHeldItem(), itemId);
+    }
+
+    /**
+     * Selects a hotbar slot and tells the server at once, through the game's own
+     * sync &mdash; which sends nothing when the server already has that slot, so a
+     * slot is never sent twice in a row (Grim flags that, BadPacketsA).
+     */
+    public static void selectSlotNow(int slot) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        PlayerInventory inventory = inventory();
+        if (inventory == null || client.interactionManager == null || slot < 0 || slot >= HOTBAR_SIZE) {
+            return;
+        }
+        inventory.setSelectedSlot(slot);
+        ((ClientPlayerInteractionManagerInvoker) client.interactionManager).karatsuba$syncSelectedSlot();
+    }
+
+    /**
+     * Swaps a main-inventory slot's item with the offhand: one inventory click,
+     * the one the game sends for pressing the swap-hands key over a slot in the
+     * open inventory.
+     *
+     * <p>An inventory click, which a strict anticheat expects only from a player
+     * standing still with nothing else in hand; deciding when that is, is the
+     * caller's.
+     *
+     * @param slot 9 to 35
+     * @return whether it was sent
+     */
+    public static boolean swapInventoryWithOffhand(int slot) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        if (player == null || interactions == null || slot < HOTBAR_SIZE || slot >= PlayerInventory.MAIN_SIZE) {
+            return false;
+        }
+        // In the player's screen, main-inventory slots keep their index; the
+        // offhand is button 40 of a SWAP click, as the swap-hands key sends.
+        interactions.clickSlot(player.playerScreenHandler.syncId, slot, PlayerInventory.OFF_HAND_SLOT,
+                SlotActionType.SWAP, player);
+        return true;
     }
 
     /**

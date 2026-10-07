@@ -2,6 +2,8 @@ package dev.px.karatsuba.adapter.game.entity;
 
 import dev.px.core.math.Box;
 import dev.px.core.math.Direction;
+import dev.px.core.math.Vec2;
+import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import dev.px.karatsuba.adapter.world.Voxels;
 import lombok.Getter;
@@ -14,6 +16,8 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 
 /**
  * What the crosshair is on.
@@ -64,6 +68,47 @@ public final class Targets {
 
         /** Registry id, for example {@code minecraft:oak_stairs}. */
         private final String blockId;
+    }
+
+    /** Where a look ray first meets a block. */
+    @Getter
+    @RequiredArgsConstructor
+    public static final class Hit {
+
+        /** The block the ray met. */
+        private final Vec3i block;
+
+        /** The face it entered through. */
+        private final Direction face;
+
+        /** The exact point on that face, in world space: what a click sends. */
+        private final Vec3 point;
+    }
+
+    /**
+     * Casts a look ray the way the game picks the block under the crosshair:
+     * against outline shapes, through fluids, to the first block in the way.
+     *
+     * <p>For checking a click against a rotation that is not the camera's &mdash;
+     * the one the server was last sent &mdash; and for sending the point the ray
+     * actually lands on rather than one it would not.
+     *
+     * @return the first block within {@code range}, or null when the ray meets none
+     */
+    public static Hit raycast(Vec3 eye, Vec2 rotation, double range) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientWorld world = client.world;
+        if (world == null || client.player == null) {
+            return null;
+        }
+        Vec3d from = Voxels.toVec3d(eye);
+        Vec3d to = from.add(Vec3d.fromPolar(rotation.getPitch(), rotation.getYaw()).multiply(range));
+        BlockHitResult hit = world.raycast(new RaycastContext(from, to,
+                RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, client.player));
+        if (hit.getType() != HitResult.Type.BLOCK) {
+            return null;
+        }
+        return new Hit(Voxels.toVec3i(hit.getBlockPos()), Voxels.toCore(hit.getSide()), Voxels.toVec3(hit.getPos()));
     }
 
     /** @return whether the crosshair is on a block */

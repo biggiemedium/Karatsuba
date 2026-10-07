@@ -3,7 +3,9 @@ package dev.px.karatsuba.adapter.game.player;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 
@@ -219,6 +221,63 @@ public final class Players {
         if (self != null) {
             self.setPosition(position.getX(), position.getY(), position.getZ());
         }
+    }
+
+    /**
+     * @return the rotation the server was last sent, which is the one it checks
+     *         a click against; the player's own rotation before anything was sent
+     *
+     * <p>Differs from {@link #rotation()} whenever a silent rotation is held: the
+     * camera stays where the player put it, and this is where the server thinks
+     * they are looking.
+     */
+    public static Vec2 serverRotation() {
+        Vec2 sent = MotionBridge.lastSentRotation();
+        return sent == null ? rotation() : sent;
+    }
+
+    /** @return how far the player reaches entities: the attribute, 3 unless a server changed it */
+    public static double entityReach() {
+        ClientPlayerEntity self = player();
+        return self == null ? 3d : self.getEntityInteractionRange();
+    }
+
+    /** @return how far the player reaches blocks: the attribute, 4.5 unless a server changed it */
+    public static double blockReach() {
+        ClientPlayerEntity self = player();
+        return self == null ? 4.5d : self.getBlockInteractionRange();
+    }
+
+    /**
+     * @return how far the player has fallen since last on the ground, in blocks;
+     *         landing takes roughly this less three as damage, before armour
+     */
+    public static double fallDistance() {
+        ClientPlayerEntity self = player();
+        return self == null ? 0d : self.fallDistance;
+    }
+
+    /** @return whether the player is gliding on an elytra */
+    public static boolean gliding() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isGliding();
+    }
+
+    /** @return health plus absorption: everything a hit has to get through */
+    public static float healthPool() {
+        ClientPlayerEntity self = player();
+        return self == null ? 0f : self.getHealth() + self.getAbsorptionAmount();
+    }
+
+    /** @return whether an item is in use: eating, drinking, blocking, drawing a bow */
+    public static boolean usingItem() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isUsingItem();
+    }
+
+    /** @return whether a container or inventory screen is open, which a player cannot click the world through */
+    public static boolean inContainer() {
+        return MinecraftClient.getInstance().currentScreen instanceof HandledScreen<?>;
     }
 
     /**

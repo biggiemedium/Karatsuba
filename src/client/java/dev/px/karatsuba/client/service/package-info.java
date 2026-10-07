@@ -15,9 +15,9 @@
  *
  * <pre>{@code
  * Core.rotations().request(this, aim, RotationPriority.HIGH, 30f);   // Core's
- * Services.slots().request(this, sword, ClaimPriority.HIGH);
+ * Services.inventory().request(this, sword, ClaimPriority.HIGH);
  * Services.motion().scaleHorizontal(this, 1.3d, ClaimPriority.NORMAL);
- * Services.interactions().attack(this, target.getId(), ClaimPriority.HIGH);
+ * Services.actions().submit(this, Action.attack(target.getId()).priority(ClaimPriority.HIGH));
  * }</pre>
  *
  * <p>No module names another module anywhere in that. Priorities are how they
@@ -47,13 +47,24 @@
  *   <caption>Where each contended thing is owned</caption>
  *   <tr><th>Thing</th><th>Owner</th><th>Contest</th></tr>
  *   <tr><td>Rotation</td><td>Core {@code RotationService}</td><td>one winner</td></tr>
- *   <tr><td>Hotbar slot</td><td>{@link dev.px.karatsuba.client.service.SlotService}</td>
+ *   <tr><td>Hotbar slot</td><td>{@link dev.px.karatsuba.client.service.InventoryService}</td>
  *       <td>one winner</td></tr>
  *   <tr><td>Velocity</td><td>{@link dev.px.karatsuba.client.service.MotionService}</td>
  *       <td>one winner per axis group</td></tr>
- *   <tr><td>Attack / use</td><td>{@link dev.px.karatsuba.client.service.InteractionService}</td>
- *       <td>one winner per channel, per tick</td></tr>
+ *   <tr><td>Attack / right-click</td><td>{@link dev.px.karatsuba.client.service.ActionService}</td>
+ *       <td>one winner per button, per tick</td></tr>
  * </table>
+ *
+ * <h2>The action service does more than arbitrate</h2>
+ * Attacks, block clicks and item uses go through
+ * {@link dev.px.karatsuba.client.service.ActionService} as a whole
+ * {@link dev.px.karatsuba.client.service.action.Action}: the module says what it
+ * wants, and the service turns to it, gets the item into a hand, checks reach and
+ * look against what the server knows and sends it where vanilla would, for every
+ * module the same way. How careful it is lives in one profile, the
+ * {@code Interact} module. Actions are one-shot: each lasts until the end of the
+ * tick it was submitted for, and every one hears its
+ * {@link dev.px.karatsuba.client.service.action.Outcome}.
  *
  * <p><b>Reads are not arbitrated and never will be.</b> {@code Players},
  * {@code Entities}, {@code Targets}, {@code Armor} and the rest of
@@ -90,7 +101,7 @@
  *     }
  *     int sword = Inventories.findInHotbar("netherite_sword");
  *     if (sword != Inventories.NOT_FOUND) {
- *         Services.slots().request(this, sword, ClaimPriority.HIGH);
+ *         Services.inventory().request(this, sword, ClaimPriority.HIGH);
  *     }
  * }
  * }</pre>

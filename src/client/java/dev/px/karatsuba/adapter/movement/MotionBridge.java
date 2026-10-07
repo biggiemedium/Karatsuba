@@ -3,15 +3,14 @@ package dev.px.karatsuba.adapter.movement;
 import dev.px.core.Core;
 import dev.px.core.event.Stage;
 import dev.px.core.event.impl.MotionUpdateEvent;
+import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.movement.simulation.MotionState;
 import dev.px.core.movement.simulation.MovementInput;
 import dev.px.core.util.math.PhysicsProfile;
 import dev.px.karatsuba.adapter.event.Events;
-import dev.px.karatsuba.adapter.mixin.player.LivingEntityInvoker;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
 
@@ -38,12 +37,17 @@ import net.minecraft.util.math.Vec3d;
  * <h2>Two inputs, on purpose</h2>
  * What the player <em>pressed</em> and what the movement code <em>used</em> are
  * different numbers. The game scales the keys for sneaking and for using an
- * item, and then by 0.98 &mdash; a damping step Core's simulation does not
- * model, and exactly the two percent its README reports as unexplained. So the
- * event carries the keys as held, and the drift monitor is fed the game's own
- * {@code forwardSpeed} / {@code sidewaysSpeed}, read back after the game has
- * finished with them. Scoring against the pressed keys would measure a gap this
- * adapter can simply close.
+ * item, and then by 0.98. So the event carries the keys as held, and the drift
+ * monitor is fed the game's own {@code forwardSpeed} / {@code sidewaysSpeed},
+ * read back after the game has finished with them. Scoring against the pressed
+ * keys would measure a gap this adapter can simply close. Core (2.2+) models the
+ * 0.98 itself, as {@code PhysicsProfile.inputScale}, so that one step is divided
+ * back out of what it is fed; left in, every tick would be damped twice and read
+ * as two percent of drift.
+ *
+ * <h2>Other entities</h2>
+ * Nothing here. {@code Core.prediction()} reads where they have been from
+ * {@code Core.entities()}' own trackers, so there is no per-entity feed.
  *
  * <h2>When the movement tick did not run</h2>
  * A module that cancels the movement tick (Free Cam does) leaves nothing to
@@ -109,8 +113,10 @@ public final class MotionBridge {
                 .withSprint(keys.sprint());
 
         // Already scaled for sneaking, so sneak stays off here: Core would scale
-        // it a second time.
-        effective = MovementInput.of(yaw, self.forwardSpeed, self.sidewaysSpeed)
+        // it a second time. Already scaled by 0.98 too, which Core applies
+        // itself (PhysicsProfile.inputScale), so that is divided back out.
+        double unscale = 1d / PhysicsProfile.vanilla().getInputScale();
+        effective = MovementInput.of(yaw, self.forwardSpeed * unscale, self.sidewaysSpeed * unscale)
                 .withJump(jumped)
                 .withSprint(self.isSprinting());
 
@@ -147,6 +153,30 @@ public final class MotionBridge {
         lastReported = event.getRotation();
     }
 
+    /**
+     * @return the rotation the last movement packets carried, silent rotations
+     *         included; null before any were sent in this world
+     *
+     * <p>Read at the end of {@code sendMovementPackets}, while a silent rotation
+     * is still in place, and after every handler has had its say. A packet that
+     * carried no rotation leaves the server with the one before, which is also
+     * what this keeps.
+     */
+    public static Vec2 lastSentRotation() {
+        return lastReported;
+    }
+
+    /**
+     * Resets on a world change: the last position observed was in another world,
+     * so neither this tick's state nor the drift history carries over.
+     */
+    public static void install(Core core) {
+        core.getBus().on(WorldEvent.class, event -> {
+            core.getSimulationService().getDrift().reset();
+            reset();
+        });
+    }
+
     /** Forgets the last tick. Called on a world change, where nothing carries over. */
     public static void reset() {
         held = null;
@@ -174,25 +204,9 @@ public final class MotionBridge {
                 self.isOnGround());
     }
 
-    /**
-     * The player's physics as the game has them this tick.
-     *
-     * <p>The movement-speed attribute already includes the sprint modifier, and
-     * Core applies its own sprint multiplier on top, so it is divided back out
-     * here; left in, a sprinting prediction would be sprinting twice.
-     */
+    /** The player's physics as the game has them this tick. See {@link EntityRules#read}. */
     private static PhysicsProfile profileOf(ClientPlayerEntity self) {
-        PhysicsProfile base = PhysicsProfile.vanilla();
-        double speed = self.getAttributeValue(EntityAttributes.MOVEMENT_SPEED);
-        if (self.isSprinting()) {
-            speed /= base.getSprintMultiplier();
-        }
-        return base
-                .withMoveSpeedAttribute(speed)
-                .withJumpVelocity(((LivingEntityInvoker) self).karatsuba$getJumpVelocity())
-                .withGravity(self.getFinalGravity())
-                .withStepHeight(self.getStepHeight())
-                .withSneakMultiplier(self.getAttributeValue(EntityAttributes.SNEAKING_SPEED))
+        return EntityRules.read(self, PhysicsProfile.vanilla())
                 .withHitbox(self.getWidth(), self.getHeight());
     }
 
