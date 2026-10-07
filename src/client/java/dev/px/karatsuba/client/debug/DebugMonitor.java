@@ -19,7 +19,7 @@ import dev.px.core.util.time.RateMeter;
 import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
 import dev.px.karatsuba.adapter.event.game.player.ServerTeleportEvent;
 import dev.px.karatsuba.adapter.game.player.Players;
-import dev.px.karatsuba.client.network.AntiCheats;
+import dev.px.karatsuba.client.anticheat.AntiCheats;
 
 import java.util.ArrayList;
 import java.util.Comparator;

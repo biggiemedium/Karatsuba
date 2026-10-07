@@ -29,23 +29,24 @@ import dev.px.karatsuba.adapter.world.Environment;
  * <p>Everything except the sky is a veto on an adapter event and holds no state:
  * turning a setting off simply stops the veto, and the next frame is vanilla.
  * The sky is different. Time and weather are the client's copy of world state,
- * so overriding them is a borrow in the same sense as {@link FullbrightModule}'s
- * gamma &mdash; the real values are remembered (and kept current from the
- * server's corrections, which are suppressed while the override holds) and handed
- * back when the override ends.
+ * so overriding them is a borrow: the real values are remembered (and kept
+ * current from the server's corrections, which are suppressed while the override
+ * holds) and handed back when the override ends.
  */
 @ModuleInfo(name = "Render Adjustments", description = "Removes visual clutter and fixes the sky", category = "Render")
 public final class RenderAdjustmentsModule extends Module {
 
-    /**
-     * The gamma Full Bright draws with. Leapfrog had no slider for it; this is
-     * the same default {@link FullbrightModule} uses, bright enough that a cave
-     * at light level 0 reads clearly.
-     */
-    private static final float FULL_BRIGHT_GAMMA = 10f;
-
     private final BooleanSetting fullBright = bool("Full Bright", true)
             .describe("Lights everything as if it were day, without touching your brightness setting");
+
+    /**
+     * The gamma Full Bright draws with. Values above 1 go beyond the vanilla
+     * slider, which is the point; 10 is bright enough that a cave at light level
+     * 0 reads clearly. Was the separate Fullbright module's one setting.
+     */
+    private final NumberSetting<Double> brightness = decimal("Brightness", 10d, 1d, 20d)
+            .describe("How bright Full Bright draws; above 1 is beyond the vanilla slider")
+            .visibleWhen(fullBright);
 
     // ------------------------------------------------------------ no render
 
@@ -109,7 +110,7 @@ public final class RenderAdjustmentsModule extends Module {
     @Subscribe
     private void onGamma(GammaEvent event) {
         if (fullBright.isOn()) {
-            event.setGamma(FULL_BRIGHT_GAMMA);
+            event.setGamma(brightness.getFloat());
         }
     }
 

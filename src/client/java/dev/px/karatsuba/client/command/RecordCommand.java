@@ -5,7 +5,7 @@ import dev.px.core.command.Command;
 import dev.px.core.command.CommandContext;
 import dev.px.core.command.CommandInfo;
 import dev.px.core.movement.timeline.TimelineEntry;
-import dev.px.karatsuba.client.module.misc.RecorderModule;
+import dev.px.karatsuba.client.module.utility.RecorderModule;
 
 import java.util.List;
 

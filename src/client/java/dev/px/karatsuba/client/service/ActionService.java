@@ -207,7 +207,7 @@ public final class ActionService implements Service {
         return clicks.release(owner) || had;
     }
 
-    /** The profile every action is checked and sent under. See {@code InteractModule}. */
+    /** The profile every action is checked and sent under. See {@code client.settings.interaction.InteractionSettings}. */
     public void setProfile(ActionProfile profile) {
         this.profile = profile == null ? new ActionProfile() {
         } : profile;

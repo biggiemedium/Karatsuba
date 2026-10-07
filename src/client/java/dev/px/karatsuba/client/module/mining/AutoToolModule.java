@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.utility;
+package dev.px.karatsuba.client.module.mining;
 
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
@@ -34,7 +34,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * hit rather than during it.
  */
 @ModuleInfo(name = "Auto Tool", description = "Holds the best tool for the block being mined",
-        category = "Utility")
+        category = "Mining")
 public final class AutoToolModule extends Module {
 
     private final BooleanSetting whileHolding = bool("Only While Mining", true)

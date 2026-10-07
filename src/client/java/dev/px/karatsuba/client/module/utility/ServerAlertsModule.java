@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.misc;
+package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.Core;
 import dev.px.core.event.Subscribe;
@@ -10,7 +10,7 @@ import dev.px.core.network.lag.LagSpikeEvent;
 import dev.px.core.network.server.ServerBrand;
 import dev.px.core.network.server.ServerChangeEvent;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.karatsuba.client.network.AntiCheats;
+import dev.px.karatsuba.client.anticheat.AntiCheats;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -25,7 +25,7 @@ import java.util.Optional;
  * services keep measuring regardless, for the HUD and for any other module.
  */
 @ModuleInfo(name = "Server Alerts", description = "Notifies on lag spikes, server software and anticheats",
-        category = "Misc")
+        category = "Utility")
 public final class ServerAlertsModule extends Module {
 
     private final BooleanSetting lagSpikes = bool("Lag Spikes", true)

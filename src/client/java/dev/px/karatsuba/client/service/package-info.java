@@ -62,7 +62,7 @@
  * wants, and the service turns to it, gets the item into a hand, checks reach and
  * look against what the server knows and sends it where vanilla would, for every
  * module the same way. How careful it is lives in one profile, the
- * {@code Interact} module. Actions are one-shot: each lasts until the end of the
+ * Interaction section of Client Settings. Actions are one-shot: each lasts until the end of the
  * tick it was submitted for, and every one hears its
  * {@link dev.px.karatsuba.client.service.action.Outcome}.
  *

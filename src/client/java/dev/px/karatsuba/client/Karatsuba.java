@@ -11,10 +11,11 @@ import dev.px.karatsuba.client.hud.HudElements;
 import dev.px.karatsuba.client.input.Binds;
 import dev.px.karatsuba.client.module.Categories;
 import dev.px.karatsuba.client.module.Modules;
-import dev.px.karatsuba.client.network.AntiCheats;
+import dev.px.karatsuba.client.anticheat.AntiCheats;
 import dev.px.karatsuba.client.network.Servers;
 import dev.px.karatsuba.client.screen.Overlays;
 import dev.px.karatsuba.client.service.Services;
+import dev.px.karatsuba.client.settings.ClientSettings;
 import dev.px.karatsuba.client.theme.Themes;
 
 /**
@@ -43,8 +44,10 @@ import dev.px.karatsuba.client.theme.Themes;
  *       game</li>
  *   <li>{@link Services} &mdash; {@code service/}, the arbiters that decide which
  *       module wins when two want the same thing</li>
- *   <li>{@link Servers}, {@link AntiCheats} &mdash; {@code network/}, what
- *       Core's server and anticheat detection can recognise</li>
+ *   <li>{@link Servers} &mdash; {@code network/}, what Core's server detection
+ *       can recognise</li>
+ *   <li>{@link AntiCheats} &mdash; {@code anticheat/}, what Core's anticheat
+ *       detection can recognise, with {@code Grim.md} on how Grim checks</li>
  *   <li>{@link ConfigLayout} &mdash; {@code config/}, which file each part of the
  *       config is saved in</li>
  * </ul>
@@ -126,6 +129,11 @@ public final class Karatsuba {
         // First: modules reach these from their very first tick, and Core's
         // container refuses a registration once start() has run.
         Services.registerAll(core);
+
+        // Client settings sit above the modules: they set the rules every module
+        // plays by (how rotations, clicks and packets go out). After the services,
+        // which a section hands itself to, and before any module is created.
+        ClientSettings.registerAll(core);
 
         Categories.registerAll(core);
         Themes.registerAll(core);

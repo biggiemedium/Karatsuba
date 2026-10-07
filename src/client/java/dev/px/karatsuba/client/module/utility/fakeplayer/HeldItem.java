@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.misc.fakeplayer;
+package dev.px.karatsuba.client.module.utility.fakeplayer;
 
 import dev.px.karatsuba.adapter.game.item.ItemSpec;
 

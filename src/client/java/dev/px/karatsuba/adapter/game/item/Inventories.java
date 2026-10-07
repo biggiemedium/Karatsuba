@@ -3,6 +3,8 @@ package dev.px.karatsuba.adapter.game.item;
 import dev.px.karatsuba.adapter.mixin.player.ClientPlayerInteractionManagerInvoker;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.BlockWithEntity;
+import net.minecraft.block.FallingBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
@@ -16,6 +18,7 @@ import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
@@ -196,6 +199,45 @@ public final class Inventories {
             }
         }
         return best;
+    }
+
+    /**
+     * @return the registry id of the hotbar's best block to build with, or null
+     *
+     * <p>A full cube that stays where it is put: no sand or gravel, which falls
+     * off a bridge, and no chests, shulkers or other block entities, which are
+     * worth more than a floor. The held stack wins if it qualifies, so building
+     * does not swap away from what the player chose; otherwise the biggest stack,
+     * so the run lasts longest.
+     */
+    public static String bestBuildingBlock() {
+        PlayerInventory inventory = inventory();
+        ClientWorld world = MinecraftClient.getInstance().world;
+        if (inventory == null || world == null) {
+            return null;
+        }
+        ItemStack held = inventory.getMainHandStack();
+        if (isBuildingBlock(held, world)) {
+            return idOf(held);
+        }
+        ItemStack best = null;
+        for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
+            ItemStack stack = inventory.getStack(slot);
+            if (isBuildingBlock(stack, world) && (best == null || stack.getCount() > best.getCount())) {
+                best = stack;
+            }
+        }
+        return best == null ? null : idOf(best);
+    }
+
+    private static boolean isBuildingBlock(ItemStack stack, ClientWorld world) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem item)) {
+            return false;
+        }
+        Block block = item.getBlock();
+        return !(block instanceof FallingBlock)
+                && !(block instanceof BlockWithEntity)
+                && block.getDefaultState().isFullCube(world, BlockPos.ORIGIN);
     }
 
     /**

@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.exploit;
+package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.event.Subscribe;
 import dev.px.core.module.Module;
@@ -29,7 +29,7 @@ import dev.px.karatsuba.adapter.game.player.Players;
  * it as an enum, which is the same pattern {@code ScreenCloseEvent} follows.
  */
 @ModuleInfo(name = "Anti Hunger", description = "Hides sprinting from the server so it costs no food",
-        category = "Exploit")
+        category = "Utility")
 public final class AntiHungerModule extends Module {
 
     private final BooleanSetting sprint = bool("Sprint", true)

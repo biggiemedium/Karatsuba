@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.network;
+package dev.px.karatsuba.client.anticheat;
 
 import dev.px.core.Core;
 import dev.px.core.network.anticheat.AntiCheatChangeEvent;

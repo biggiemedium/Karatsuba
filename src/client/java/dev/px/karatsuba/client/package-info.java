@@ -37,11 +37,17 @@
  *       <td>{@link dev.px.karatsuba.client.service.Services}</td></tr>
  *   <tr><td>server software to recognise from a brand</td><td>&mdash;</td>
  *       <td>{@link dev.px.karatsuba.client.network.Servers}</td></tr>
- *   <tr><td>an anticheat signature</td><td>&mdash;</td>
- *       <td>{@link dev.px.karatsuba.client.network.AntiCheats}</td></tr>
+ *   <tr><td>an anticheat signature</td><td>{@code anticheat/}</td>
+ *       <td>{@link dev.px.karatsuba.client.anticheat.AntiCheats}</td></tr>
  *   <tr><td>a config section of its own</td><td>{@code config/}</td>
  *       <td>{@link dev.px.karatsuba.client.config.ConfigLayout}, for its file</td></tr>
+ *   <tr><td>a client-wide setting (how the client behaves, not something done in
+ *       game)</td><td>{@code settings/}</td>
+ *       <td>{@link dev.px.karatsuba.client.settings.ClientSettings}</td></tr>
  * </table>
+ *
+ * <p>A module is something done in game; see {@code module/MODULES.md} for the
+ * categories and what belongs in each.
  *
  * <h2>The connection</h2>
  * TPS, ping, lag spikes, the server's software and its probable anticheat are

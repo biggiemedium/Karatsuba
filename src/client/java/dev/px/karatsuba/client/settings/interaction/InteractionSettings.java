@@ -1,7 +1,6 @@
-package dev.px.karatsuba.client.module.player;
+package dev.px.karatsuba.client.settings.interaction;
 
-import dev.px.core.module.Module;
-import dev.px.core.module.ModuleInfo;
+import dev.px.core.Core;
 import dev.px.core.movement.rotation.RotationMode;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
@@ -11,28 +10,27 @@ import dev.px.karatsuba.adapter.game.player.Rotations;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.ActionProfile;
 import dev.px.karatsuba.client.service.action.SwapMode;
+import dev.px.karatsuba.client.settings.ClientSection;
 
 /**
- * How every module's attacks and clicks reach the server: the settings behind
- * {@code Services.actions()}.
+ * How every module's attacks, clicks, swaps and rotations reach the server: the
+ * profile {@code Services.actions()} checks and sends under, and the Move Fix for
+ * {@code Rotations}.
  *
- * <p>Not a feature of its own. Every module that attacks, places or uses goes
- * through the action service, and this is where the player says how careful it
- * must be on the server they are on. One place, so an aura and a surround can
- * never disagree about what the server allows.
+ * <p>A client setting, not a module: it does nothing in game by itself, it governs
+ * how everything else does. It used to be the hidden Interact module, whose on/off
+ * toggle really meant "checks on"; that is now the explicit {@link #checks()}
+ * setting, so it can no longer be switched off by accident with every module
+ * quietly becoming unsafe.
  *
- * <p>The toggle is the checks: on (the default), an attack or click is sent only
- * when a player could have sent it &mdash; looking at it, in reach, hands free.
- * Off, the winner is sent as soon as it has its item. The defaults are for Grim.
- *
- * <p>Hidden from the module list, since it is always there.
+ * <p>The defaults are for Grim: look at what you click, from within reach, one
+ * attack and one right-click a tick, never while eating or in a container, and walk
+ * by a silent rotation with the keys corrected to match.
  */
-@ModuleInfo(name = "Interact",
-        description = "How attacks and clicks are checked and sent; off sends them unchecked",
-        category = "Player",
-        enabled = true,
-        visible = false)
-public final class InteractModule extends Module implements ActionProfile {
+public final class InteractionSettings extends ClientSection implements ActionProfile {
+
+    private final BooleanSetting checks = bool("Checks", true)
+            .describe("Send an attack or click only when a player could have: looking at it, in reach, hands free");
 
     private final BooleanSetting rotate = bool("Rotate", true)
             .describe("Turn to face what is attacked or clicked");
@@ -50,7 +48,8 @@ public final class InteractModule extends Module implements ActionProfile {
             .describe("Walk by a silent rotation and correct the keys to match; off, Grim's Simulation flags walking while aiming");
 
     private final BooleanSetting raytrace = bool("Raytrace", true)
-            .describe("Only act once the rotation the server has looks at the target");
+            .describe("Only act once the rotation the server has looks at the target")
+            .visibleWhen(checks);
 
     private final EnumSetting<SwapMode> swap = enumOf("Swap", SwapMode.SILENT)
             .describe("SILENT swaps for the click and back; HOLD keeps the item held; OFF never swaps");
@@ -68,21 +67,36 @@ public final class InteractModule extends Module implements ActionProfile {
             .describe("Attack and right-click in one tick, as vanilla allows");
 
     private final BooleanSetting multitask = bool("Multitask", false)
-            .describe("Act while eating, drinking or blocking");
+            .describe("Act while eating, drinking or blocking")
+            .visibleWhen(checks);
 
     private final BooleanSetting airPlace = bool("Air Place", false)
-            .describe("Allow clicks against nothing; most anticheats refuse them");
+            .describe("Allow clicks against nothing; most anticheats refuse them")
+            .visibleWhen(checks);
 
-    public InteractModule() {
-        // Services are registered before modules, so the service is there to tell.
+    public InteractionSettings() {
+        super("interaction", "Interaction", "How every module's rotations, clicks and packets are checked and sent");
+    }
+
+    /**
+     * Becomes the rules every module plays by: the action service's profile, and
+     * whether rotations steer movement. Both read these settings live, so a change
+     * applies on the next tick.
+     */
+    @Override
+    protected void onRegister(Core core) {
         Services.actions().setProfile(this);
-        // Every silent rotation, whoever holds it: the adapter reads it each tick.
-        Rotations.movementCorrection(moveFix::isOn);
+        Rotations.movementCorrection(this::moveFix);
+    }
+
+    /** @return whether silent rotations steer the movement too, with the keys corrected */
+    public boolean moveFix() {
+        return moveFix.isOn();
     }
 
     @Override
     public boolean checks() {
-        return isEnabled();
+        return checks.isOn();
     }
 
     @Override

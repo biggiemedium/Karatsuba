@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.input.Bind;
 import dev.px.core.input.Key;
 import dev.px.karatsuba.client.gui.AccountsScreen;
+import dev.px.karatsuba.client.gui.ClientSettingsScreen;
 import dev.px.karatsuba.client.gui.HudElementsScreen;
 import dev.px.karatsuba.client.gui.ProfilesScreen;
 import dev.px.karatsuba.client.screen.Overlays;
@@ -42,6 +43,9 @@ public final class Binds {
     /** The HUD elements screen: Insert, unused by vanilla. */
     private static final Key HUD_ELEMENTS = Key.INSERT;
 
+    /** The Client Settings screen: Home, beside Insert, also unused by vanilla. */
+    private static final Key CLIENT_SETTINGS = Key.HOME;
+
     private Binds() {
     }
 
@@ -57,6 +61,7 @@ public final class Binds {
         input.register("Click GUI", Bind.of(CLICK_GUI), () -> Overlays.clickGui().toggle());
         input.register("HUD Editor", Bind.of(HUD_EDITOR), () -> Overlays.hud().toggleEditor());
         input.register("HUD Elements", Bind.of(HUD_ELEMENTS), HudElementsScreen::toggle);
+        input.register("Client Settings", Bind.of(CLIENT_SETTINGS), ClientSettingsScreen::toggle);
 
         // Unbound by default: a screen most people open from the GUI, not a key.
         input.register("Profiles", Bind.NONE, () -> Overlays.clickGui().open(new ProfilesScreen()));

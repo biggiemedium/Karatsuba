@@ -55,7 +55,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * <h2>Getting it there</h2>
  * Through {@code Services.actions()}, ahead of everything else. From the hotbar it
  * is the swap-hands key, with no inventory click; from the main inventory it is
- * one click, which with the Interact module's checks on waits until you stand
+ * one click, which with the Interaction checks (Client Settings) on waits until you stand
  * still &mdash; Grim flags an inventory click while moving. A swap never shares a
  * tick with an attack or a click. After a totem pops, the next goes in on the
  * very next tick.

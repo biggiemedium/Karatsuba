@@ -31,7 +31,7 @@ import dev.px.core.target.TargetSelector;
 import dev.px.core.target.TargetSort;
 import dev.px.karatsuba.adapter.combat.Combat;
 import dev.px.karatsuba.adapter.combat.CombatKit;
-import dev.px.karatsuba.client.module.combat.render.PlacementBox;
+import dev.px.karatsuba.client.render.PlacementBox;
 import dev.px.karatsuba.adapter.event.game.combat.CrystalSpawnEvent;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Players;
@@ -64,7 +64,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * view of your head looks at it. A break is in your entity reach, measured to the
  * crystal's box. One place and one break a tick at most, and one rotation, so
  * when the two point different ways the break goes first and the place follows.
- * How strict the hands are is the {@code Interact} module's, shared by every
+ * How strict the hands are is the Interaction section of Client Settings, shared by every
  * module; this one only says what it wants.
  *
  * <h2>Breaking on spawn</h2>

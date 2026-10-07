@@ -13,6 +13,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.PlayerInput;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.function.BooleanSupplier;
 
@@ -68,6 +69,19 @@ public final class Rotations {
     private static boolean stashed;
     private static float stashedYaw;
     private static float stashedPitch;
+
+    /**
+     * The yaw the last movement packets carried, unwrapped, or null before any.
+     *
+     * <p>The game's yaw is never wrapped: turn round twice and it reads 720. Core
+     * hands rotations over wrapped to [-180, 180). Written as they come, a silent
+     * rotation on a player whose yaw reads 400 would jump the sent yaw by 360-odd
+     * degrees, and so would a turn across the seam at 180. Grim's AimModulo360
+     * (2.3.73) flags exactly that: a yaw change of over 320&deg; while the yaw is
+     * within &plusmn;360. So every yaw written is unwrapped to the same angle
+     * nearest this one, and the sent yaw only ever changes by the turn itself.
+     */
+    private static Float lastSentYaw;
 
     /** Whether this tick's rotation has been resolved: once a tick, by whichever hook comes first. */
     private static boolean resolved;
@@ -182,6 +196,10 @@ public final class Rotations {
      * model exists to prevent.
      */
     public static void afterMovementPackets() {
+        ClientPlayerEntity self = player();
+        if (self != null) {
+            lastSentYaw = self.getYaw();
+        }
         pendingSilent = null;
         restore();
     }
@@ -233,7 +251,7 @@ public final class Rotations {
         stashedPitch = self.getPitch();
         stashed = true;
 
-        self.setYaw(silent.getYaw());
+        self.setYaw(unwrapped(silent.getYaw(), lastSentYaw != null ? lastSentYaw : stashedYaw));
         self.setPitch(silent.getPitch());
     }
 
@@ -247,6 +265,11 @@ public final class Rotations {
             self.setYaw(stashedYaw);
             self.setPitch(stashedPitch);
         }
+    }
+
+    /** @return {@code yaw} as the same angle nearest {@code reference}, which may be any number of turns out */
+    private static float unwrapped(float yaw, float reference) {
+        return reference + MathHelper.wrapDegrees(yaw - reference);
     }
 
     private static float axis(boolean positive, boolean negative) {
@@ -307,7 +330,7 @@ public final class Rotations {
                 pendingSilent = null;
                 ClientPlayerEntity self = player();
                 if (self != null) {
-                    self.setYaw(rotation.getYaw());
+                    self.setYaw(unwrapped(rotation.getYaw(), self.getYaw()));
                     self.setPitch(rotation.getPitch());
                 }
                 return;

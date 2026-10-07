@@ -31,7 +31,7 @@ import dev.px.core.target.TargetSelector;
 import dev.px.core.target.TargetSort;
 import dev.px.karatsuba.adapter.combat.Combat;
 import dev.px.karatsuba.adapter.combat.CombatKit;
-import dev.px.karatsuba.client.module.combat.render.PlacementBox;
+import dev.px.karatsuba.client.render.PlacementBox;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.service.Services;

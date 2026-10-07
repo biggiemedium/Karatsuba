@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.utility;
+package dev.px.karatsuba.client.module.inventory;
 
 import dev.px.core.event.Subscribe;
 import dev.px.core.module.Module;
@@ -25,7 +25,7 @@ import dev.px.karatsuba.adapter.event.game.network.ScreenCloseEvent;
  * reason the event carries that flag at all.
  */
 @ModuleInfo(name = "X Carry", description = "Carries items in the crafting slots",
-        category = "Utility")
+        category = "Inventory")
 public final class XCarryModule extends Module {
 
     @Subscribe

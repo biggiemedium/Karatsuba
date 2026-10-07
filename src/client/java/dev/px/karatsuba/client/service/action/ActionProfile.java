@@ -9,7 +9,7 @@ import dev.px.karatsuba.adapter.game.player.Interactions;
  * <p>One profile for every module, so a crystal aura and a surround never
  * disagree about what the server allows. The defaults here are for Grim: look
  * at what you click, from within reach, one attack and one right-click a tick,
- * never while eating or in a container. The {@code Interact} module is the
+ * never while eating or in a container. The Interaction section of Client Settings is the
  * player's way to change them; until it is registered these are what applies.
  *
  * <p>Read every tick, so a changed setting applies at once.

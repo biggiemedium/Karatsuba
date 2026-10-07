@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.combat.render;
+package dev.px.karatsuba.client.render;
 
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
@@ -9,8 +9,10 @@ import dev.px.core.render.animation.Easing;
 import dev.px.core.render.animation.PresenceTracker;
 
 /**
- * The box an aura draws where it is placing: popped in, faded out, and slid to
- * the next placement when interpolating. Shared so every aura moves alike.
+ * The box a placing module draws where it is placing: popped in, faded out, and
+ * slid to the next placement when interpolating. Shared across categories (Crystal
+ * Aura and Bed Aura in Combat, Scaffold in Building) so they all move alike, which
+ * is why it lives here rather than in one category's package.
  *
  * <p>Two halves, like every animated module here: {@link #update} on the tick
  * says which box is shown and where a slide is heading; {@link #draw} every

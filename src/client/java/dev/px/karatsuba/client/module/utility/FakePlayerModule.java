@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.misc;
+package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.Core;
 import dev.px.core.event.Stage;
@@ -19,8 +19,8 @@ import dev.px.karatsuba.adapter.game.entity.FakePlayers;
 import dev.px.karatsuba.adapter.game.item.Equipment;
 import dev.px.karatsuba.adapter.game.item.ItemSpec;
 import dev.px.karatsuba.adapter.game.player.Players;
-import dev.px.karatsuba.client.module.misc.fakeplayer.ArmorSet;
-import dev.px.karatsuba.client.module.misc.fakeplayer.HeldItem;
+import dev.px.karatsuba.client.module.utility.fakeplayer.ArmorSet;
+import dev.px.karatsuba.client.module.utility.fakeplayer.HeldItem;
 
 /**
  * A target dummy: a player only this client can see, standing where you were.
@@ -40,7 +40,7 @@ import dev.px.karatsuba.client.module.misc.fakeplayer.HeldItem;
  * knockback, a scripted gapple-eating sequence, and copying your position every
  * tick, none of which tested anything real.
  */
-@ModuleInfo(name = "Fake Player", description = "Spawns a client-side dummy to test against", category = "Misc")
+@ModuleInfo(name = "Fake Player", description = "Spawns a client-side dummy to test against", category = "Utility")
 public final class FakePlayerModule extends Module {
 
     /** What a totem leaves its holder on, as in vanilla: half a heart. */

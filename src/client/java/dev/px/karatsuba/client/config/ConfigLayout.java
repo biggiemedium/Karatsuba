@@ -19,6 +19,8 @@ import dev.px.core.config.ConfigService;
  *       notifications.json      notification settings
  *       integrations.json       Discord presence and media settings
  *       commands.json           the command prefix
+ *       interaction.json        how attacks and clicks are checked and sent (Client Settings)
+ *       updates.json            update checks (Client Settings)
  *     hypixel/...
  *   shared/                     the same whichever profile is active
  *     friends.json

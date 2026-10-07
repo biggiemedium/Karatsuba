@@ -10,6 +10,7 @@ import dev.px.core.movement.simulation.MotionState;
 import dev.px.core.movement.simulation.MovementInput;
 import dev.px.core.util.math.PhysicsProfile;
 import dev.px.karatsuba.adapter.event.Events;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
@@ -194,6 +195,19 @@ public final class MotionBridge {
                 self.isSprinting(), self.isSneaking(),
                 Vec2.rotation(self.getYaw(), self.getPitch()),
                 lastReported);
+    }
+
+    /**
+     * @return the player's motion right now, in Core's terms, for stepping
+     *         {@code Core.simulation()} forward from; null out of a world
+     *
+     * <p>Read before the tick's move (at {@code TickEvent} PRE) it is where the
+     * last tick left the player, with the velocity this tick's move starts from:
+     * exactly what to simulate "what happens if I keep doing this" from.
+     */
+    public static MotionState currentState() {
+        ClientPlayerEntity self = MinecraftClient.getInstance().player;
+        return self == null ? null : stateOf(self);
     }
 
     private static MotionState stateOf(ClientPlayerEntity self) {

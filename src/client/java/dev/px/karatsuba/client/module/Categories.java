@@ -10,18 +10,25 @@ import dev.px.core.module.Category;
  * so this list lives here and not in the library. An enum keeps the ergonomics,
  * and registering the whole thing is one call.
  *
- * <p>The order decides where a category's window sits in the click GUI. The icon
- * key is never interpreted by Core; it is whatever a GUI of your own resolves.
+ * <p>Grouped by what the player is doing, not the old cheat-client drawers; see
+ * {@code MODULES.md} beside this file for what belongs where. A category is added
+ * here in the same change as its first module, so the click GUI never shows an
+ * empty window: Travel and Farming arrive with theirs.
+ *
+ * <p>The order decides where a category's window sits in the click GUI, and leaves
+ * gaps for the categories still to come. The icon key is never interpreted by Core;
+ * it is whatever a GUI of your own resolves.
  */
 public enum Categories implements Category {
 
     COMBAT("Combat", 0, "sword"),
     MOVEMENT("Movement", 1, "movement"),
-    RENDER("Render", 2, "eye"),
-    PLAYER("Player", 3, "player"),
-    UTILITY("Utility", 4, "wrench"),
-    EXPLOIT("Exploit", 5, "bug"),
-    MISC("Misc", 6, "gear");
+    // Travel (2) is added with its first module.
+    BUILDING("Building", 3, "cube"),
+    MINING("Mining", 4, "pickaxe"),
+    INVENTORY("Inventory", 5, "chest"),
+    RENDER("Render", 6, "eye"),
+    UTILITY("Utility", 7, "wrench");
 
     /**
      * Registers every category.

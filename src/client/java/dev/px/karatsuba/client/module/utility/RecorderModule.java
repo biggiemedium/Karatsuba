@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.misc;
+package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.Core;
 import dev.px.core.module.Module;
@@ -48,7 +48,7 @@ import java.util.Locale;
  * returns, so it is handed to a worker as is.
  */
 @ModuleInfo(name = "Recorder", description = "Records movement and packets to a timeline file",
-        category = "Misc")
+        category = "Utility")
 public final class RecorderModule extends Module {
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
