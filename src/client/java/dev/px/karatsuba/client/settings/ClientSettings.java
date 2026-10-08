@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.settings;
 import dev.px.core.Core;
 import dev.px.core.config.section.SettingsSection;
 import dev.px.karatsuba.client.settings.interaction.InteractionSettings;
+import dev.px.karatsuba.client.settings.alerts.AlertSettings;
 import dev.px.karatsuba.client.settings.updates.UpdateSettings;
 
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public final class ClientSettings {
         return new ClientSection[]{
                 new InteractionSettings(),
                 new UpdateSettings(),
+                new AlertSettings(),
         };
     }
 
@@ -87,5 +89,10 @@ public final class ClientSettings {
     /** Update checks. */
     public static UpdateSettings updates() {
         return get(UpdateSettings.class);
+    }
+
+    /** Which connection changes are announced. */
+    public static AlertSettings alerts() {
+        return get(AlertSettings.class);
     }
 }

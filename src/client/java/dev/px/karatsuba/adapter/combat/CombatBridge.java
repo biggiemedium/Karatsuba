@@ -9,7 +9,9 @@ import dev.px.core.math.Direction;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import dev.px.karatsuba.adapter.event.Events;
+import dev.px.combat.explosion.Explosive;
 import dev.px.karatsuba.adapter.event.game.combat.CrystalSpawnEvent;
+import dev.px.karatsuba.adapter.event.game.combat.ExplosionEvent;
 import dev.px.karatsuba.adapter.event.game.combat.TotemPopEvent;
 import dev.px.karatsuba.adapter.game.entity.CrystalTracker;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
@@ -37,6 +39,8 @@ import net.minecraft.util.math.Vec3d;
  *       removals it caused, so both are still there to be found. Anything else
  *       &mdash; TNT, creepers &mdash; is not a profile this client keeps, and is
  *       left out of the monitor rather than guessed at.</li>
+ *   <li>Then {@link ExplosionEvent}, for anything else that cares what went off
+ *       where (a fake player taking the damage).</li>
  *   <li><b>Totem pops</b> (status 35), which tell the monitor an explosion did at
  *       least everything a target had; then {@link TotemPopEvent}.</li>
  * </ul>
@@ -101,6 +105,7 @@ final class CombatBridge {
         });
         if (crystal[0]) {
             kit.monitor().exploded(origin, ExplosionProfile.END_CRYSTAL);
+            announce(origin, ExplosionProfile.END_CRYSTAL);
             return;
         }
 
@@ -115,12 +120,19 @@ final class CombatBridge {
         if (facing != null) {
             Bed bed = Bed.ofHead(Vec3i.of(x, y, z), facing);
             kit.monitor().exploded(origin, ExplosionProfile.BED, kit.bedRules().blocksWhenFired(bed));
+            announce(origin, ExplosionProfile.BED);
             return;
         }
         if (GameBlocks.anchorChargesAt(x, y, z) != AnchorLookup.NONE) {
             Vec3i cell = Vec3i.of(x, y, z);
             kit.monitor().exploded(origin, ExplosionProfile.RESPAWN_ANCHOR, kit.anchorRules().blocksWhenFired(cell));
+            announce(origin, ExplosionProfile.RESPAWN_ANCHOR);
         }
+    }
+
+    /** Tells the rest of the client, after the damage monitor. */
+    private static void announce(Vec3 origin, Explosive explosive) {
+        Events.post(new ExplosionEvent(origin, explosive.getName(), explosive.getPower()));
     }
 
     private void popped(EntityStatusS2CPacket status) {

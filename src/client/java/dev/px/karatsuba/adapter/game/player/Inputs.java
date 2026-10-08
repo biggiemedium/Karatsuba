@@ -1,8 +1,11 @@
 package dev.px.karatsuba.adapter.game.player;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.Input;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.util.PlayerInput;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -158,6 +161,59 @@ public final class Inputs {
     /** @return whether anything is currently being forced */
     public static boolean isForcing() {
         return !FORCED.isEmpty();
+    }
+
+    // ------------------------------------------------------ what was reported
+
+    /**
+     * @return whether the keys last told to the server move the player: forward,
+     *         back, left, right or jump
+     *
+     * <p>Not the keys held now. The game sends its input packet straight after the
+     * movement tick, from the keys that tick used, so until the next one this is
+     * exactly what the server last heard. Grim counts jump as moving too, which is
+     * why it is in here and not in {@link #anyMovement()}: it flags an inventory
+     * click or close while any of these was reported (MultiActionsC/D).
+     */
+    public static boolean reportedMovement() {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null || player.input == null) {
+            return false;
+        }
+        PlayerInput keys = player.input.playerInput;
+        return keys.forward() || keys.backward() || keys.left() || keys.right() || keys.jump();
+    }
+
+    /** Whether the next movement tick reports no movement keys; see {@link #holdStill()}. */
+    private static boolean holdingStill;
+
+    /**
+     * Stands the player still for the next movement tick: no movement keys, no
+     * jump, no sprint, as if the player had let go for one tick.
+     *
+     * <p>For something that may only happen while the server believes the player
+     * is still, such as an inventory click. The keys the game reports are the
+     * ones it moves by, so the move, the input packet and the stop of the sprint
+     * all agree and there is nothing for a simulation to object to. The keyboard
+     * is left alone, so the player's keys apply again the tick after.
+     */
+    public static void holdStill() {
+        holdingStill = true;
+    }
+
+    /**
+     * Applies {@link #holdStill()} to the keys the game has just read. Called by
+     * the player mixin straight after {@code Input.tick()}, after the Move Fix.
+     */
+    public static void applyHoldStill(Input input) {
+        if (!holdingStill || input == null) {
+            return;
+        }
+        holdingStill = false;
+        PlayerInput keys = input.playerInput;
+        input.playerInput = new PlayerInput(false, false, false, false, false, keys.sneak(), false);
+        input.movementForward = 0f;
+        input.movementSideways = 0f;
     }
 
     // ------------------------------------------------------------- internal

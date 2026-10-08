@@ -3,19 +3,23 @@ package dev.px.karatsuba.adapter.mixin.render;
 import dev.px.core.math.Box;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.render.BlockOutlineEvent;
+import dev.px.karatsuba.adapter.render.BlockVisibility;
 import dev.px.karatsuba.adapter.world.Voxels;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.BlockRenderView;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * The black wireframe around the targeted block.
@@ -47,6 +51,20 @@ public abstract class WorldRendererMixin {
         BlockOutlineEvent event = new BlockOutlineEvent(Voxels.toVec3i(pos), outlineOf(world, pos, state));
         if (Events.cancelled(event)) {
             callback.cancel();
+        }
+    }
+
+    /**
+     * Full light for every block drawn under a {@link BlockVisibility} filter with
+     * full bright on: an ore buried in stone has no light of its own, and would
+     * otherwise draw black. The overload chunk building lights blocks with.
+     */
+    @Inject(method = "getLightmapCoordinates(Lnet/minecraft/world/BlockRenderView;Lnet/minecraft/block/BlockState;Lnet/minecraft/util/math/BlockPos;)I",
+            at = @At("HEAD"), cancellable = true)
+    private static void karatsuba$getLightmapCoordinates(BlockRenderView world, BlockState state, BlockPos pos,
+                                                         CallbackInfoReturnable<Integer> callback) {
+        if (BlockVisibility.isFullBright()) {
+            callback.setReturnValue(LightmapTextureManager.MAX_LIGHT_COORDINATE);
         }
     }
 

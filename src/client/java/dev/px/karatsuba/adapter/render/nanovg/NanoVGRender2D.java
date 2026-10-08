@@ -47,6 +47,16 @@ public final class NanoVGRender2D implements Render2D {
     private final float[] alphaStack = new float[64];
     private int alphaDepth;
 
+    /** Open {@code nvgSave}s: clips, transforms and alphas not yet popped. */
+    private int saveDepth;
+
+    /** The frame as last begun, so {@link #resume()} can begin it again. */
+    private float frameWidth;
+    private float frameHeight;
+    private float frameScale;
+    private boolean inFrame;
+    private boolean suspended;
+
     private NanoVGRender2D(long context) {
         this.context = context;
     }
@@ -89,12 +99,54 @@ public final class NanoVGRender2D implements Render2D {
         NanoVG.nvgBeginFrame(context, width, height, scale);
 
         alphaDepth = 0;
+        saveDepth = 0;
+        frameWidth = width;
+        frameHeight = height;
+        frameScale = scale;
+        inFrame = true;
     }
 
     @Override
     public void endFrame() {
         NanoVG.nvgEndFrame(context);
         guard.restore();
+        inFrame = false;
+    }
+
+    /**
+     * Paints everything drawn so far this frame and steps out of it, so the game
+     * can draw; {@link #resume()} starts the frame again afterwards.
+     *
+     * <p>The only safe way for the game to draw in the middle of one of our
+     * frames. NanoVG holds its draws until the frame ends, so a game draw made
+     * inside a frame lands <em>under</em> NanoVG content drawn before it. Worse,
+     * {@link GlStateGuard} puts back the GL state from the frame's start when the
+     * frame ends, undoing the game's own changes behind its state cache's back;
+     * the game's next draw then trusts a binding that is not there and draws
+     * garbage. Suspended, the guard has restored the game's state before it draws,
+     * and {@link #resume()} records it afresh after.
+     *
+     * <p>Resuming starts with no clip, transform or alpha, so this refuses while
+     * any of those is pushed rather than silently dropping it.
+     *
+     * @return whether it stepped out; false outside a frame or with state pushed,
+     *         in which case the caller must not draw with the game
+     */
+    public boolean suspend() {
+        if (!inFrame || saveDepth != 0) {
+            return false;
+        }
+        endFrame();
+        suspended = true;
+        return true;
+    }
+
+    /** Starts the frame {@link #suspend()} stepped out of again, at the same size. */
+    public void resume() {
+        if (suspended) {
+            suspended = false;
+            beginFrame(frameWidth, frameHeight, frameScale);
+        }
     }
 
     // ---------------------------------------------------------------- shapes
@@ -302,7 +354,7 @@ public final class NanoVGRender2D implements Render2D {
 
     @Override
     public void pushClip(float x, float y, float width, float height) {
-        NanoVG.nvgSave(context);
+        save();
         // Intersect rather than replace: a scrolling panel inside a scrolling panel
         // has to end up with the overlap of both, not the inner one alone.
         NanoVG.nvgIntersectScissor(context, x, y, width, height);
@@ -310,17 +362,17 @@ public final class NanoVGRender2D implements Render2D {
 
     @Override
     public void popClip() {
-        NanoVG.nvgRestore(context);
+        restore();
     }
 
     @Override
     public void pushTransform() {
-        NanoVG.nvgSave(context);
+        save();
     }
 
     @Override
     public void popTransform() {
-        NanoVG.nvgRestore(context);
+        restore();
     }
 
     @Override
@@ -345,7 +397,7 @@ public final class NanoVGRender2D implements Render2D {
         float current = alphaDepth == 0 ? 1f : alphaStack[Math.min(alphaDepth, alphaStack.length) - 1];
         float combined = current * alpha;
 
-        NanoVG.nvgSave(context);
+        save();
         NanoVG.nvgGlobalAlpha(context, combined);
 
         if (alphaDepth < alphaStack.length) {
@@ -356,13 +408,26 @@ public final class NanoVGRender2D implements Render2D {
 
     @Override
     public void popAlpha() {
-        NanoVG.nvgRestore(context);
+        restore();
         if (alphaDepth > 0) {
             alphaDepth--;
         }
     }
 
     // ---------------------------------------------------------------- shared
+
+    /** Every push goes through here, so {@link #suspend()} knows whether any are open. */
+    private void save() {
+        NanoVG.nvgSave(context);
+        saveDepth++;
+    }
+
+    private void restore() {
+        NanoVG.nvgRestore(context);
+        if (saveDepth > 0) {
+            saveDepth--;
+        }
+    }
 
     private void fill(Color color) {
         NanoVG.nvgFillColor(context, nvg(color, scratchFill));

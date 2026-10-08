@@ -15,6 +15,7 @@ import dev.px.karatsuba.client.anticheat.AntiCheats;
 import dev.px.karatsuba.client.network.Servers;
 import dev.px.karatsuba.client.screen.Overlays;
 import dev.px.karatsuba.client.service.Services;
+import dev.px.karatsuba.client.setting.SettingTypes;
 import dev.px.karatsuba.client.settings.ClientSettings;
 import dev.px.karatsuba.client.theme.Themes;
 
@@ -134,6 +135,9 @@ public final class Karatsuba {
         // plays by (how rotations, clicks and packets go out). After the services,
         // which a section hands itself to, and before any module is created.
         ClientSettings.registerAll(core);
+
+        // The rows for setting types Core does not have, before any screen is built.
+        SettingTypes.registerAll(core);
 
         Categories.registerAll(core);
         Themes.registerAll(core);

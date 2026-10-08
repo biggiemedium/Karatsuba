@@ -5,7 +5,10 @@ import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 
@@ -278,6 +281,24 @@ public final class Players {
     /** @return whether a container or inventory screen is open, which a player cannot click the world through */
     public static boolean inContainer() {
         return MinecraftClient.getInstance().currentScreen instanceof HandledScreen<?>;
+    }
+
+    /** @return whether the player's own inventory screen is open, survival or creative */
+    public static boolean inOwnInventory() {
+        Screen screen = MinecraftClient.getInstance().currentScreen;
+        return screen instanceof InventoryScreen || screen instanceof CreativeInventoryScreen;
+    }
+
+    /**
+     * @return whether another container is open on the server's side: a chest, a
+     *         furnace, anything but the player's own inventory
+     *
+     * <p>While one is, a click on the player's own inventory names a window the
+     * server is not showing, so nothing may click it.
+     */
+    public static boolean inOtherContainer() {
+        ClientPlayerEntity self = player();
+        return self != null && self.currentScreenHandler != self.playerScreenHandler;
     }
 
     /**

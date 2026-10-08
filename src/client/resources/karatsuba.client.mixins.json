@@ -20,7 +20,12 @@
 		"player.LivingEntityInvoker",
 		"player.LivingEntityMixin",
 		"render.BackgroundRendererMixin",
+		"render.BlockEntityRenderDispatcherMixin",
+		"render.BlockMixin",
+		"render.BlockRenderManagerMixin",
+		"render.BlockStateMixin",
 		"render.CameraMixin",
+		"render.ChunkOcclusionDataBuilderMixin",
 		"render.EntityRendererMixin",
 		"render.ClientWorldMixin",
 		"render.GameRendererMixin",
@@ -30,7 +35,8 @@
 		"render.ParticleManagerMixin",
 		"render.RenderPhaseAccessor",
 		"render.WorldRendererMixin",
-		"sound.SoundSystemMixin"
+		"sound.SoundSystemMixin",
+		"world.WorldChunkMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

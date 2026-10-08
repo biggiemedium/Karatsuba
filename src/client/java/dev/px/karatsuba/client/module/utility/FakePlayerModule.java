@@ -3,17 +3,23 @@ package dev.px.karatsuba.client.module.utility;
 import dev.px.core.Core;
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
+import dev.px.core.event.impl.KeyEvent;
+import dev.px.core.event.impl.MouseEvent;
 import dev.px.core.event.impl.TickEvent;
+import dev.px.core.input.Bind;
 import dev.px.core.math.MathUtil;
 import dev.px.core.math.Vec2;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
+import dev.px.core.setting.impl.BindSetting;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.setting.impl.StringSetting;
 import dev.px.core.util.math.RotationMath;
+import dev.px.karatsuba.adapter.event.game.combat.ExplosionEvent;
+import dev.px.karatsuba.adapter.event.game.combat.TotemPopEvent;
 import dev.px.karatsuba.adapter.event.game.player.AttackEvent;
 import dev.px.karatsuba.adapter.game.entity.FakePlayers;
 import dev.px.karatsuba.adapter.game.item.Equipment;
@@ -21,65 +27,120 @@ import dev.px.karatsuba.adapter.game.item.ItemSpec;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.module.utility.fakeplayer.ArmorSet;
 import dev.px.karatsuba.client.module.utility.fakeplayer.HeldItem;
+import dev.px.karatsuba.client.module.utility.fakeplayer.MotionRecording;
+
+import java.util.Locale;
 
 /**
- * A target dummy: a player only this client can see, standing where you were.
+ * A target dummy for crystal PvP practice: a player only this client can see,
+ * that takes real damage and pops real totems, and can run a path you recorded.
  *
- * <p>For testing everything that looks at players &mdash; ESP, name tags, aim,
- * combat timing &mdash; without a second account. It is a real player entity on
- * the client, so every module finds it the ordinary way.
+ * <h2>Damage, as the game deals it</h2>
+ * <ul>
+ *   <li><b>Swords</b>: your hit is kept from the server (which has never heard of
+ *       the dummy) and dealt here the way the game would: your weapon scaled by
+ *       the attack cooldown, Sharpness, a critical hit's half again, then the
+ *       dummy's armour and Protection.</li>
+ *   <li><b>Crystals</b>, beds and anchors: every real explosion near it, yours or
+ *       anyone's, hurts it through the same 1.21.4 explosion maths the auras
+ *       score with, armour and Blast Protection included. So a crystal aura
+ *       pointed at it does exactly the damage it would to a player in that kit.</li>
+ *   <li>Like a player, it is only hurt again within half a second of a hit by
+ *       more than that hit did, and only by the difference: two crystals in one
+ *       tick do not stack.</li>
+ * </ul>
  *
- * <p>Hitting it works as a dummy should. The attack is kept from the server
- * (which would ignore an entity it has never heard of anyway), the dummy flinches
- * and makes the hurt sound, and, unless it is invincible, loses the health your
- * hit would deal: your weapon's damage scaled by the attack cooldown, as the game
- * scales it. A lethal hit pops its totem if it has one, and kills it if not.
+ * <h2>Totems</h2>
+ * It always has totems, a full stack in the off hand that never runs out. With
+ * {@code Pop Totems} on, a lethal hit pops one as the game does: down to half a
+ * heart, four golden hearts of absorption for five seconds, Regeneration II for
+ * 45 and Fire Resistance for 40, with the particles, the sound and a pop that
+ * Combat Info counts. Off, a lethal hit simply puts it back to full health, for
+ * testing damage without the pops.
  *
- * <p>Ported from Leapfrog's {@code FakePlayer}, keeping the kit, the totems and
- * the rotation mirroring. Left behind: damage taken from <em>your</em>
- * knockback, a scripted gapple-eating sequence, and copying your position every
- * tick, none of which tested anything real.
+ * <h2>Movement</h2>
+ * Press {@code Record Bind} to start recording your movement, and again to stop:
+ * the dummy then runs that path on a loop, restarting or going back and forth,
+ * walking, jumping and crouching where you did. It moves the way the game moves
+ * any other player, so the auras' prediction and Predict ESP see an ordinary
+ * moving target. With no recording it stands where it was spawned, optionally
+ * turning to face the way you face.
  */
-@ModuleInfo(name = "Fake Player", description = "Spawns a client-side dummy to test against", category = "Utility")
+@ModuleInfo(name = "Fake Player", description = "A dummy that takes crystal and sword damage, pops totems and runs your path",
+        category = "Utility")
 public final class FakePlayerModule extends Module {
 
-    /** What a totem leaves its holder on, as in vanilla: half a heart. */
+    /** What a totem leaves its holder on: half a heart. */
     private static final float TOTEM_HEALTH = 1f;
 
-    /** The smoothing per tick at Rotation Speed 1: a tenth of the remaining turn, as Leapfrog turned. */
+    /** Absorption II: four golden hearts. */
+    private static final float TOTEM_ABSORPTION = 8f;
+
+    private static final int ABSORPTION_TICKS = 5 * 20;
+    private static final int REGENERATION_TICKS = 45 * 20;
+    private static final int FIRE_RESISTANCE_TICKS = 40 * 20;
+
+    /** Regeneration II heals one point every this many ticks. */
+    private static final int REGENERATION_INTERVAL = 25;
+
+    /** After a hit, only a harder hit lands, for this long: half a player's invulnerability. */
+    private static final int HURT_WINDOW_TICKS = 10;
+
+    /** The smoothing per tick at Rotation Speed 1: a tenth of the remaining turn. */
     private static final float TURN_PER_SPEED = 0.1f;
 
     private final StringSetting name = text("Name", "Barnaby")
             .describe("Takes effect the next time it is spawned");
 
-    // ---------------------------------------------------------------- kit
+    // ------------------------------------------------------------------ kit
 
     private final EnumSetting<ArmorSet> armor = enumOf("Armor", ArmorSet.NETHERITE)
             .onChange(ignored -> dress());
     private final EnumSetting<HeldItem> heldItem = enumOf("Held Item", HeldItem.ENCHANTED_GAPPLE)
             .onChange(ignored -> dress());
-    private final BooleanSetting totem = bool("Totem", true)
-            .describe("A totem of undying in the off hand, which saves it from one lethal hit")
-            .onChange(ignored -> freshTotem());
-    private final BooleanSetting infiniteTotems = bool("Infinite Totems", true)
-            .describe("A fresh totem after every pop, so it can never die")
-            .visibleWhen(totem)
-            .onChange(ignored -> freshTotem());
 
     private final GroupSetting kit = group("Kit", true)
-            .containing(armor, heldItem, totem, infiniteTotems);
+            .containing(armor, heldItem);
 
-    // ------------------------------------------------------------ behaviour
+    // --------------------------------------------------------------- damage
 
-    private final BooleanSetting invincible = bool("Invincible", true)
-            .describe("Flinches when hit but never loses health");
+    private final BooleanSetting takeDamage = bool("Take Damage", true)
+            .describe("Lose health to hits and explosions; off, it only flinches");
+
+    private final BooleanSetting explosions = bool("Explosions", true)
+            .describe("Crystals, beds and anchors going off near it hurt it")
+            .visibleWhen(takeDamage);
+
+    private final BooleanSetting popTotems = bool("Pop Totems", true)
+            .describe("A lethal hit pops a totem (it never runs out); off, it just goes back to full health")
+            .visibleWhen(takeDamage);
+
+    private final NumberSetting<Integer> healAfter = integer("Heal After", 0, 0, 30)
+            .describe("Seconds without a hit before it heals to full; 0 never")
+            .visibleWhen(takeDamage);
+
+    private final GroupSetting damage = group("Damage", true)
+            .containing(takeDamage, explosions, popTotems, healAfter);
+
+    // ------------------------------------------------------------- movement
+
+    private final BindSetting recordBind = bind("Record Bind")
+            .describe("Start recording your movement; press again to stop and have it run the path");
+
+    private final EnumSetting<MotionRecording.LoopMode> loopMode = enumOf("Loop", MotionRecording.LoopMode.PING_PONG)
+            .describe("RESTART jumps back to the start; PING_PONG runs the path back and forth");
+
+    private final NumberSetting<Integer> maxLength = integer("Max Length", 60, 5, 300)
+            .describe("Seconds after which a recording stops on its own");
+
     private final BooleanSetting copyRotation = bool("Copy Rotation", false)
-            .describe("Turns to face the way you are facing");
+            .describe("With no path to run, turn to face the way you are facing");
+
     private final NumberSetting<Float> rotationSpeed = number("Rotation Speed", 1f, 0.1f, 5f).step(0.1f)
             .visibleWhen(copyRotation);
 
-    private final GroupSetting behaviour = group("Behaviour", true)
-            .containing(invincible, copyRotation, rotationSpeed);
+    private final GroupSetting movement = group("Movement", true)
+            .containing(recordBind, loopMode, maxLength, copyRotation, rotationSpeed);
 
     /** The dummy's entity id, or {@link FakePlayers#NO_ENTITY} when there is none. */
     private int dummy = FakePlayers.NO_ENTITY;
@@ -87,10 +148,19 @@ public final class FakePlayerModule extends Module {
     /** Its health, kept here: the dummy has no server to keep it. */
     private float health;
 
-    /** Whether its one totem has been used. Only meaningful without infinite totems. */
-    private boolean totemSpent;
+    private final MotionRecording path = new MotionRecording();
+    private boolean recording;
 
     private Vec2 facing = Vec2.rotation(0f, 0f);
+
+    // What a totem pop left running, counted down here: the client does not tick a fake's effects.
+    private int absorptionTicks;
+    private int regenerationTicks;
+    private int fireResistanceTicks;
+
+    /** Ticks since it was last hurt, and how hard: the hurt window. */
+    private int sinceHurt = Integer.MAX_VALUE / 2;
+    private float lastHurt;
 
     @Override
     protected void onEnable() {
@@ -102,9 +172,11 @@ public final class FakePlayerModule extends Module {
         facing = Players.rotation();
         dummy = FakePlayers.spawn(name.get(), Players.position(), facing);
         health = FakePlayers.maxHealth(dummy);
-        totemSpent = false;
-
         FakePlayers.setHealth(dummy, health);
+        absorptionTicks = regenerationTicks = fireResistanceTicks = 0;
+        sinceHurt = Integer.MAX_VALUE / 2;
+        recording = false;
+        path.rewind();
         dress();
     }
 
@@ -112,10 +184,11 @@ public final class FakePlayerModule extends Module {
     protected void onDisable() {
         FakePlayers.remove(dummy);
         dummy = FakePlayers.NO_ENTITY;
+        recording = false;
     }
 
     /**
-     * Keeps the dummy turned, and notices when it has gone.
+     * Records, replays, turns and heals, and notices when the dummy has gone.
      *
      * <p>A world or dimension change drops every entity the client made, the
      * dummy included. Rather than respawning it somewhere unexpected, the module
@@ -127,11 +200,27 @@ public final class FakePlayerModule extends Module {
             disable();
             return;
         }
-        if (copyRotation.isOn()) {
+        if (recording) {
+            path.add(new MotionRecording.Frame(Players.position(), Players.rotation(), Players.sneaking()));
+            if (path.seconds() >= maxLength.getInt()) {
+                stopRecording();
+            }
+        } else if (!path.isEmpty()) {
+            boolean jump = path.atStart();
+            MotionRecording.Frame frame = path.next(loopMode.get());
+            if (jump) {
+                FakePlayers.teleport(dummy, frame.position(), frame.rotation());
+            } else {
+                FakePlayers.moveTo(dummy, frame.position(), frame.rotation(), frame.sneaking());
+            }
+        } else if (copyRotation.isOn()) {
             facing = turnTowards(facing, Players.rotation());
             FakePlayers.setRotation(dummy, facing);
         }
+        tickRecovery();
     }
+
+    // -------------------------------------------------------------- damage
 
     /** A hit on the dummy, which the server must never see. */
     @Subscribe
@@ -140,51 +229,163 @@ public final class FakePlayerModule extends Module {
             return;
         }
         event.cancel();
-
-        float damage = invincible.isOn() ? 0f : hitDamage();
+        // Worked out before the cooldown restarts: the hit is as strong as the charge it was swung with.
+        float dealt = FakePlayers.meleeDamage(dummy);
         // The game never processed the hit, so the cooldown has to be restarted by
         // hand; otherwise every swing would land at full strength.
         Players.resetAttackCooldown();
-        FakePlayers.hurt(dummy);
+        hurt(dealt);
+    }
 
-        if (damage > 0f) {
-            takeDamage(damage);
+    @Subscribe
+    private void onExplosion(ExplosionEvent event) {
+        if (!explosions.isOn() || !FakePlayers.exists(dummy)) {
+            return;
+        }
+        float dealt = FakePlayers.explosionDamage(dummy, event.getOrigin(), event.getPower());
+        if (dealt > 0f) {
+            hurt(dealt);
         }
     }
 
-    /** Vanilla's scaling: a fifth of the damage at no charge, rising with the square of the cooldown. */
-    private static float hitDamage() {
-        float charge = Players.attackCooldown();
-        return Players.attackDamage() * (0.2f + charge * charge * 0.8f);
+    /**
+     * One hit, through the hurt window: within it, only the part of a hit beyond
+     * the last one lands, as with a player.
+     */
+    private void hurt(float dealt) {
+        if (!takeDamage.isOn()) {
+            FakePlayers.hurt(dummy);
+            return;
+        }
+        float landed;
+        if (sinceHurt < HURT_WINDOW_TICKS) {
+            if (dealt <= lastHurt) {
+                return;
+            }
+            landed = dealt - lastHurt;
+        } else {
+            landed = dealt;
+            sinceHurt = 0;
+            FakePlayers.hurt(dummy);
+        }
+        lastHurt = Math.max(lastHurt, dealt);
+        if (landed > 0f) {
+            takeDamage(landed);
+        }
     }
 
-    private void takeDamage(float damage) {
-        health -= damage;
+    /** Absorption first, then health; a lethal hit pops a totem, or with pops off, heals it. */
+    private void takeDamage(float amount) {
+        float absorption = FakePlayers.absorption(dummy);
+        float throughAbsorption = Math.max(0f, amount - absorption);
+        FakePlayers.setAbsorption(dummy, Math.max(0f, absorption - amount));
+        health -= throughAbsorption;
         if (health > 0f) {
             FakePlayers.setHealth(dummy, health);
             return;
         }
-        if (hasTotem()) {
+        if (popTotems.isOn()) {
             popTotem();
-            return;
+        } else {
+            health = FakePlayers.maxHealth(dummy);
+            FakePlayers.setHealth(dummy, health);
         }
-        Core.notifications().info(getName(), name.get() + " died");
-        disable();
     }
 
+    /** What a totem of undying does, effects and all, and a pop the rest of the client hears. */
     private void popTotem() {
         health = TOTEM_HEALTH;
         FakePlayers.setHealth(dummy, health);
+        FakePlayers.setAbsorption(dummy, TOTEM_ABSORPTION);
+        absorptionTicks = ABSORPTION_TICKS;
+        regenerationTicks = REGENERATION_TICKS;
+        fireResistanceTicks = FIRE_RESISTANCE_TICKS;
+        FakePlayers.setEffect(dummy, "minecraft:absorption", 2, absorptionTicks);
+        FakePlayers.setEffect(dummy, "minecraft:regeneration", 2, regenerationTicks);
+        FakePlayers.setEffect(dummy, "minecraft:fire_resistance", 1, fireResistanceTicks);
         FakePlayers.popTotem(dummy);
-        if (!infiniteTotems.isOn()) {
-            totemSpent = true;
+        Core.bus().post(new TotemPopEvent(dummy, name.get(), FakePlayers.position(dummy), false));
+    }
+
+    /** Counts down what a pop left, heals with regeneration, and heals fully after a quiet spell. */
+    private void tickRecovery() {
+        sinceHurt++;
+        if (sinceHurt >= HURT_WINDOW_TICKS) {
+            lastHurt = 0f;
         }
-        restockTotem();
+        // The effects themselves count down on the client; only their ends and the
+        // healing are done here. Re-applying them each tick would not do: applying
+        // Absorption refills the golden hearts, so they would never drain.
+        if (regenerationTicks > 0) {
+            regenerationTicks--;
+            if (regenerationTicks % REGENERATION_INTERVAL == 0) {
+                heal(1f);
+            }
+            if (regenerationTicks == 0) {
+                FakePlayers.setEffect(dummy, "minecraft:regeneration", 2, 0);
+            }
+        }
+        if (absorptionTicks > 0 && --absorptionTicks == 0) {
+            // The golden hearts go when the effect does.
+            FakePlayers.setEffect(dummy, "minecraft:absorption", 2, 0);
+            FakePlayers.setAbsorption(dummy, 0f);
+        }
+        if (fireResistanceTicks > 0 && --fireResistanceTicks == 0) {
+            FakePlayers.setEffect(dummy, "minecraft:fire_resistance", 1, 0);
+        }
+        if (healAfter.getInt() > 0 && sinceHurt == healAfter.getInt() * 20) {
+            heal(FakePlayers.maxHealth(dummy));
+        }
+    }
+
+    private void heal(float amount) {
+        health = Math.min(FakePlayers.maxHealth(dummy), health + amount);
+        FakePlayers.setHealth(dummy, health);
+    }
+
+    // ------------------------------------------------------------ recording
+
+    @Subscribe
+    private void onKey(KeyEvent event) {
+        Bind bind = recordBind.get();
+        if (event.isPressed() && !bind.isMouse() && bind.isBound()
+                && bind.matches(event.getKey(), event.getModifiers())) {
+            toggleRecording();
+        }
+    }
+
+    @Subscribe
+    private void onMouse(MouseEvent event) {
+        Bind bind = recordBind.get();
+        if (event.isPressed() && bind.isMouse() && bind.matches(event.getButton(), event.getModifiers())) {
+            toggleRecording();
+        }
+    }
+
+    private void toggleRecording() {
+        if (recording) {
+            stopRecording();
+            return;
+        }
+        path.clear();
+        recording = true;
+        Core.notifications().info(getName(), "Recording your movement");
+    }
+
+    private void stopRecording() {
+        recording = false;
+        path.rewind();
+        if (path.size() < 2) {
+            path.clear();
+            Core.notifications().info(getName(), "Recording too short");
+            return;
+        }
+        Core.notifications().info(getName(), String.format(Locale.ROOT, "Running a %.1fs path", path.seconds()));
     }
 
     // ------------------------------------------------------------------ kit
 
-    /** Puts the whole kit on: armour, held item and totem. */
+    /** Puts the whole kit on: armour, held item and a full stack of totems, and makes the armour count. */
     private void dress() {
         if (!FakePlayers.exists(dummy)) {
             return;
@@ -195,33 +396,8 @@ public final class FakePlayerModule extends Module {
             Equipment.equip(dummy, slot, set.pieceFor(slot));
         }
         Equipment.equip(dummy, Equipment.Slot.MAIN_HAND, heldItem.get().spec(set));
-        restockTotem();
-    }
-
-    /**
-     * Puts a totem in the off hand, or takes it away.
-     *
-     * <p>Infinite totems show a full stack, a single totem shows one, and a spent
-     * one shows nothing &mdash; so a name tag reads the dummy's state at a glance.
-     */
-    private void restockTotem() {
-        if (!FakePlayers.exists(dummy)) {
-            return;
-        }
-        ItemSpec offHand = hasTotem()
-                ? ItemSpec.of("totem_of_undying").count(infiniteTotems.isOn() ? 64 : 1)
-                : ItemSpec.NONE;
-        Equipment.equip(dummy, Equipment.Slot.OFF_HAND, offHand);
-    }
-
-    /** A changed totem setting is a new kit, so a spent totem is replaced. */
-    private void freshTotem() {
-        totemSpent = false;
-        restockTotem();
-    }
-
-    private boolean hasTotem() {
-        return totem.isOn() && (infiniteTotems.isOn() || !totemSpent);
+        Equipment.equip(dummy, Equipment.Slot.OFF_HAND, ItemSpec.of("totem_of_undying").count(64));
+        FakePlayers.refreshArmor(dummy);
     }
 
     /** Eases a fraction of the remaining turn each tick, the shorter way round. */
@@ -230,5 +406,13 @@ public final class FakePlayerModule extends Module {
         float yaw = current.getYaw() + MathUtil.wrapDegrees(target.getYaw() - current.getYaw()) * share;
         float pitch = current.getPitch() + (target.getPitch() - current.getPitch()) * share;
         return Vec2.rotation(yaw, RotationMath.clampPitch(pitch));
+    }
+
+    @Override
+    public String getDisplayInfo() {
+        if (recording) {
+            return String.format(Locale.ROOT, "Rec %.0fs", path.seconds());
+        }
+        return path.isEmpty() ? "" : "Path";
     }
 }

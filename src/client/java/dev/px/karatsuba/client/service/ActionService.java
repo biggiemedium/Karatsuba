@@ -371,7 +371,8 @@ public final class ActionService implements Service {
         if (!Players.present()) {
             return Outcome.BUSY;
         }
-        InventoryService.OffhandResult result = Services.inventory().toOffhand(action.getItem(), profile.checks());
+        InventoryService.OffhandResult result = Services.inventory()
+                .toOffhand(action.getItem(), profile.checks(), action.isStopping());
         swapped = result == InventoryService.OffhandResult.SENT;
         switch (result) {
             case ALREADY:

@@ -65,9 +65,9 @@ Building.
 | Movement | Parkour, Safe Walk, Speed, Sprint, Step |
 | Building | Scaffold |
 | Mining | Auto Tool |
-| Inventory | XCarry |
-| Render | Block Overlay, ESP, Free Cam, Hole ESP, Name Tags, Render Adjustments |
-| Utility | Anti AFK, Anti Hunger, Anti Sound, Fake Player, Middle Click, Recorder, Server Alerts |
+| Inventory | Elytra Swap, Inventory Manager, XCarry |
+| Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Render Adjustments, Search |
+| Utility | Anti AFK, Anti Hunger, Anti Sound, Fake Player, Middle Click, Recorder |
 
 **What moved in the refactor:**
 
@@ -90,6 +90,7 @@ everything else.
 |---|---|---|
 | **Interaction** | How every module's attacks, clicks, swaps and rotations are checked and sent: Checks, Rotate, Rotation Mode, Turn Speed, Move Fix, Raytrace, Swap, Swing, delays, Same Tick, Multitask, Air Place | the Interact module. Its on/off toggle is now the explicit **Checks** setting |
 | **Updates** | Check for a newer release, how often, notify once | the Update Check module |
+| **Alerts** | Notify on lag spikes, server software, anticheat changes | the Server Alerts module |
 
 Later: other client-wide settings that live in a service with no screen today (the
 command prefix, notifications).
@@ -110,6 +111,15 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   change.
 - **Parkour** · done: presses jump on the last ground tick before a drop of at
   least Min Drop. Runs before Safe Walk, so both can be on together.
+- **Elytra Swap** · in Inventory (it manages gear), needs in-game testing. The bind works with the module off (pressing it turns the module on): one bind between chestplate and
+  elytra (Take Off jumps and opens it with the real jump key), a fresher elytra
+  swapped in mid-flight before the worn one gives out, and **Crystal Guard**: while
+  in an elytra, each crystal an enemy could set off is scored with the 1.21.4
+  explosion maths (`adapter.combat.SelfBlast`) at where you will be from when a
+  chestplate could be on to Look Ahead ticks later; too much and the chestplate goes
+  on, Blast Protection first. Re-Equip puts the elytra back once safe while still
+  falling. The chest slot never empties mid-swap (pieces in the main inventory go
+  via a borrowed hotbar slot, which is put back after).
 - Shared pieces: `Ledges` (simulation questions) and `TickKey` (a one-tick key
   press, always released at tick end).
 - **Speed** · rework: Grim simulates every tick from your keys, so a "speed" there
@@ -152,9 +162,16 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Inventory
 
-- **Inventory Manager** · M: auto armour, hotbar refill into fixed slots (kits per
-  profile), cleaner. Clicks only while still and at most one a tick, never in the
-  same tick as an action (MultiActionsC). Stays out of Auto Totem's and the auras' way.
+- **Inventory Manager** · done (needs in-game testing): one module, three switchable
+  jobs that decide together. **Armour** wears the best pieces (Protection or Blast
+  preference, replaces nearly broken ones, never Binding, keeps a worn elytra) and
+  may stop you a tick to fill a bare slot. **Refill** has no kit: it tops up hotbar
+  stacks and refills a slot whose item was used up, never junk. **Cleaner** throws a
+  blacklist (an `ItemSetting`) or everything outside the hotbar not on a whitelist,
+  with its own bind for looting. All clicks go through `Services.inventory().click()`:
+  one a tick, only while the server believes you are still, armour > refill > cleaner,
+  all below Auto Totem. Kits per profile were dropped: they break the moment you
+  rearrange your inventory to go base hunting.
 - **Auto Eat** · S–M: real held right-click through the game's input, so it slows
   you and reports item use as vanilla does (silent eating fails Grim). Picks quiet
   moments and gives combat priority.
@@ -165,10 +182,26 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 - **Trajectories** · S–M: where a pearl, arrow, potion or bottle will land, and where
   incoming pearls from other players will land. Server physics, block collision
   against our `BlockView`.
-- **Predict ESP** · M: where enemies will be, from `Core.prediction()`. Makes the
-  auras' Predict setting visible. Maybe a mode of ESP rather than its own module.
-- **Search** · M: find blocks across loaded chunks (spawners, chests, portals).
-  Shares Ore Scanner's chunk scanning.
+- **Predict ESP** · done, its own module (needs in-game testing): the likeliest
+  predicted hitbox `Ticks` ahead from `Core.prediction()` (the auras' Predict), its
+  path, optional faint alternative futures by weight, and Reliable/Unsure colour.
+- **Block Overlay** · now also Break ESP (needs in-game testing): every block being
+  broken (`BlockBreakingEvent` from `ClientWorld.setBlockBreakingInfo`), a fill that
+  grows with progress smoothed between the server's 10 steps, labels with who, % and
+  time left, and Surround Alert for blocks next to your feet.
+- **Theme Colours** convention: a render module offers one `Theme Colours` switch and
+  draws every colour through `client.render.ThemeColors`, each colour role at its own
+  point on the theme's accent gradient. Block Overlay and Predict ESP have it.
+- **Search** · done (needs in-game testing): a block `ItemSetting` (block ids, so
+  portals and redstone wire work), each chunk scanned once on arrival via
+  `adapter.world.BlockScan` (palette skip), kept current by `BlockChangeEvent`,
+  scanned a few chunks a tick; draws the nearest Max Shown within Range as boxes in
+  map colour or one colour, optional tracers. Ore Scanner can build on `BlockScan`.
+- **No Block Render** · done (needs in-game testing): draws only the blocks on a
+  block `ItemSetting` (ores, debris, spawners, liquids by default), through
+  `adapter.render.BlockVisibility` and the chunk mixins (`BlockRenderManagerMixin`,
+  `BlockMixin`, `ChunkOcclusionDataBuilderMixin`, `BlockEntityRenderDispatcherMixin`,
+  hidden blocks report `INVISIBLE` via `BlockStateMixin`, which Indigo cannot bypass; full bright via `WorldRendererMixin` + `BlockStateMixin`). Vanilla renderer only.
 
 ### Utility
 

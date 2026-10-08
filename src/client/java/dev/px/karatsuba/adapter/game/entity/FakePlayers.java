@@ -3,14 +3,38 @@ package dev.px.karatsuba.adapter.game.entity;
 import com.mojang.authlib.GameProfile;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
+import dev.px.combat.explosion.state.TargetState;
+import dev.px.karatsuba.adapter.combat.ExplosionProfile;
+import dev.px.karatsuba.adapter.combat.GameBlocks;
 import dev.px.karatsuba.adapter.world.Voxels;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.AttributeModifiersComponent;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.entity.DamageUtil;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttribute;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.ItemStack;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.Identifier;
 
 import java.util.UUID;
 
@@ -144,6 +168,197 @@ public final class FakePlayers {
         MinecraftClient.getInstance().particleManager.addEmitter(fake, ParticleTypes.TOTEM_OF_UNDYING, 30);
         world.playSound(fake.getX(), fake.getY(), fake.getZ(), SoundEvents.ITEM_TOTEM_USE,
                 fake.getSoundCategory(), 1f, 1f, false);
+    }
+
+    // ------------------------------------------------------------ movement
+
+    /**
+     * Moves it, the way the game moves any other player from a server update:
+     * eased over a few frames, legs walking, head turned.
+     *
+     * <p>Through the same tracked-position path real players arrive by, so the
+     * limbs swing at the speed it moves and every tracker (prediction included)
+     * sees an ordinary moving player.
+     */
+    public static void moveTo(int id, Vec3 position, Vec2 rotation, boolean sneaking) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake == null) {
+            return;
+        }
+        fake.updateTrackedPositionAndAngles(position.getX(), position.getY(), position.getZ(),
+                rotation.getYaw(), rotation.getPitch(), 3);
+        fake.updateTrackedHeadRotation(rotation.getYaw(), 3);
+        fake.setSneaking(sneaking);
+        fake.setPose(sneaking ? EntityPose.CROUCHING : EntityPose.STANDING);
+    }
+
+    /** @return where its feet are, or the origin if it is gone */
+    public static Vec3 position(int id) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        return fake == null ? Vec3.of(0d, 0d, 0d) : Vec3.of(fake.getX(), fake.getY(), fake.getZ());
+    }
+
+    /** Puts it somewhere at once, with no easing: the start of a loop, say. */
+    public static void teleport(int id, Vec3 position, Vec2 rotation) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake != null) {
+            fake.refreshPositionAndAngles(position.getX(), position.getY(), position.getZ(),
+                    rotation.getYaw(), rotation.getPitch());
+            fake.updateTrackedPositionAndAngles(position.getX(), position.getY(), position.getZ(),
+                    rotation.getYaw(), rotation.getPitch(), 1);
+            fake.setHeadYaw(rotation.getYaw());
+            fake.setBodyYaw(rotation.getYaw());
+        }
+    }
+
+    // -------------------------------------------------------------- damage
+
+    /**
+     * Makes its armour count.
+     *
+     * <p>A real player's armour points come from the server; a fake has none, so
+     * however much it wears it would take damage as if naked. Sums the armour and
+     * toughness of what it wears into its attributes, as the server would. Call
+     * after changing its equipment.
+     */
+    public static void refreshArmor(int id) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake == null) {
+            return;
+        }
+        double[] totals = new double[2];
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
+                continue;
+            }
+            AttributeModifiersComponent modifiers = fake.getEquippedStack(slot)
+                    .get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+            if (modifiers == null) {
+                continue;
+            }
+            modifiers.applyModifiers(slot, (attribute, modifier) -> {
+                if (attribute == EntityAttributes.ARMOR) {
+                    totals[0] += modifier.value();
+                } else if (attribute == EntityAttributes.ARMOR_TOUGHNESS) {
+                    totals[1] += modifier.value();
+                }
+            });
+        }
+        setBase(fake, EntityAttributes.ARMOR, totals[0]);
+        setBase(fake, EntityAttributes.ARMOR_TOUGHNESS, totals[1]);
+    }
+
+    /**
+     * @return what the local player's swing would do to it right now, after its
+     *         armour and Protection, worked out as the game does
+     *
+     * <p>The weapon's damage (the player's attack attribute, Strength included)
+     * scaled by the attack cooldown; Sharpness on top, scaled by the cooldown
+     * alone; half again for a critical hit (falling, not sprinting, cooldown
+     * nearly full); then armour and toughness, then Protection at one point a level.
+     */
+    public static float meleeDamage(int id) {
+        ClientWorld world = Voxels.world();
+        OtherClientPlayerEntity fake = find(world, id);
+        ClientPlayerEntity self = MinecraftClient.getInstance().player;
+        if (fake == null || self == null) {
+            return 0f;
+        }
+        float charge = self.getAttackCooldownProgress(0.5f);
+        float base = (float) self.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
+        float sharpness = level(self.getMainHandStack(), Enchantments.SHARPNESS);
+        float bonus = sharpness > 0f ? 0.5f * sharpness + 0.5f : 0f;
+
+        float damage = base * (0.2f + charge * charge * 0.8f) + bonus * charge;
+        boolean critical = charge > 0.9f && self.fallDistance > 0f && !self.isOnGround() && !self.isClimbing()
+                && !self.isTouchingWater() && !self.hasStatusEffect(StatusEffects.BLINDNESS)
+                && !self.hasVehicle() && !self.isSprinting();
+        if (critical) {
+            damage *= 1.5f;
+        }
+        DamageSource source = world.getDamageSources().playerAttack(self);
+        damage = DamageUtil.getDamageLeft(fake, damage, source, (float) fake.getArmor(),
+                (float) fake.getAttributeValue(EntityAttributes.ARMOR_TOUGHNESS));
+        int protection = 0;
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            if (slot.getType() == EquipmentSlot.Type.HUMANOID_ARMOR) {
+                protection += level(fake.getEquippedStack(slot), Enchantments.PROTECTION);
+            }
+        }
+        return DamageUtil.getInflictedDamage(damage, protection);
+    }
+
+    /**
+     * @return what an explosion would do to it, after armour, Blast Protection and
+     *         the rest: the same 1.21.4 rules the auras score with
+     */
+    public static float explosionDamage(int id, Vec3 origin, double power) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake == null) {
+            return 0f;
+        }
+        Vec3 feet = Vec3.of(fake.getX(), fake.getY(), fake.getZ());
+        double distance = feet.distanceTo(origin);
+        if (distance > ExplosionProfile.FALLOFF.range(power)) {
+            return 0f;
+        }
+        double exposure = ExplosionProfile.EXPOSURE.of(origin, Voxels.toBox(fake.getBoundingBox()), GameBlocks.INSTANCE);
+        double damage = ExplosionProfile.FALLOFF.damage(distance, exposure, power);
+        TargetState state = ExplosionProfile.CAPTURE.capture(fake);
+        damage = ExplosionProfile.DIFFICULTY.apply(damage, state);
+        damage = ExplosionProfile.ARMOUR.apply(damage, state);
+        damage = ExplosionProfile.RESISTANCE.apply(damage, state);
+        return (float) ExplosionProfile.PROTECTION.apply(damage, state);
+    }
+
+    /** @return its absorption: golden hearts on top of health */
+    public static float absorption(int id) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        return fake == null ? 0f : fake.getAbsorptionAmount();
+    }
+
+    /** Sets its absorption. A fake has no Absorption effect to raise its cap, so the cap is raised here. */
+    public static void setAbsorption(int id, float amount) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake == null) {
+            return;
+        }
+        setBase(fake, EntityAttributes.MAX_ABSORPTION, Math.max(amount, 0d));
+        fake.setAbsorptionAmount(Math.max(0f, amount));
+    }
+
+    /**
+     * Shows a status effect on it, by id ({@code minecraft:regeneration}), or with
+     * {@code ticks} 0 takes it off. For display: what Combat Info and the like
+     * read. The client does not count a fake's effects down, so the caller does.
+     */
+    public static void setEffect(int id, String effectId, int level, int ticks) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        Identifier key = Identifier.tryParse(effectId);
+        if (fake == null || key == null || !Registries.STATUS_EFFECT.containsId(key)) {
+            return;
+        }
+        RegistryEntry<StatusEffect> effect = Registries.STATUS_EFFECT.getEntry(Registries.STATUS_EFFECT.get(key));
+        fake.removeStatusEffect(effect);
+        if (ticks > 0) {
+            fake.addStatusEffect(new StatusEffectInstance(effect, ticks, Math.max(0, level - 1)), null);
+        }
+    }
+
+    private static void setBase(LivingEntity entity, RegistryEntry<EntityAttribute> attribute, double value) {
+        EntityAttributeInstance instance = entity.getAttributeInstance(attribute);
+        if (instance != null) {
+            instance.setBaseValue(value);
+        }
+    }
+
+    private static int level(ItemStack stack, RegistryKey<Enchantment> key) {
+        for (Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : stack.getEnchantments().getEnchantmentEntries()) {
+            if (entry.getKey().matchesKey(key)) {
+                return entry.getIntValue();
+            }
+        }
+        return 0;
     }
 
     /**

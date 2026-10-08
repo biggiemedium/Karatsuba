@@ -38,6 +38,9 @@ public final class GameItem {
 
     private final int count;
 
+    /** The most one stack of it can hold: 64, 16 for pearls, 1 for tools and armour. */
+    private final int maxCount;
+
     /** Damage taken so far. Always 0 for an item that cannot take damage. */
     private final int damage;
 
@@ -56,6 +59,7 @@ public final class GameItem {
         this.id = empty ? "" : Registries.ITEM.getId(stack.getItem()).toString();
         this.name = empty ? "" : stack.getName().getString();
         this.count = stack.getCount();
+        this.maxCount = empty ? 0 : stack.getMaxCount();
         this.damage = stack.isDamageable() ? stack.getDamage() : 0;
         this.maxDamage = stack.isDamageable() ? stack.getMaxDamage() : 0;
         this.enchantments = enchantmentsOf(stack);

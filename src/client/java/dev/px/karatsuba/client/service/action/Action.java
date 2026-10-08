@@ -78,6 +78,9 @@ public final class Action {
     private Consumer<Outcome> then;
     private Consumer<PlacementResult> settled;
 
+    /** {@link Kind#OFFHAND}: stand the player still for a tick if moving is all that stops the click. */
+    private boolean stopping;
+
     private Action(Kind kind, int entityId, Vec3i block, Direction face, Vec3 hit, boolean airPlace) {
         this.kind = kind;
         this.entityId = entityId;
@@ -119,6 +122,17 @@ public final class Action {
         action.item = itemId;
         action.rotate = false;
         return action;
+    }
+
+    /**
+     * For an offhand item that is only in the main inventory: if the player moving
+     * is all that holds the click back, stand them still for one tick so it goes
+     * out at the start of the next. Worth the stutter when the item is a totem and
+     * the player is about to die; see {@code InventoryClick.stopping()}.
+     */
+    public Action stopping() {
+        this.stopping = true;
+        return this;
     }
 
     /** Look here rather than where the service would aim. */

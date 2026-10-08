@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.game.entity;
 
+import dev.px.core.Core;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
@@ -11,6 +12,12 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffectCategory;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
@@ -56,6 +63,62 @@ public final class Entities {
     public static GameEntity self(float partialTicks) {
         ClientPlayerEntity self = MinecraftClient.getInstance().player;
         return self == null ? null : GameEntity.of(self, partialTicks);
+    }
+
+    /** @return the name of the entity with this id as the player sees it, or an empty string if it is gone */
+    public static String nameOf(int entityId) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        return entity == null ? "" : entity.getName().getString();
+    }
+
+    /**
+     * One status effect on an entity: what the server has told the client about,
+     * which for another player is what it shares (most servers share all of them).
+     */
+    public record Effect(String id, String name, int level, int ticksLeft, boolean infinite, boolean beneficial) {
+    }
+
+    /** @return the entity's status effects, in the order the game keeps them; empty if it has none or is gone */
+    public static List<Effect> effectsOf(int entityId) {
+        LivingEntity living = livingById(entityId);
+        if (living == null) {
+            return Collections.emptyList();
+        }
+        List<Effect> effects = new ArrayList<>();
+        for (StatusEffectInstance instance : living.getStatusEffects()) {
+            RegistryEntry<StatusEffect> type = instance.getEffectType();
+            effects.add(new Effect(
+                    type.getKey().map(key -> key.getValue().toString()).orElse(""),
+                    type.value().getName().getString(),
+                    instance.getAmplifier() + 1,
+                    instance.getDuration(),
+                    instance.isInfinite(),
+                    type.value().getCategory() != StatusEffectCategory.HARMFUL));
+        }
+        return effects;
+    }
+
+    /** @return the registry id of the item the entity is using (eating, drinking, blocking), or an empty string */
+    public static String usingItem(int entityId) {
+        LivingEntity living = livingById(entityId);
+        if (living == null || !living.isUsingItem()) {
+            return "";
+        }
+        return Registries.ITEM.getId(living.getActiveItem().getItem()).toString();
+    }
+
+    private static LivingEntity livingById(int entityId) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        return entity instanceof LivingEntity living ? living : null;
+    }
+
+    /** @return whether the entity with this id is a player on the friends list */
+    public static boolean isFriend(int entityId) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        return entity instanceof PlayerEntity && Core.social().isFriend(entity.getName().getString());
     }
 
     /**

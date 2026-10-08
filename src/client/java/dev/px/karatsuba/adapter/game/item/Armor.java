@@ -36,6 +36,26 @@ public final class Armor {
         Piece(EquipmentSlot slot) {
             this.slot = slot;
         }
+
+        /** @return where it is worn, in {@link Inventories}' numbering: 39 the helmet down to 36 the boots */
+        public int inventorySlot() {
+            return Inventories.ARMOR_START + slot.getEntitySlotId();
+        }
+
+        /** The game's slot. Package-private, so a module never sees it. */
+        EquipmentSlot slot() {
+            return slot;
+        }
+
+        /** @return the piece worn in a game slot, or null for a hand or a body slot */
+        static Piece of(EquipmentSlot slot) {
+            for (Piece piece : values()) {
+                if (piece.slot == slot) {
+                    return piece;
+                }
+            }
+            return null;
+        }
     }
 
     private Armor() {

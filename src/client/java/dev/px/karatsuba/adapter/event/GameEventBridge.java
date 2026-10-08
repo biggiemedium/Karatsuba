@@ -11,10 +11,12 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.adapter.event.game.render.WorldOverlayEvent;
+import dev.px.karatsuba.adapter.event.game.world.ChunkEvent;
 import dev.px.karatsuba.adapter.render.GuiFrame;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.screen.CoreScreen;
 import dev.px.karatsuba.adapter.screen.OverlayHost;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -138,8 +140,10 @@ public final class GameEventBridge {
                 OverlayHost.render(width, height);
             }
         } finally {
-            GuiFrame.close();
+            // NanoVG paints first; then the game's deferred draws (item icons) go
+            // on top, with the game's GL state already back as it left it.
             Render.end2D();
+            GuiFrame.close();
         }
     }
 
@@ -192,5 +196,12 @@ public final class GameEventBridge {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, ignored) ->
                 Core.bus().post(new WorldEvent(false, null)));
+
+        // Chunks coming and going, for anything that remembers what is in them.
+        // Block changes inside a loaded chunk come from WorldChunkMixin.
+        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
+                Events.post(new ChunkEvent(chunk.getPos().x, chunk.getPos().z, true)));
+        ClientChunkEvents.CHUNK_UNLOAD.register((world, chunk) ->
+                Events.post(new ChunkEvent(chunk.getPos().x, chunk.getPos().z, false)));
     }
 }

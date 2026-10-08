@@ -145,10 +145,12 @@ public final class FreeCamModule extends Module {
         double sin = Math.sin(yaw);
         double cos = Math.cos(yaw);
 
+        // The game's yaw 0 faces south (+Z): forward is (-sin, cos) and the
+        // player's right is (-cos, -sin), so at yaw 0 right is west (-X).
         return lift.add(
-                (strafe * cos - forward * sin) * distance,
+                (-forward * sin - strafe * cos) * distance,
                 0d,
-                (forward * cos + strafe * sin) * distance);
+                (forward * cos - strafe * sin) * distance);
     }
 
     /** @return 1, -1 or 0, for a pair of opposed controls */

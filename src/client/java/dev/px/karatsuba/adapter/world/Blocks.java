@@ -1,11 +1,13 @@
 package dev.px.karatsuba.adapter.world;
 
+import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.shape.VoxelShape;
 
 /**
  * Asking about one block, in Core's types.
@@ -64,6 +66,25 @@ public final class Blocks {
         BlockPos pos = Voxels.toBlockPos(position);
         return !world.isOutOfHeightLimit(pos)
                 && world.getBlockState(pos).isSideSolidFullSquare(world, pos, Direction.UP);
+    }
+
+    /**
+     * @return the block's outline at this cell in world space, as the game's
+     *         wireframe traces it: a slab half height, a fence its post; the full
+     *         cube for a block with no outline (air included)
+     */
+    public static Box outline(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        Box cube = Box.block(position.getX(), position.getY(), position.getZ());
+        if (world == null) {
+            return cube;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        VoxelShape shape = world.getBlockState(pos).getOutlineShape(world, pos);
+        if (shape.isEmpty()) {
+            return cube;
+        }
+        return Voxels.toBox(shape.getBoundingBox().offset(pos));
     }
 
     /** @return the registry id at this cell, or an empty string */

@@ -41,6 +41,8 @@
  *       <td>{@link dev.px.karatsuba.client.anticheat.AntiCheats}</td></tr>
  *   <tr><td>a config section of its own</td><td>{@code config/}</td>
  *       <td>{@link dev.px.karatsuba.client.config.ConfigLayout}, for its file</td></tr>
+ *   <tr><td>a setting type Core lacks, and its GUI row</td><td>{@code setting/}</td>
+ *       <td>{@link dev.px.karatsuba.client.setting.SettingTypes}</td></tr>
  *   <tr><td>a client-wide setting (how the client behaves, not something done in
  *       game)</td><td>{@code settings/}</td>
  *       <td>{@link dev.px.karatsuba.client.settings.ClientSettings}</td></tr>
@@ -53,7 +55,7 @@
  * TPS, ping, lag spikes, the server's software and its probable anticheat are
  * all Core's: {@code Core.tps()}, {@code Core.lag()}, {@code Core.server()} and
  * {@code Core.anticheat()}. The adapter feeds them from the game and this package
- * only reads the answers &mdash; the HUD elements, {@code Server Alerts} and
+ * only reads the answers &mdash; the HUD elements, the Alerts section of Client Settings and
  * {@code .server}. {@code debug/} keeps the running record behind the Debug HUD
  * element: every described packet, measured movement, and a log of rubberbands
  * (the adapter's {@code ServerTeleportEvent}), lag spikes, anticheat verdicts,

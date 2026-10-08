@@ -134,7 +134,10 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 | Flag | What it flags | Karatsuba methods |
 |---|---|---|
 | **BadPacketsA** | A held-slot packet repeating the last slot sent | `client.service.InventoryService.silently()` and slot claims select through `adapter.game.item.Inventories.selectSlotNow()`, which calls vanilla `syncSelectedSlot` (via `ClientPlayerInteractionManagerInvoker.karatsuba$syncSelectedSlot()`). That sends only when the slot differs from `lastSelectedSlot` |
-| **MultiActionsC** | An inventory click while sprinting, sneaking or holding movement keys | `InventoryService.toOffhand(itemId, strict)` returns `WAITING` while `Inputs.anyMovement() \|\| Players.sprinting() \|\| Players.sneaking() \|\| Players.usingItem()`. Hotbar items use the swap-hands key instead (`Inventories.swapHotbarWithOffhand()`), which isn't a click; only main-inventory items need `Inventories.swapInventoryWithOffhand()` |
+| **MultiActionsC** | A `CLICK_WINDOW` while Grim believes the player is sprinting (unless swimming in the air), or, for 1.21.2+, while the last input packet held forward, back, left, right **or jump** (`KnownInput.moving()`). Sneaking counts only for clients older than 1.15. Skipped the tick the server opened a window | Every click waits in `InventoryService.standingStill()`: `!Inputs.reportedMovement() && !Players.sprinting()`. `Inputs.reportedMovement()` reads `player.input.playerInput` at the start of the tick, which is exactly the input packet sent at the end of the last one. Used by `InventoryService.runClick()` and `toOffhand()`. A click marked `InventoryClick.stopping()` calls `Inputs.holdStill()`, which `ClientPlayerEntityMixin.karatsuba$afterInput` applies after the Move Fix: one tick of no movement keys and no sprint, then the click goes out at the start of the next tick. Hotbar items reach the offhand by the swap-hands key (`Inventories.swapHotbarWithOffhand()`), which is not a click |
+| **MultiActionsD** | A `CLOSE_WINDOW` under the same conditions as MultiActionsC | Nothing sends a close by hand. Clicks are made without opening the screen, as the server keeps the player's own inventory open anyway |
+| **PacketOrderA** | A pick-up click in the same tick as a shift-click, or the other way round | `InventoryClick` has only swap, quick-move and throw kinds; no pick-up clicks, so nothing is ever left on the cursor. At most one click a tick: `InventoryService.runClick()` checks `clickedThisTick()`, and the offhand's click counts |
+| Not checked in 2.3.73 | Clicks in the same tick as an attack, place or use; clicks with the inventory screen closed; how fast clicks come. `Post` counts clicks only for clients older than 1.13. `PacketOrderK` only reads the old "opened inventory" status packet, which 1.21 never sends | Still one click a tick, `Inventory Delay` ticks apart (Client Settings → Interaction), and **Open Inventory Only** for anticheats that do want the screen open |
 | **PacketOrderG** | A swap-hands packet in the same tick as an attack, dig or right-click | `ActionService.run()` runs `executeOffhand()` first; if it sent (`swapped`), the tick's attack and click are reported `WAITING` and go next tick |
 | **TickTimer** (1.21.2+) | A movement packet before a `CLIENT_TICK_END` has arrived since the last one, or more than one movement packet per tick end. Flags **with a setback** | Never send a movement packet of our own. Rotations ride in vanilla's own packet (`Rotations.swapInSilent()` before `sendMovementPackets`), so there is exactly one per tick |
 | **AirLiquidBreak** | A start or finish digging packet on air or liquid | Never send digging packets by hand; no module digs a block that isn't there |
@@ -155,7 +158,9 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 6. **Don't touch velocity**, not even knockback, explosions or currents.
 7. **No fabricated packets**: no extra flying packets, no fake slot or use
    packets, no cancelling server packets to hide state.
-8. **Inventory clicks only standing still**, and never repeat a slot packet.
+8. **Inventory clicks only through `Services.inventory().click()`**: standing
+   still by what was *reported* (no movement keys or jump, no sprint), one a tick,
+   whole stacks only. Never repeat a slot packet.
 
 ## Tried and rejected
 

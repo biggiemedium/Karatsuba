@@ -12,7 +12,9 @@ import dev.px.karatsuba.client.module.combat.KillAuraModule;
 import dev.px.karatsuba.client.module.combat.SurroundModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.combat.WebAuraModule;
+import dev.px.karatsuba.client.module.inventory.InventoryManagerModule;
 import dev.px.karatsuba.client.module.inventory.XCarryModule;
+import dev.px.karatsuba.client.module.inventory.ElytraSwapModule;
 import dev.px.karatsuba.client.module.mining.AutoToolModule;
 import dev.px.karatsuba.client.module.movement.ParkourModule;
 import dev.px.karatsuba.client.module.movement.SafeWalkModule;
@@ -24,14 +26,17 @@ import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
 import dev.px.karatsuba.client.module.render.HoleEspModule;
 import dev.px.karatsuba.client.module.render.NameTagsModule;
+import dev.px.karatsuba.client.module.render.NoBlockRenderModule;
+import dev.px.karatsuba.client.module.render.PredictEspModule;
+import dev.px.karatsuba.client.module.render.CombatInfoModule;
 import dev.px.karatsuba.client.module.render.RenderAdjustmentsModule;
+import dev.px.karatsuba.client.module.render.SearchModule;
 import dev.px.karatsuba.client.module.utility.AntiAfkModule;
 import dev.px.karatsuba.client.module.utility.AntiHungerModule;
 import dev.px.karatsuba.client.module.utility.AntiSoundModule;
 import dev.px.karatsuba.client.module.utility.FakePlayerModule;
 import dev.px.karatsuba.client.module.utility.MiddleClickModule;
 import dev.px.karatsuba.client.module.utility.RecorderModule;
-import dev.px.karatsuba.client.module.utility.ServerAlertsModule;
 
 /**
  * The module catalogue.
@@ -85,15 +90,21 @@ public final class Modules {
                 new AutoToolModule(),
 
                 // Inventory
+                new ElytraSwapModule(),
+                new InventoryManagerModule(),
                 new XCarryModule(),
 
                 // Render
                 new BlockOverlayModule(),
+                new CombatInfoModule(),
                 new EspModule(),
                 new FreeCamModule(),
                 new HoleEspModule(),
                 new NameTagsModule(),
+                new NoBlockRenderModule(),
+                new PredictEspModule(),
                 new RenderAdjustmentsModule(),
+                new SearchModule(),
 
                 // Utility
                 new AntiAfkModule(),
@@ -102,7 +113,6 @@ public final class Modules {
                 new FakePlayerModule(),
                 new MiddleClickModule(),
                 new RecorderModule(),
-                new ServerAlertsModule(),
         };
     }
 }

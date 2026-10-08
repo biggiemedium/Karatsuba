@@ -56,9 +56,10 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * Through {@code Services.actions()}, ahead of everything else. From the hotbar it
  * is the swap-hands key, with no inventory click; from the main inventory it is
  * one click, which with the Interaction checks (Client Settings) on waits until you stand
- * still &mdash; Grim flags an inventory click while moving. A swap never shares a
- * tick with an attack or a click. After a totem pops, the next goes in on the
- * very next tick.
+ * still &mdash; Grim flags an inventory click while moving. In danger, or right after
+ * a pop, {@code Stop In Danger} does not wait: it lets go of your movement keys for
+ * one tick and the click goes out at the start of the next. A swap never shares a
+ * tick with an attack or a click.
  */
 @ModuleInfo(name = "Auto Totem", description = "Keeps a totem in your offhand, or your fighting item while it is safe",
         category = "Combat")
@@ -110,6 +111,9 @@ public final class AutoTotemModule extends Module {
     private final BooleanSetting gappleOnUse = bool("Gapple On Use", true)
             .describe("While safe, a golden apple when you right-click with a weapon");
 
+    private final BooleanSetting stopInDanger = bool("Stop In Danger", true)
+            .describe("In danger, stop for one tick to pull a totem from the main inventory, rather than wait for you to stand still");
+
     private String display = "";
 
     @Subscribe(stage = Stage.PRE)
@@ -123,15 +127,26 @@ public final class AutoTotemModule extends Module {
 
         String wanted = wanted();
         if (wanted != null && !Inventories.offhandHolds(wanted)) {
-            Services.actions().submit(this, Action.offhand(wanted).priority(ClaimPriority.HIGHEST));
+            Action action = Action.offhand(wanted).priority(ClaimPriority.HIGHEST);
+            if (stopInDanger.isOn() && TOTEM.equals(wanted) && inDanger()) {
+                action.stopping();
+            }
+            Services.actions().submit(this, action);
         }
     }
 
-    /** A totem just saved us: the next goes in on the very next tick, not a tick later. */
+    /**
+     * A totem just saved us: the next goes in on the very next tick, not a tick
+     * later. Having just popped one is danger by definition, so it may stop us.
+     */
     @Subscribe
     private void onPop(TotemPopEvent event) {
         if (event.isSelf() && Inventories.count(TOTEM) > 0) {
-            Services.actions().submit(this, Action.offhand(TOTEM).priority(ClaimPriority.HIGHEST));
+            Action action = Action.offhand(TOTEM).priority(ClaimPriority.HIGHEST);
+            if (stopInDanger.isOn()) {
+                action.stopping();
+            }
+            Services.actions().submit(this, action);
         }
     }
 

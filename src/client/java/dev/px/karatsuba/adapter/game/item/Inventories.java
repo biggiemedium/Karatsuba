@@ -32,10 +32,11 @@ import net.minecraft.util.Hand;
  * that keeps this usable from a module: a string is version-proof, it is what a
  * setting would store anyway, and it is what the player sees in F3.
  *
- * <p>Slot numbers are the hotbar's, 0 to 8, left to right. Anything beyond the
- * hotbar is deliberately absent: reaching into the main inventory means clicking
- * slots, which means a screen handler and a sync id, and that is a bigger seam
- * than anything here needs yet.
+ * <p>Slots are numbered as the game's own inventory numbers them: 0-8 the hotbar,
+ * left to right, then the rest, the armour and the offhand (see
+ * {@link #MAIN_START}). Reaching past the hotbar means an inventory click, and
+ * the clicks here only send; when one is allowed is {@code InventoryService}'s
+ * call, because Grim has rules about it.
  *
  * <p><b>Game thread only.</b>
  */
@@ -46,6 +47,23 @@ public final class Inventories {
 
     /** What {@link #findInHotbar} returns when nothing matches. */
     public static final int NOT_FOUND = -1;
+
+    // Every slot the player owns, numbered as the game's own inventory numbers
+    // them: 0-8 the hotbar, 9-35 the rest, 36-39 armour from the feet up, 40 the
+    // offhand. One numbering for every method that takes a slot, so a module never
+    // learns the different one the inventory screen uses.
+
+    /** First slot past the hotbar. */
+    public static final int MAIN_START = HOTBAR_SIZE;
+
+    /** First armour slot (boots); one past the main inventory. */
+    public static final int ARMOR_START = PlayerInventory.MAIN_SIZE;
+
+    /** The offhand. */
+    public static final int OFFHAND = PlayerInventory.OFF_HAND_SLOT;
+
+    /** One past the last slot. */
+    public static final int SLOT_COUNT = OFFHAND + 1;
 
     private Inventories() {
     }
@@ -433,6 +451,121 @@ public final class Inventories {
         interactions.clickSlot(player.playerScreenHandler.syncId, slot, PlayerInventory.OFF_HAND_SLOT,
                 SlotActionType.SWAP, player);
         return true;
+    }
+
+    // ----------------------------------------------------- any slot, any click
+
+    /**
+     * @param slot 0 to {@link #SLOT_COUNT}, as numbered above
+     * @return a snapshot of what is in it, or {@link GameItem#EMPTY}
+     */
+    public static GameItem stackAt(int slot) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || slot < 0 || slot >= SLOT_COUNT) {
+            return GameItem.EMPTY;
+        }
+        return GameItem.of(inventory.getStack(slot));
+    }
+
+    /**
+     * @return whether a slot holds the same item as a snapshot: the same id, and
+     *         for anything that does not wear out, the same enchantments, potion
+     *         and name too
+     *
+     * <p>What "another one of these" means for a refill. Two potions share an id
+     * and nothing else; two swords differ in damage taken, which should not stop
+     * one standing in for the other.
+     */
+    public static boolean sameItem(GameItem snapshot, int slot) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || snapshot == null || snapshot.isEmpty() || slot < 0 || slot >= SLOT_COUNT) {
+            return false;
+        }
+        ItemStack stack = inventory.getStack(slot);
+        if (stack.isEmpty() || !idOf(stack).equals(snapshot.getId())) {
+            return false;
+        }
+        return snapshot.isDamageable() || ItemStack.areItemsAndComponentsEqual(snapshot.stack(), stack);
+    }
+
+    /** @return whether nothing is held on the cursor, as when an inventory screen is open mid-drag */
+    public static boolean cursorEmpty() {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        return player == null || player.currentScreenHandler.getCursorStack().isEmpty();
+    }
+
+    /**
+     * Swaps a slot with a hotbar slot or the offhand: what pressing a number key,
+     * or the swap-hands key, over a slot in the open inventory sends.
+     *
+     * @param slot   any slot
+     * @param target a hotbar slot 0 to 8, or {@link #OFFHAND}
+     * @return whether it was sent
+     */
+    public static boolean clickSwap(int slot, int target) {
+        if (target != OFFHAND && (target < 0 || target >= HOTBAR_SIZE)) {
+            return false;
+        }
+        return click(slot, target, SlotActionType.SWAP);
+    }
+
+    /**
+     * Shift-clicks a slot: armour to its slot or out of it, the hotbar to the rest
+     * and back, merging into stacks of the same item first.
+     *
+     * @return whether it was sent
+     */
+    public static boolean clickQuickMove(int slot) {
+        return click(slot, 0, SlotActionType.QUICK_MOVE);
+    }
+
+    /**
+     * Throws a whole stack out of a slot: Ctrl+Q over it in the open inventory.
+     *
+     * @return whether it was sent
+     */
+    public static boolean clickThrow(int slot) {
+        return click(slot, 1, SlotActionType.THROW);
+    }
+
+    /**
+     * One click on the player's own inventory, as the open inventory screen sends
+     * it. The game applies it at once and tells the server; the server corrects
+     * anything it disagrees with.
+     *
+     * <p>Refused while another container is open: the click would name a window
+     * the server is not showing.
+     */
+    private static boolean click(int slot, int button, SlotActionType type) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientPlayerEntity player = client.player;
+        ClientPlayerInteractionManager interactions = client.interactionManager;
+        int screenSlot = screenSlotOf(slot);
+        if (player == null || interactions == null || screenSlot == NOT_FOUND || player.isSpectator()
+                || player.currentScreenHandler != player.playerScreenHandler) {
+            return false;
+        }
+        interactions.clickSlot(player.playerScreenHandler.syncId, screenSlot, button, type, player);
+        return true;
+    }
+
+    /**
+     * @return where a slot sits in the player's inventory screen, or {@link #NOT_FOUND}
+     *
+     * <p>The screen puts crafting first (0-4), then armour head to feet (5-8), the
+     * main inventory as is (9-35), the hotbar after it (36-44) and the offhand last (45).
+     */
+    private static int screenSlotOf(int slot) {
+        if (slot >= 0 && slot < HOTBAR_SIZE) {
+            return slot + 36;
+        }
+        if (slot >= MAIN_START && slot < ARMOR_START) {
+            return slot;
+        }
+        if (slot >= ARMOR_START && slot < OFFHAND) {
+            return 8 - (slot - ARMOR_START);
+        }
+        return slot == OFFHAND ? 45 : NOT_FOUND;
     }
 
     /**

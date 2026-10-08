@@ -10,6 +10,7 @@ import dev.px.karatsuba.adapter.game.player.Rotations;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.ActionProfile;
 import dev.px.karatsuba.client.service.action.SwapMode;
+import dev.px.karatsuba.client.service.inventory.InventoryProfile;
 import dev.px.karatsuba.client.settings.ClientSection;
 
 /**
@@ -27,7 +28,7 @@ import dev.px.karatsuba.client.settings.ClientSection;
  * attack and one right-click a tick, never while eating or in a container, and walk
  * by a silent rotation with the keys corrected to match.
  */
-public final class InteractionSettings extends ClientSection implements ActionProfile {
+public final class InteractionSettings extends ClientSection implements ActionProfile, InventoryProfile {
 
     private final BooleanSetting checks = bool("Checks", true)
             .describe("Send an attack or click only when a player could have: looking at it, in reach, hands free");
@@ -74,6 +75,12 @@ public final class InteractionSettings extends ClientSection implements ActionPr
             .describe("Allow clicks against nothing; most anticheats refuse them")
             .visibleWhen(checks);
 
+    private final NumberSetting<Integer> inventoryDelay = integer("Inventory Delay", 1, 0, 10)
+            .describe("Ticks between inventory clicks: armour, refills, the cleaner");
+
+    private final BooleanSetting inventoryOpenOnly = bool("Open Inventory Only", false)
+            .describe("Click your inventory only while it is open; Grim does not need it, some anticheats do");
+
     public InteractionSettings() {
         super("interaction", "Interaction", "How every module's rotations, clicks and packets are checked and sent");
     }
@@ -86,7 +93,18 @@ public final class InteractionSettings extends ClientSection implements ActionPr
     @Override
     protected void onRegister(Core core) {
         Services.actions().setProfile(this);
+        Services.inventory().setProfile(this);
         Rotations.movementCorrection(this::moveFix);
+    }
+
+    @Override
+    public int inventoryDelay() {
+        return inventoryDelay.getInt();
+    }
+
+    @Override
+    public boolean inventoryOpenOnly() {
+        return inventoryOpenOnly.isOn();
     }
 
     /** @return whether silent rotations steer the movement too, with the keys corrected */
