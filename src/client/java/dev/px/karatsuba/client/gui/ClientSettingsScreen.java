@@ -1,9 +1,10 @@
 package dev.px.karatsuba.client.gui;
 
+import dev.px.karatsuba.adapter.screen.Gui;
 import dev.px.core.Core;
-import dev.px.core.gui.Component;
-import dev.px.core.gui.GuiStyle;
-import dev.px.core.gui.Screen;
+import dev.px.gui.legacy.Component;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.gui.legacy.Screen;
 import dev.px.core.render.Render;
 import dev.px.core.setting.Setting;
 import dev.px.karatsuba.client.gui.component.DragWindow;
@@ -39,7 +40,7 @@ public final class ClientSettingsScreen extends Screen {
             float[] at = LAST.getOrDefault(section.getName(), new float[]{Float.NaN, Float.NaN});
             DragWindow window = add(new DragWindow(section.getName(), at[0], at[1]));
             for (Setting<?> setting : section.getSettings()) {
-                Component row = Core.gui().getRenderers().create(setting);
+                Component row = Gui.service().getRenderers().create(setting);
                 if (row != null) {
                     window.add(row);
                 }
@@ -51,8 +52,8 @@ public final class ClientSettingsScreen extends Screen {
 
     /** Toggles the screen: closes it if showing, otherwise opens a fresh one. */
     public static void toggle() {
-        if (Core.gui().getCurrent() instanceof ClientSettingsScreen) {
-            Core.gui().close();
+        if (Gui.service().getCurrent() instanceof ClientSettingsScreen) {
+            Gui.service().close();
         } else {
             Overlays.clickGui().open(new ClientSettingsScreen());
         }

@@ -8,6 +8,7 @@ import dev.px.core.event.impl.Render3DEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.prediction.Future;
@@ -48,7 +49,7 @@ import java.util.List;
  */
 @ModuleInfo(name = "Predict ESP", description = "Shows where nearby players will be, as the auras predict it",
         category = "Render")
-public final class PredictEspModule extends Module {
+public final class PredictEspModule extends ClientModule {
 
     private final NumberSetting<Integer> ticks = integer("Ticks", 6, 1, 20)
             .describe("How far ahead to predict; the auras' Predict looks a few ticks ahead too");

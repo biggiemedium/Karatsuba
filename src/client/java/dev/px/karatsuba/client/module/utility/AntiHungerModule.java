@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.event.Subscribe;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -30,7 +31,7 @@ import dev.px.karatsuba.adapter.game.player.Players;
  */
 @ModuleInfo(name = "Anti Hunger", description = "Hides sprinting from the server so it costs no food",
         category = "Utility")
-public final class AntiHungerModule extends Module {
+public final class AntiHungerModule extends ClientModule {
 
     private final BooleanSetting sprint = bool("Sprint", true)
             .describe("Suppress the sprint start and stop messages");

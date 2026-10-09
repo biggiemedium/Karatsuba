@@ -6,7 +6,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
-import dev.px.core.module.ModuleToggleEvent;
+import dev.px.core.module.toggle.ModuleToggleEvent;
 import dev.px.core.setting.SettingChangeEvent;
 
 /**

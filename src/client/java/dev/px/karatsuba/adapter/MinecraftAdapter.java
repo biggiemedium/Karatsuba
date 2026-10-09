@@ -9,6 +9,8 @@ import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.combat.Combat;
+import dev.px.karatsuba.adapter.projectile.Projectiles;
+import dev.px.karatsuba.adapter.screen.Gui;
 import dev.px.karatsuba.adapter.event.GameEventBridge;
 import dev.px.karatsuba.adapter.game.entity.CrystalTracker;
 import dev.px.karatsuba.adapter.game.entity.LivingTracker;
@@ -127,6 +129,14 @@ public final class MinecraftAdapter {
         // The combat library, wired to this version. After the trackers: the kit
         // reads them by class.
         Combat.install(core);
+
+        // The projectile library, likewise: its own tracker for things in flight,
+        // and the rules for every item that launches one.
+        Projectiles.install(core);
+
+        // The click GUI, which left Core for the gui library in 2.3. Before
+        // start(): GuiService.install registers it as a service and config section.
+        Gui.install(core);
 
         // The one piece of packet knowledge, installed on the network service so
         // the timeline, TPS, lag, server and anticheat services all read through

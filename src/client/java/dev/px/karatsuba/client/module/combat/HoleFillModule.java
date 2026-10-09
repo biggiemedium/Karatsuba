@@ -18,6 +18,7 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -75,7 +76,7 @@ import java.util.Set;
  */
 @ModuleInfo(name = "Hole Fill", description = "Fills holes enemies are about to use, with blocks or webs",
         category = "Combat")
-public final class HoleFillModule extends Module {
+public final class HoleFillModule extends ClientModule {
 
     private static final String[] BLOCKS = {"obsidian", "crying_obsidian", "ender_chest"};
     private static final String WEB = "cobweb";

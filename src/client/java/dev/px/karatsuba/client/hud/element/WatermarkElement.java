@@ -6,7 +6,7 @@ import dev.px.core.hud.HudLayout;
 import dev.px.core.hud.Anchor;
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
-import dev.px.core.gui.GuiStyle;
+import dev.px.gui.legacy.GuiStyle;
 
 /**
  * The client name and version, in a corner.

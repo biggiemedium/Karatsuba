@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.module.utility;
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.math.Stopwatch;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -36,7 +37,7 @@ import java.util.Random;
  */
 @ModuleInfo(name = "Anti AFK", description = "Moves occasionally so an idle kick never fires",
         category = "Utility")
-public final class AntiAfkModule extends Module {
+public final class AntiAfkModule extends ClientModule {
 
     private static final int MILLIS_PER_SECOND = 1_000;
 

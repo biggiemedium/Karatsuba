@@ -8,6 +8,7 @@ import dev.px.core.event.impl.MouseEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.input.Bind;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BindSetting;
@@ -54,7 +55,7 @@ import dev.px.karatsuba.client.setting.ItemSetting;
  */
 @ModuleInfo(name = "Inventory Manager", description = "Wears your best armour, keeps the hotbar stocked, throws out junk",
         category = "Inventory")
-public final class InventoryManagerModule extends Module {
+public final class InventoryManagerModule extends ClientModule {
 
     // ---------------------------------------------------------------- armour
 

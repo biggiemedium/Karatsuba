@@ -3,10 +3,12 @@ plugins {
 	id 'maven-publish'
 }
 
-// Core and Combat must be evaluated before the jar block below can read their
+// Core and its libraries must be evaluated before the jar block below can read their
 // source sets.
 evaluationDependsOn(':core')
 evaluationDependsOn(':combat')
+evaluationDependsOn(':projectile')
+evaluationDependsOn(':gui')
 
 version = project.mod_version
 group = project.maven_group
@@ -111,6 +113,9 @@ dependencies {
 	implementation project(':core')
 	// Core's combat library, likewise local. Brings :core with it.
 	implementation project(':combat')
+	// Core's projectile and GUI libraries, likewise local.
+	implementation project(':projectile')
+	implementation project(':gui')
 
 	// Lombok, compile-time only: nothing lands in the jar, and no mod that depends
 	// on this one needs it. Declared for both source sets because Loom's
@@ -159,12 +164,14 @@ processResources {
 jar {
 	inputs.property 'archivesName', project.base.archivesName
 
-	// Core and Combat are plain libraries, not mods, so Loom will not nest them.
+	// Core and its libraries are plain libraries, not mods, so Loom will not nest them.
 	// Fold their classes into the mod jar or the built mod hits
 	// NoClassDefFoundError. evaluationDependsOn above is what makes their
 	// sourceSets readable here.
 	from project(':core').sourceSets.main.output
 	from project(':combat').sourceSets.main.output
+	from project(':projectile').sourceSets.main.output
+	from project(':gui').sourceSets.main.output
 
 	// Same for NanoVG and its natives: LWJGL finds a native by scanning the
 	// classpath, so flattening the natives jars in is what makes them loadable.

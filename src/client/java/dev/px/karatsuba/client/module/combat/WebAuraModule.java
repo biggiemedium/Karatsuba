@@ -14,6 +14,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -68,7 +69,7 @@ import java.util.Set;
  */
 @ModuleInfo(name = "Web Aura", description = "Places cobwebs on enemies, where they are or will be",
         category = "Combat")
-public final class WebAuraModule extends Module {
+public final class WebAuraModule extends ClientModule {
 
     private static final String WEB = "cobweb";
 

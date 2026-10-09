@@ -1,10 +1,10 @@
 package dev.px.karatsuba.client.gui.component;
 
 import dev.px.core.Core;
-import dev.px.core.gui.Component;
-import dev.px.core.gui.GuiStyle;
-import dev.px.core.gui.Panel;
-import dev.px.core.gui.SettingRendererRegistry;
+import dev.px.gui.legacy.Component;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.gui.legacy.Panel;
+import dev.px.gui.legacy.SettingRendererRegistry;
 import dev.px.core.hud.HudElement;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.input.MouseButton;

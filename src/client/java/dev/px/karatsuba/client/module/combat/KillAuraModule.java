@@ -5,6 +5,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.rotation.RotationMode;
@@ -57,7 +58,7 @@ import java.util.List;
  * the correct play and the one that looks like a person.
  */
 @ModuleInfo(name = "Kill Aura", description = "Attacks nearby entities", category = "Combat")
-public final class KillAuraModule extends Module {
+public final class KillAuraModule extends ClientModule {
 
     /** Full damage lands at 1; anything below is a scaled-down hit. */
     private static final float COOLDOWN_READY = 0.95f;

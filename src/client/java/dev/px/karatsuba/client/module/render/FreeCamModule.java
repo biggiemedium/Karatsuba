@@ -4,6 +4,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -45,7 +46,7 @@ import dev.px.karatsuba.adapter.game.player.Players;
  */
 @ModuleInfo(name = "Free Cam", description = "Flies the camera while the player stays put",
         category = "Render")
-public final class FreeCamModule extends Module {
+public final class FreeCamModule extends ClientModule {
 
     private static final double NANOS_PER_SECOND = 1_000_000_000d;
 

@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.event.Subscribe;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.MultiEnumSetting;
@@ -28,7 +29,7 @@ import java.util.Locale;
  * without naming all three.
  */
 @ModuleInfo(name = "Anti Sound", description = "Silences chosen sounds", category = "Utility")
-public final class AntiSoundModule extends Module {
+public final class AntiSoundModule extends ClientModule {
 
     private final MultiEnumSetting<Group> groups =
             multi("Silence", Group.class, Group.EXPLOSIONS, Group.WITHER)

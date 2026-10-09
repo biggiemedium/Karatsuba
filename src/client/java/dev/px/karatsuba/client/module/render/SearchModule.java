@@ -8,6 +8,7 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -52,7 +53,7 @@ import java.util.Set;
  */
 @ModuleInfo(name = "Search", description = "Finds blocks in loaded chunks and marks them through walls",
         category = "Render")
-public final class SearchModule extends Module {
+public final class SearchModule extends ClientModule {
 
     /** A drawn box is inset this much, so its faces do not z-fight the block's. */
     private static final double INSET = 0.002d;

@@ -1,6 +1,6 @@
 package dev.px.karatsuba.client.hud.element;
 
-import dev.px.core.gui.GuiStyle;
+import dev.px.gui.legacy.GuiStyle;
 import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;

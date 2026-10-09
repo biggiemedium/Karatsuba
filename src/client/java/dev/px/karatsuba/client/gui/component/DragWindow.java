@@ -1,8 +1,8 @@
 package dev.px.karatsuba.client.gui.component;
 
-import dev.px.core.gui.GuiStyle;
-import dev.px.core.gui.Panel;
-import dev.px.core.gui.Screen;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.gui.legacy.Panel;
+import dev.px.gui.legacy.Screen;
 import dev.px.core.input.MouseButton;
 import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;

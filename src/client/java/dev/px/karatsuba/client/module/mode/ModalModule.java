@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.mode;
 
 import dev.px.core.Core;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
@@ -62,7 +63,7 @@ import java.util.List;
  *
  * @param <E> the enum naming the modes
  */
-public abstract class ModalModule<E extends Enum<E>> extends Module {
+public abstract class ModalModule<E extends Enum<E>> extends ClientModule {
 
     private final List<SubMode<E>> modes = new ArrayList<>(4);
 

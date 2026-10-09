@@ -18,6 +18,14 @@ include 'core'
 // placement), also a local copy. Depends on :core.
 include 'combat'
 
+// Core's optional projectile library (trajectories, hits, bow and throw aim),
+// also a local copy. Depends on :core.
+include 'projectile'
+
+// Core's optional GUI library (widgets, containers, and Core's old click GUI as
+// dev.px.gui.legacy), also a local copy. Depends on :core.
+include 'gui'
+
 // A local Paper server running Grim, offline, for testing against an anticheat
 // without an account. Not part of the mod; see dev/server/build.gradle.
 include 'dev:server'

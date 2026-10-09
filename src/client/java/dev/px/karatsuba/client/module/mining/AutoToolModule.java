@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.module.mining;
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -35,7 +36,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  */
 @ModuleInfo(name = "Auto Tool", description = "Holds the best tool for the block being mined",
         category = "Mining")
-public final class AutoToolModule extends Module {
+public final class AutoToolModule extends ClientModule {
 
     private final BooleanSetting whileHolding = bool("Only While Mining", true)
             .describe("Off keeps the tool selected whenever a block is under the crosshair");

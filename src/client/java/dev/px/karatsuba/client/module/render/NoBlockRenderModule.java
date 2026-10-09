@@ -1,5 +1,6 @@
 package dev.px.karatsuba.client.module.render;
 
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -26,7 +27,7 @@ import dev.px.karatsuba.client.setting.ItemSetting;
  */
 @ModuleInfo(name = "No Block Render", description = "Draws only the blocks on your list",
         category = "Render")
-public final class NoBlockRenderModule extends Module {
+public final class NoBlockRenderModule extends ClientModule {
 
     private final ItemSetting shown = ItemSetting.blocks("Shown Blocks",
                     "minecraft:coal_ore", "minecraft:deepslate_coal_ore",

@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.module.render;
 import dev.px.core.event.Subscribe;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -51,7 +52,7 @@ import java.util.Locale;
  * alone.
  */
 @ModuleInfo(name = "NameTags", description = "Shows player information above their heads", category = "Render")
-public final class NameTagsModule extends Module {
+public final class NameTagsModule extends ClientModule {
 
     /** How far above the top of the hitbox the tag sits, in blocks. Leapfrog's spacing. */
     private static final double HEAD_CLEARANCE = 0.5d;

@@ -17,7 +17,7 @@ import dev.px.combat.place.PlacementStyle;
 import dev.px.combat.search.AnchorSearch;
 import dev.px.combat.search.BedSearch;
 import dev.px.combat.search.CrystalSearch;
-import dev.px.combat.search.rule.Lookahead;
+import dev.px.core.movement.prediction.Lookahead;
 import dev.px.combat.search.rule.Reach;
 import dev.px.combat.search.timing.AttackLog;
 import dev.px.combat.trap.TrapSearch;

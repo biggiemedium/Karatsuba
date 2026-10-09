@@ -66,7 +66,7 @@ Building.
 | Building | Scaffold |
 | Mining | Auto Tool |
 | Inventory | Elytra Swap, Inventory Manager, XCarry |
-| Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Render Adjustments, Search |
+| Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search |
 | Utility | Anti AFK, Anti Hunger, Anti Sound, Fake Player, Middle Click, Recorder |
 
 **What moved in the refactor:**
@@ -179,9 +179,14 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Render
 
-- **Trajectories** · S–M: where a pearl, arrow, potion or bottle will land, and where
-  incoming pearls from other players will land. Server physics, block collision
-  against our `BlockView`.
+- **Projectiles** · done (needs in-game testing): a camera-facing ribbon trail (tapering,
+  glow, core line, head dot) behind every arrow, pearl, potion and the rest in the air;
+  with Landing, where each will land from `Projectiles.kit().follow` (1.21.4 physics from
+  bytecode): the hit face highlighted with snapping corner brackets and a cross on the
+  point, flowing dashes along the path, the face filling as it closes in, the entity box if
+  it will hit one, and a retract-and-flare on impact. Held: the item in your hand's full
+  path and landing before you use it, per frame from `kit.you/view(partialTicks)`.
+  Theme Colours supported.
 - **Predict ESP** · done, its own module (needs in-game testing): the likeliest
   predicted hitbox `Ticks` ahead from `Core.prediction()` (the auras' Predict), its
   path, optional faint alternative futures by weight, and Reliable/Unsure colour.
@@ -191,7 +196,7 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   time left, and Surround Alert for blocks next to your feet.
 - **Theme Colours** convention: a render module offers one `Theme Colours` switch and
   draws every colour through `client.render.ThemeColors`, each colour role at its own
-  point on the theme's accent gradient. Block Overlay and Predict ESP have it.
+  point on the theme's accent gradient. Block Overlay, Predict ESP and Projectiles have it.
 - **Search** · done (needs in-game testing): a block `ItemSetting` (block ids, so
   portals and redstone wire work), each chunk scanned once on arrival via
   `adapter.world.BlockScan` (palette skip), kept current by `BlockChangeEvent`,

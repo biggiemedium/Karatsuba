@@ -5,6 +5,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.MotionState;
@@ -33,7 +34,7 @@ import java.util.List;
  * was not taken from.
  */
 @ModuleInfo(name = "Parkour", description = "Jumps automatically at the edge of a block", category = "Movement")
-public final class ParkourModule extends Module {
+public final class ParkourModule extends ClientModule {
 
     private final NumberSetting<Integer> minDrop = integer("Min Drop", 1, 1, 10)
             .describe("Smallest drop, in blocks, worth jumping instead of walking off");

@@ -10,6 +10,7 @@ import dev.px.core.math.MathUtil;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -64,7 +65,7 @@ import java.util.Map;
  */
 @ModuleInfo(name = "Block Overlay", description = "Highlights the block under the crosshair, and every block being broken",
         category = "Render")
-public final class BlockOverlayModule extends Module {
+public final class BlockOverlayModule extends ClientModule {
 
     /** How close to the target the smoothing has to get before it stops mattering. */
     private static final double SNAP_DISTANCE = 0.01d;

@@ -4,11 +4,12 @@
 |---|---|
 | `event` / `event.bus` / `event.impl` | Bases, `@Subscribe`, the bus, built-in events |
 | `hook` | `GameHooks` (`Core.hooks()`) — every moment the adapter tells Core about, one method each; counts them, warns when one something needs never fires, and `verify()` for your development build. See §14 |
-| `module` | `Module`, `@ModuleInfo`, `Category`, `ModuleRegistry`, `ThreadedModule` (a module whose work runs off the game thread) |
+| `module` | `Module`, `@ModuleInfo`, `ModuleRegistry`, `ThreadedModule` (a module whose work runs off the game thread) |
+| `module.category` | `Category` (the interface your own enum implements) and `CategoryRegistry` |
+| `module.toggle` | `Toggleable` (a name, a description, an on/off state and settings; the base of `Module`, and what `ToggleableSection` saves) and `ModuleToggleEvent` |
 | `setting` / `setting.impl` | Settings, auto-discovery, the nine types |
-| `layout` | Geometry and the box model, shared by the HUD and the GUI and depending on neither: `Bounds`, `Size`, `Shape`, `Content`, `Align`, `Draw` |
+| `layout` | Geometry and the box model, shared by the HUD and the `gui` module and depending on neither: `Bounds`, `Size`, `Shape`, `Content`, `Align`, `Draw` |
 | `hud` | HUD placement and the edit-mode model: `HudElement`, `Anchor`, `HudLayout`, `Placement`, `HudService`, `HudRenderer`, `HudEditor`, `HudEditorView` |
-| `gui` / `gui.setting` / `gui.click` | The click GUI and the pieces it is built from: `Component`, `Panel`, `Screen`, `GuiService`, `GuiStyle`, the nine `SettingRenderer`s, and `ClickGuiScreen` |
 | `registry` | Generic `Registry<T>` — one class replacing four hand-written managers |
 | `service` | `Service` + `ServiceContainer`: subsystems declare `dependsOn()`, Core orders startup and shuts down in reverse |
 | `config` | `ConfigService`, `ConfigSection`, `ConfigLocation`, `ConfigLoadEvent` — JSON profiles, a folder each, one file per section, at the location you choose (per profile or shared, folders allowed). Atomic saves, unreadable files kept aside. See §1 |
@@ -16,7 +17,7 @@
 | `config.crypto` | Optional encryption: `ConfigCipher`, the interface you implement, and `AesGcmCipher`, AES-GCM from the JDK with passphrase key derivation |
 | `config.io` | `Json` — the shared Gson instance, atomic file writes, and `child(...)` for reading nested objects |
 | `command` | `Command`, `@CommandInfo`, typed `CommandContext`, chat dispatch |
-| `input` | `Key` / `MouseButton` / `Modifier` / `Bind` — Core's own enums, not LWJGL ints, so a bind saved on 1.8.9 loads on 1.21. `InputService` routes presses to module binds |
+| `input` | `Key` / `MouseButton` / `Modifier` / `Bind` — Core's own enums, not LWJGL ints, so a bind saved on 1.8.9 loads on 1.21. `BindMode` — whether a bind acts on the press or lasts while held. `InputService` routes presses and releases to module toggle binds and actions |
 | `render` | `Render` facade, `Render2D` / `Render3D` SPIs, `Color`, `Texture` |
 | `render.font` | `Font` measuring + `FontProvider` (your backend loads the TTF) |
 | `render.theme` | `Theme` = two accent colours plus derived roles; `ThemeService` holds radius / opacity / text colour |
@@ -25,7 +26,7 @@
 | `movement` | `MovementCorrection` — re-bases the movement keys onto an applied rotation so the player still walks where they meant to. Static, no seam. See §10 |
 | `movement.rotation` | `RotationService` — priority arbitration for the player's rotation, with claims that expire rather than needing release. `RotationRequest`, `RotationPriority`, `RotationMode`, and the two-method `RotationSink` your adapter writes |
 | `movement.simulation` | `SimulationService` — `Simulation` (the real movement rules, axis-separated collision, step-up) over a one-method `CollisionSpace`, plus `DriftMonitor` (scores the model against the game every tick and says when to stop trusting it), `PhysicsCalibration` (offline: measure the gap, sweep a constant to close it) and the `MotionState` / `MovementInput` values they pass around |
-| `movement.prediction` | `PredictionService` — where somebody else will be, likely and possible: `MotionEstimate` (the keys that best explain how they moved), `EntityPhysics` (your client's word on each entity's effects, attributes and pose), `Behaviour` (how they really move, learned: speed, drops, how much the rules explain), `Scenario` (one way the future could go, with an optional prior), and `Prediction` / `Future` (each scenario played out with collision and weighed, plus `earliestPossible`). Reads `Tracked` history |
+| `movement.prediction` | `PredictionService` — where somebody else will be, likely and possible: `MotionEstimate` (the keys that best explain how they moved), `EntityPhysics` (your client's word on each entity's effects, attributes and pose), `Behaviour` (how they really move, learned: speed, drops, how much the rules explain), `Scenario` (one way the future could go, with an optional prior), and `Prediction` / `Future` (each scenario played out with collision and weighed, plus `earliestPossible`). Reads `Tracked` history. `Lookahead` — where an entity will be some ticks from now (`none`, `extrapolated`, `predicted`, or yours), taken by the combat searches and the projectile aim solver |
 | `movement.prediction.record` | `MovementRecorder` — real movement kept per entity, with the rules and the blocks around it; `MovementJson` (JSON Lines); `MovementReplay` → `ReplayReport` (predictions scored against what really happened) |
 | `movement.timeline` | `TimelineRecorder` — records packets, ticks and the player's movement between two points in time, in one exactly-ordered `Timeline` of `TimelineEntry`s, with queries for links, replies and correlation. Reads packets through the describer on `Core.network()`; `TimelineJson` reads and writes JSON Lines |
 | `network` | `NetworkService` — where the adapter's packets come in: holds the one `PacketDescriber`, picks each packet's arrival, describes it once and hands it to every `PacketListener`. See §11 |
@@ -36,8 +37,8 @@
 | `network.anticheat` | `AntiCheatService` — ranks `Detection`s from the `AntiCheatSignature`s you register (none ship) over `ServerEvidence`, including the `TransactionPattern` a `TransactionTracker` reads off packets given `withTransaction` |
 | `entity` | `EntityService` — reads the world once a tick through the adapter's one `EntitySource` and routes each entity by class to the `EntityTracker<E>`s you register, typed by the game's own classes. Each tracker holds a `Tracked<E>` per entity (the game's object plus position, box, velocity, ticks tracked) and a `SpatialGrid` built only when queried. See §12 |
 | `target` | `TargetService` — runs a `TargetSelector<E>` over one tracker (filters built once, run cheapest first, predicates on the game's own object) ranked by a `TargetSort`, from the player's eyes or any point; `TargetLock` holds a choice across ticks |
-| `world` | The world as Core's geometry asks about it, answered by your adapter: `BlockView` + `BlockShape` (what a line through a cell meets, and `without(...)` for a block that is gone), `Rays` (whether a line gets through, over `VoxelRay`), `CellTest` (any yes-or-no question about a cell), `Obstructions` (whether an entity is in a region, from your trackers). Shared by every library built on Core. See §14 |
-| `math` | `Vec2`, `Vec3`, `Vec3i` (the block grid), `Direction`, `Box`, `Range`, `MathUtil`, `Stopwatch` (cooldowns) |
+| `world` | The world as Core's geometry asks about it, answered by your adapter: `BlockView` + `BlockShape` (what a line through a cell meets, and `without(...)` for a block that is gone), `Rays` (whether a line gets through, over `VoxelRay`, and `first` — the `RayHit` where it first meets a block: point, cell, face, how far along), `CellTest` (any yes-or-no question about a cell), `Obstructions` (whether an entity is in a region, from your trackers). Shared by every library built on Core. See §14 |
+| `math` | `Vec2`, `Vec3`, `Vec3i` (the block grid), `Direction`, `Box` (with `clip`: where a segment first meets it), `Range`, `MathUtil`, `Stopwatch` (cooldowns) |
 | `util` | `Validate`, `Reflect`, `CoreLogger` / `ConsoleLogger` |
 | `util.collect` | `Pair`, `Triplet`, `CircularQueue` / `CircularDeque` (bounded histories that never grow), `RollingAverage` (allocation-free smoothing for FPS / ping / CPS), `LruCache` / `ExpiringCache` (bounded by size and by age), `Trie` (prefix completion), `WeightedList` |
 | `util.math` | `MovementMath` (input to motion, BPS, fall prediction), `RotationMath` (look vectors, angular distance, stepped turning, mouse-sensitivity snapping), `PhysicsProfile` (gravity, drag, friction and walk speed as a replaceable value rather than constants), `Curves` (Bézier and Catmull-Rom), `Statistics` |

@@ -4,6 +4,7 @@ import dev.px.core.event.Priority;
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.MotionState;
@@ -37,7 +38,7 @@ import java.util.List;
  * never fail the first.
  */
 @ModuleInfo(name = "Step", description = "Jumps up blocks you walk into", category = "Movement")
-public final class StepModule extends Module {
+public final class StepModule extends ClientModule {
 
     /** Vanilla's step height: anything lower the game walks up by itself. */
     private static final double STEP_HEIGHT = 0.6d;

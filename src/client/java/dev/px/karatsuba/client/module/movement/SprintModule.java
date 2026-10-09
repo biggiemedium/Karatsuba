@@ -2,6 +2,7 @@ package dev.px.karatsuba.client.module.movement;
 
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -23,7 +24,7 @@ import dev.px.karatsuba.adapter.game.player.Players;
  * movement input, which is what the decision below depends on.
  */
 @ModuleInfo(name = "Sprint", description = "Sprints without holding the key", category = "Movement")
-public final class SprintModule extends Module {
+public final class SprintModule extends ClientModule {
 
     private final BooleanSetting whileSneaking = bool("While Sneaking", false)
             .describe("Keep sprinting when crouched, which the game normally forbids");

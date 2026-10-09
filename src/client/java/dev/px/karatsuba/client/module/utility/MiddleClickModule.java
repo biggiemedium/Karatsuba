@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.MouseEvent;
 import dev.px.core.input.MouseButton;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -31,7 +32,7 @@ import dev.px.karatsuba.adapter.game.entity.Targets;
  */
 @ModuleInfo(name = "Middle Click", description = "Runs actions on the middle mouse button",
         category = "Utility")
-public final class MiddleClickModule extends Module {
+public final class MiddleClickModule extends ClientModule {
 
     private static final String ENDER_PEARL = "ender_pearl";
     private static final String FIREWORK = "firework_rocket";

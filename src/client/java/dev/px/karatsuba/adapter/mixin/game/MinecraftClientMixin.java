@@ -1,6 +1,7 @@
 package dev.px.karatsuba.adapter.mixin.game;
 
 import dev.px.karatsuba.adapter.event.ScreenBridge;
+import dev.px.karatsuba.adapter.input.InputBridge;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -10,11 +11,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The screen swap, for the same reason as the input mixins: Fabric API exposes no
- * hook that can see it whole or refuse it.
+ * The screen swap and window focus, for the same reason as the input mixins:
+ * Fabric API exposes no hook that can see either whole or refuse it.
  *
- * <p>HEAD and cancellable, so Core is told while the change can still be stopped
- * and while {@code currentScreen} is still the outgoing one.
+ * <p>The screen swap is HEAD and cancellable, so Core is told while the change can
+ * still be stopped and while {@code currentScreen} is still the outgoing one.
  */
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
@@ -26,6 +27,18 @@ public abstract class MinecraftClientMixin {
     private void karatsuba$setScreen(Screen screen, CallbackInfo callback) {
         if (ScreenBridge.onScreenChange(currentScreen, screen)) {
             callback.cancel();
+        }
+    }
+
+    /**
+     * A window that loses focus never hears the keys let go while it was away, so
+     * every hold bind ends here rather than staying on until the key is pressed
+     * again. Core 2.3 asks the adapter for exactly this.
+     */
+    @Inject(method = "onWindowFocusChanged", at = @At("HEAD"))
+    private void karatsuba$focusChanged(boolean focused, CallbackInfo callback) {
+        if (!focused) {
+            InputBridge.onFocusLost();
         }
     }
 }

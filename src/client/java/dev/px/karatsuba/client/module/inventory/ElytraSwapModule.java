@@ -10,6 +10,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.input.Bind;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BindSetting;
@@ -76,7 +77,7 @@ import dev.px.karatsuba.client.service.inventory.InventoryClick;
  */
 @ModuleInfo(name = "Elytra Swap", description = "One key between chestplate and elytra; a chestplate on before a crystal can catch you",
         category = "Inventory")
-public final class ElytraSwapModule extends Module {
+public final class ElytraSwapModule extends ClientModule {
 
     private static final int CHEST = Armor.Piece.CHESTPLATE.inventorySlot();
 

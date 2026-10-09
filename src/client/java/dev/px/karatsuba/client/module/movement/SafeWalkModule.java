@@ -4,6 +4,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Vec3;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.MotionState;
@@ -36,7 +37,7 @@ import java.util.List;
  * is a decision to leave the ground, and sneaking under it would only shorten it.
  */
 @ModuleInfo(name = "Safe Walk", description = "Crouches at edges so you never walk off", category = "Movement")
-public final class SafeWalkModule extends Module {
+public final class SafeWalkModule extends ClientModule {
 
     private final NumberSetting<Integer> minDrop = integer("Min Drop", 1, 1, 10)
             .describe("Smallest fall, in blocks, worth stopping for");

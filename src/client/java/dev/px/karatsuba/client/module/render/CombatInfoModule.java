@@ -8,6 +8,7 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -70,7 +71,7 @@ import java.util.Map;
  */
 @ModuleInfo(name = "Combat Info", description = "Crystal PvP stats beside the players you are fighting",
         category = "Render")
-public final class CombatInfoModule extends Module {
+public final class CombatInfoModule extends ClientModule {
 
     /** How far beside the hitbox's edge the card sits, in blocks. */
     private static final double SIDE_GAP = 0.35d;

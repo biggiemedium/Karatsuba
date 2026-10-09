@@ -1,5 +1,5 @@
 // Local copy of Minecraft-Client-Core's `combat` library
-// (https://github.com/biggiemedium/Minecraft-Client-Core), at release 2.2.
+// (https://github.com/biggiemedium/Minecraft-Client-Core), at release 2.3.
 //
 // Crystal, bed, anchor, hole, trap and placement logic built on Core. Like Core it
 // has NO Minecraft on its classpath: the game's rules are supplied by Karatsuba.
@@ -10,7 +10,7 @@ plugins {
 }
 
 group = 'dev.px'
-version = '2.2'
+version = '2.3'
 
 // Kept at 8 (as upstream), like Core.
 sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8

@@ -12,6 +12,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -68,7 +69,7 @@ import java.util.Set;
  * feet are a block too high.
  */
 @ModuleInfo(name = "Surround", description = "Surrounds your feet with obsidian", category = "Combat")
-public final class SurroundModule extends Module {
+public final class SurroundModule extends ClientModule {
 
     private static final String OBSIDIAN = "obsidian";
     private static final String ENDER_CHEST = "ender_chest";

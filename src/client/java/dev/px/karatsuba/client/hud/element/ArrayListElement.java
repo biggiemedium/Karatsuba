@@ -1,17 +1,19 @@
 package dev.px.karatsuba.client.hud.element;
 
 import dev.px.core.Core;
-import dev.px.core.gui.GuiStyle;
+import dev.px.gui.legacy.GuiStyle;
 import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;
 import dev.px.core.module.Module;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -68,7 +70,11 @@ public final class ArrayListElement extends AbstractHudElement {
             // A frozen sample while positioning, so the box is not a sliver.
             return List.of("Sprint", "Fullbright");
         }
-        return Core.modules().arrayListEntries().stream()
+        // Core 2.3 keeps no "visible" flag: the switch is ClientModule's, and the
+        // longest-first order the one Core's arrayListEntries() used to give.
+        return Core.modules().enabled().stream()
+                .filter(module -> !(module instanceof ClientModule client) || client.getVisible().isOn())
+                .sorted(Comparator.comparingInt((Module module) -> module.getDisplayName().length()).reversed())
                 .map(showInfo.isOn() ? Module::getDisplayName : Module::getName)
                 .toList();
     }

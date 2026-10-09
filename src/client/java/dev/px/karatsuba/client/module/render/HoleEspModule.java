@@ -6,6 +6,7 @@ import dev.px.core.event.impl.Render3DEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -51,7 +52,7 @@ import java.util.Set;
  */
 @ModuleInfo(name = "Hole ESP", description = "Highlights bedrock and obsidian holes, single and double",
         category = "Render")
-public final class HoleEspModule extends Module {
+public final class HoleEspModule extends ClientModule {
 
     /** The four directions a hole is walled on. */
     private static final Vec3i[] SIDES = {

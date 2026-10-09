@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.inventory;
 
 import dev.px.core.event.Subscribe;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.karatsuba.adapter.event.game.network.ScreenCloseEvent;
@@ -26,7 +27,7 @@ import dev.px.karatsuba.adapter.event.game.network.ScreenCloseEvent;
  */
 @ModuleInfo(name = "X Carry", description = "Carries items in the crafting slots",
         category = "Inventory")
-public final class XCarryModule extends Module {
+public final class XCarryModule extends ClientModule {
 
     @Subscribe
     private void onScreenClose(ScreenCloseEvent event) {

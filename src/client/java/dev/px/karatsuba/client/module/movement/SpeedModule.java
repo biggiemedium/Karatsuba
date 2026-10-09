@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.module.movement;
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -35,7 +36,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * airborne one is a different feature with a different shape.
  */
 @ModuleInfo(name = "Speed", description = "Moves faster on the ground", category = "Movement")
-public final class SpeedModule extends Module {
+public final class SpeedModule extends ClientModule {
 
     private final NumberSetting<Double> multiplier = decimal("Multiplier", 1.3d, 1.05d, 3d)
             .step(0.05d)

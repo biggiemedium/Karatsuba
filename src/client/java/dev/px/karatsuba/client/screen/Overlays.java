@@ -44,7 +44,7 @@ public final class Overlays {
         return HUD;
     }
 
-    /** Core's GUI screens: the click GUI, and anything else opened through it. */
+    /** The legacy GUI's screens: the click GUI, and anything else opened through it. */
     public static ClickGuiOverlay clickGui() {
         return CLICK_GUI;
     }

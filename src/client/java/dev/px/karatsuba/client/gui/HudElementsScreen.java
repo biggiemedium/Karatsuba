@@ -1,9 +1,10 @@
 package dev.px.karatsuba.client.gui;
 
+import dev.px.karatsuba.adapter.screen.Gui;
 import dev.px.core.Core;
-import dev.px.core.gui.Component;
-import dev.px.core.gui.GuiStyle;
-import dev.px.core.gui.Screen;
+import dev.px.gui.legacy.Component;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.gui.legacy.Screen;
 import dev.px.core.hud.HudElement;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.client.config.AutoSave;
@@ -46,8 +47,8 @@ public final class HudElementsScreen extends Screen {
 
     /** Toggles the screen: closes it if showing, otherwise opens a fresh one. */
     public static void toggle() {
-        if (Core.gui().getCurrent() instanceof HudElementsScreen) {
-            Core.gui().close();
+        if (Gui.service().getCurrent() instanceof HudElementsScreen) {
+            Gui.service().close();
         } else {
             Overlays.clickGui().open(new HudElementsScreen());
         }
@@ -56,7 +57,7 @@ public final class HudElementsScreen extends Screen {
     private void build() {
         window.clearChildren();
         for (HudElement element : Core.hud().getElements().all()) {
-            window.add(new HudElementButton(element, Core.gui().getRenderers()));
+            window.add(new HudElementButton(element, Gui.service().getRenderers()));
         }
         window.add(new Button("Show All", () -> setAll(true)).tooltip("Show every element"));
         window.add(new Button("Hide All", () -> setAll(false)).tooltip("Hide every element"));
@@ -65,7 +66,7 @@ public final class HudElementsScreen extends Screen {
             AutoSave.markDirty();
         }).tooltip("Put every element back where it started"));
         window.add(new Button("Edit Layout", () -> {
-            Core.gui().close();
+            Gui.service().close();
             Overlays.hud().toggleEditor();
         }).tooltip("Move and scale elements on screen"));
     }

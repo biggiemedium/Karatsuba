@@ -10,10 +10,8 @@
    want edit mode, a screen that routes input into `HudEditor` and draws
    `HudEditorView`. Elements describe themselves, so there is nothing else to
    write per element; see §6.
-7. **A game screen, if you use the GUI** — one that calls `Core.gui().renderFrame()`
-   and hands it mouse, key, scroll and character input, then `Core.gui().close()`
-   when dismissed. Core neither draws it nor listens for it. Skip this entirely if
-   you are writing your own interface; see *Not using any of this* in §7.
+7. **A game screen, if you use the [`gui`](../gui/README.md) module** — Core has
+   no GUI of its own. The module's docs say what its screens need from you.
 
 Nothing extra is needed for threading: Core drains the game-thread queue on
 every tick, so calling the tick hooks (step 5) covers it. An adapter that does
@@ -31,7 +29,8 @@ types if you want `Core.entities()` and targeting — see §12 — reporting the
 predict other players well — see §10 — and `MotionUpdateEvent` posts on top if you want
 timeline recordings — see §10, `PathSpace` if you use `util.spatial` — one lambda saying which cells your agent
 can occupy is enough to run `AStar` against your world — and a `BlockView` (one method: the shape in a cell) plus
-whatever `CellTest`s a library asks for if you use `world` or anything built on it, such as the combat library.
+whatever `CellTest`s a library asks for if you use `world` or anything built on it, such as the combat and projectile
+libraries.
 
 Core runs headless without any of these. The test suite boots it with none
 installed, which is how the seam stays honest.
@@ -60,7 +59,7 @@ private void send(Packet<?> packet, CallbackInfo ci) {
 | `packetReceived(p)` / `packetSent(p)` | each inbound packet decoded / outbound packet written | TPS, lag, server, anticheat, timeline |
 | `packetApplied(p)` | optional: as an inbound packet's handler runs, same instance | timeline queue times |
 | `motionPre(...)` / `motionPost(...)` | around the client's movement report | timeline motion entries |
-| `key(...)` / `mouse(...)` | every press and release | module keybinds |
+| `key(...)` / `mouse(...)` | every press and release — hold binds end on the release, so call `Core.input().releaseAll()` if your game can lose one (the window losing focus) | module keybinds |
 | `chatSend(message)` | before the player's chat is sent | commands |
 | `scroll`, `charTyped`, `chatReceived`, `screen`, `render2D`, `render3D` | as named | nothing in Core — your modules |
 

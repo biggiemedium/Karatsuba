@@ -5,6 +5,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -34,7 +35,7 @@ import dev.px.karatsuba.adapter.world.Environment;
  * holds) and handed back when the override ends.
  */
 @ModuleInfo(name = "Render Adjustments", description = "Removes visual clutter and fixes the sky", category = "Render")
-public final class RenderAdjustmentsModule extends Module {
+public final class RenderAdjustmentsModule extends ClientModule {
 
     private final BooleanSetting fullBright = bool("Full Bright", true)
             .describe("Lights everything as if it were day, without touching your brightness setting");

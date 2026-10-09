@@ -18,6 +18,7 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.input.Bind;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -71,7 +72,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  */
 @ModuleInfo(name = "Bed Aura", description = "Places and explodes beds where they do not work",
         category = "Combat")
-public final class BedAuraModule extends Module {
+public final class BedAuraModule extends ClientModule {
 
     /** Every bed, by colour; any of them will do. */
     private static final String[] BEDS = {

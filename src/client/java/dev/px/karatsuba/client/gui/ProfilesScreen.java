@@ -1,9 +1,10 @@
 package dev.px.karatsuba.client.gui;
 
+import dev.px.karatsuba.adapter.screen.Gui;
 import dev.px.core.Core;
-import dev.px.core.gui.GuiStyle;
-import dev.px.core.gui.Panel;
-import dev.px.core.gui.Screen;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.gui.legacy.Panel;
+import dev.px.gui.legacy.Screen;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.client.gui.component.Button;
 
@@ -47,7 +48,7 @@ public final class ProfilesScreen extends Screen {
             rebuild();
         }));
 
-        body.add(new Button("Close", () -> Core.gui().close()));
+        body.add(new Button("Close", () -> Gui.service().close()));
     }
 
     @Override

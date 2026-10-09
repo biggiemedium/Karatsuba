@@ -1,6 +1,7 @@
 package dev.px.karatsuba.adapter.input;
 
 import dev.px.core.Core;
+import dev.px.core.event.CancellableEvent;
 import dev.px.core.event.impl.CharTypedEvent;
 import dev.px.core.event.impl.KeyEvent;
 import dev.px.core.event.impl.MouseEvent;
@@ -69,7 +70,14 @@ public final class InputBridge {
      *         see it
      */
     public static boolean onKey(int glfwKey, int action, int glfwMods) {
-        if (action == GLFW.GLFW_REPEAT || !shouldForward()) {
+        if (action == GLFW.GLFW_REPEAT) {
+            return false;
+        }
+        if (!shouldForward()) {
+            // A game screen keeps its keys, but a hold bind still has to end.
+            if (action == GLFW.GLFW_RELEASE) {
+                releaseOnly(new KeyEvent(Keys.fromGlfw(glfwKey), Keys.modifiers(glfwMods), false));
+            }
             return false;
         }
         Key key = Keys.fromGlfw(glfwKey);
@@ -87,9 +95,12 @@ public final class InputBridge {
             return Core.bus().post(new KeyEvent(key, modifiers, pressed)).isCancelled();
         }
 
-        // An overlay owns the keyboard while it is up: a release has nowhere to go,
-        // and module binds must not fire behind it. Either way the game sees none
-        // of it, which is why every path below returns true.
+        // An overlay owns the keyboard while it is up, so module binds must not
+        // fire behind it; a release only ends any hold. Either way the game sees
+        // none of it, which is why every path below returns true.
+        if (!pressed) {
+            releaseOnly(new KeyEvent(key, modifiers, false));
+        }
         if (pressed && !OverlayHost.keyPressed(key, modifiers)) {
             ActionBinds.fire(key, modifiers);
         }
@@ -114,6 +125,10 @@ public final class InputBridge {
 
     public static boolean onMouseButton(int glfwButton, int action, int glfwMods) {
         if (!shouldForward()) {
+            if (action == GLFW.GLFW_RELEASE) {
+                releaseOnly(new MouseEvent(MouseButton.byIndex(glfwButton), Keys.modifiers(glfwMods), false,
+                        Core.platform().getMouseX(), Core.platform().getMouseY()));
+            }
             return false;
         }
         MouseButton button = MouseButton.byIndex(glfwButton);
@@ -136,6 +151,7 @@ public final class InputBridge {
                 OverlayHost.mousePressed(x, y, button);
             } else {
                 OverlayHost.mouseReleased(x, y);
+                releaseOnly(new MouseEvent(button, modifiers, false, x, y));
             }
             return true;
         }
@@ -159,7 +175,30 @@ public final class InputBridge {
         return Core.bus().post(new ScrollEvent(amount, x, y)).isCancelled();
     }
 
+    /** The window lost focus: whatever was held has been let go somewhere we cannot hear. */
+    public static void onFocusLost() {
+        if (Events.isArmed()) {
+            Core.input().releaseAll();
+        }
+    }
+
     // ------------------------------------------------------------- internal
+
+    /**
+     * Ends any hold bind on this release without anything else hearing it.
+     *
+     * <p>Since Core 2.3 a bind can last while its key is held, so a release the
+     * client does not otherwise get &mdash; let go with chat open, or over one of
+     * our screens &mdash; must still reach {@code InputService}, or the module stays
+     * on. Posted already cancelled: Core's input service hears cancelled releases
+     * on purpose, and modules, which do not ask for cancelled events, never see it.
+     */
+    private static void releaseOnly(CancellableEvent release) {
+        if (Events.isArmed()) {
+            release.cancel();
+            Core.bus().post(release);
+        }
+    }
 
     /**
      * @return whether input should reach the client at all

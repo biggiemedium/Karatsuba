@@ -1,7 +1,7 @@
 package dev.px.karatsuba.client.module;
 
 import dev.px.core.Core;
-import dev.px.core.module.Category;
+import dev.px.core.module.category.Category;
 
 /**
  * Karatsuba's module categories.

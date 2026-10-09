@@ -28,6 +28,7 @@ import dev.px.karatsuba.client.module.render.HoleEspModule;
 import dev.px.karatsuba.client.module.render.NameTagsModule;
 import dev.px.karatsuba.client.module.render.NoBlockRenderModule;
 import dev.px.karatsuba.client.module.render.PredictEspModule;
+import dev.px.karatsuba.client.module.render.ProjectilesModule;
 import dev.px.karatsuba.client.module.render.CombatInfoModule;
 import dev.px.karatsuba.client.module.render.RenderAdjustmentsModule;
 import dev.px.karatsuba.client.module.render.SearchModule;
@@ -103,6 +104,7 @@ public final class Modules {
                 new NameTagsModule(),
                 new NoBlockRenderModule(),
                 new PredictEspModule(),
+                new ProjectilesModule(),
                 new RenderAdjustmentsModule(),
                 new SearchModule(),
 

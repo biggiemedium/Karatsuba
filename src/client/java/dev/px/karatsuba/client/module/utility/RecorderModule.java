@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.utility;
 
 import dev.px.core.Core;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.DriftMonitor;
@@ -49,7 +50,7 @@ import java.util.Locale;
  */
 @ModuleInfo(name = "Recorder", description = "Records movement and packets to a timeline file",
         category = "Utility")
-public final class RecorderModule extends Module {
+public final class RecorderModule extends ClientModule {
 
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 

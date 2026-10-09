@@ -15,6 +15,7 @@ import dev.px.core.math.MathUtil;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.rotation.RotationMode;
@@ -99,7 +100,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * wrong way.
  */
 @ModuleInfo(name = "Scaffold", description = "Places blocks under you as you walk or bridge", category = "Building")
-public final class ScaffoldModule extends Module {
+public final class ScaffoldModule extends ClientModule {
 
     public enum Mode {
         NORMAL,

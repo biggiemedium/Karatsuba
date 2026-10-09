@@ -36,6 +36,7 @@
 		"render.RenderPhaseAccessor",
 		"render.WorldRendererMixin",
 		"sound.SoundSystemMixin",
+		"world.PersistentProjectileEntityInvoker",
 		"world.WorldChunkMixin"
 	],
 	"injectors": {

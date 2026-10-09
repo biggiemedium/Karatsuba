@@ -9,6 +9,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.input.Bind;
 import dev.px.core.math.MathUtil;
 import dev.px.core.math.Vec2;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BindSetting;
@@ -68,7 +69,7 @@ import java.util.Locale;
  */
 @ModuleInfo(name = "Fake Player", description = "A dummy that takes crystal and sword damage, pops totems and runs your path",
         category = "Utility")
-public final class FakePlayerModule extends Module {
+public final class FakePlayerModule extends ClientModule {
 
     /** What a totem leaves its holder on: half a heart. */
     private static final float TOTEM_HEALTH = 1f;

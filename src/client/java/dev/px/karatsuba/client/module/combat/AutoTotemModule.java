@@ -8,6 +8,7 @@ import dev.px.core.event.impl.KeyEvent;
 import dev.px.core.event.impl.MouseEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.input.Bind;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BindSetting;
@@ -63,7 +64,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  */
 @ModuleInfo(name = "Auto Totem", description = "Keeps a totem in your offhand, or your fighting item while it is safe",
         category = "Combat")
-public final class AutoTotemModule extends Module {
+public final class AutoTotemModule extends ClientModule {
 
     private static final String TOTEM = "totem_of_undying";
     private static final String CRYSTAL = "end_crystal";

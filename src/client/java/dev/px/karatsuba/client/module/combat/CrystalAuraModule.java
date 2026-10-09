@@ -18,6 +18,7 @@ import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
@@ -73,7 +74,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * goes out at the end of the tick it arrives in.
  */
 @ModuleInfo(name = "Crystal Aura", description = "Places and breaks end crystals", category = "Combat")
-public final class CrystalAuraModule extends Module {
+public final class CrystalAuraModule extends ClientModule {
 
     private static final String CRYSTAL = "end_crystal";
 

@@ -4,6 +4,7 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Vec2;
+import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BooleanSetting;
@@ -46,7 +47,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * free. {@code Over Combat} turns that round.
  */
 @ModuleInfo(name = "Auto XP", description = "Throws experience bottles to mend your gear", category = "Combat")
-public final class AutoXPModule extends Module {
+public final class AutoXPModule extends ClientModule {
 
     private static final String BOTTLE = "experience_bottle";
 

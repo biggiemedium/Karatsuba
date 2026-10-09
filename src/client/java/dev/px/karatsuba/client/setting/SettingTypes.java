@@ -1,7 +1,8 @@
 package dev.px.karatsuba.client.setting;
 
+import dev.px.karatsuba.adapter.screen.Gui;
 import dev.px.core.Core;
-import dev.px.core.gui.SettingRenderer;
+import dev.px.gui.legacy.SettingRenderer;
 
 /**
  * The setting types Karatsuba adds to Core's, and the GUI row for each.
@@ -17,7 +18,7 @@ public final class SettingTypes {
 
     /** @param core unused; taken so every catalogue has the same shape */
     public static void registerAll(Core core) {
-        Core.gui().getRenderers().register(
+        Gui.service().getRenderers().register(
                 SettingRenderer.of(ItemSetting.class, (ItemSetting setting) -> new ItemSettingRow(setting)));
     }
 }

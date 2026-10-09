@@ -1,7 +1,7 @@
 package dev.px.karatsuba.client.screen;
 
 import dev.px.core.Core;
-import dev.px.core.gui.GuiStyle;
+import dev.px.gui.legacy.GuiStyle;
 import dev.px.core.hud.HudEditor;
 import dev.px.core.hud.HudEditorView;
 import dev.px.core.hud.Placement;
