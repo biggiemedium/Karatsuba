@@ -4,6 +4,8 @@ import dev.px.core.Core;
 import dev.px.core.render.Texture;
 import dev.px.core.render.font.Font;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGFont;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGTexture;
 
 import java.io.IOException;
@@ -78,6 +80,32 @@ public final class Assets {
             Core.log().error("Could not load font " + fileName + "; falling back to the default", failure);
             return Core.fonts().getDefault();
         }
+    }
+
+    /**
+     * An installed system typeface at {@code size}, registered with Core under
+     * {@code name}; the first family found wins.
+     *
+     * <p>For a type scale without bundling a TTF: each family is a font file's
+     * name without {@code .ttf}, such as {@code "seguisb"} for Segoe UI Semibold.
+     * With none found, the default font's own family at this size; with that gone
+     * too, the default itself. Registered fonts are kept, so asking again is free.
+     */
+    public static Font systemFont(String name, float size, String... families) {
+        var existing = Core.fonts().find(name);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        var provider = new NanoVGFontProvider(MinecraftAdapter.render2D());
+        for (String family : families) {
+            if (provider.system(family, size) instanceof NanoVGFont found && found.isValid()) {
+                return Core.fonts().register(name, found);
+            }
+        }
+        if (provider.system(Core.fonts().getDefault().getName(), size) instanceof NanoVGFont same && same.isValid()) {
+            return Core.fonts().register(name, same);
+        }
+        return Core.fonts().getDefault();
     }
 
     /**

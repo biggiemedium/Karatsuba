@@ -22,6 +22,7 @@ public final class Overlays {
 
     private static final HudOverlay HUD = new HudOverlay();
     private static final ClickGuiOverlay CLICK_GUI = new ClickGuiOverlay();
+    private static final ClientGuiOverlay GUI = new ClientGuiOverlay();
 
     private Overlays() {
     }
@@ -37,11 +38,17 @@ public final class Overlays {
     public static void install() {
         OverlayHost.register(HUD);
         OverlayHost.register(CLICK_GUI);
+        OverlayHost.register(GUI);
     }
 
     /** The HUD, and its editor. */
     public static HudOverlay hud() {
         return HUD;
+    }
+
+    /** The client GUI: Modules, HUD, the Layout editor and Themes. */
+    public static ClientGuiOverlay gui() {
+        return GUI;
     }
 
     /** The legacy GUI's screens: the click GUI, and anything else opened through it. */

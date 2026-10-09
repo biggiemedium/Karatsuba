@@ -17,9 +17,7 @@ import dev.px.karatsuba.adapter.game.item.ItemCatalog;
 import dev.px.karatsuba.adapter.game.item.ItemIcons;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -131,77 +129,14 @@ public final class ItemSettingRow extends SettingComponent<ItemSetting> {
         return shown;
     }
 
-    /** Items for an item picker; blocks, by block id, for a block picker. */
     private List<ItemCatalog.Entry> catalogue() {
-        return getSetting().getScope() == ItemSetting.Scope.BLOCKS ? ItemCatalog.blocks() : ItemCatalog.all();
+        return ItemSearch.catalogue(getSetting());
     }
 
     private void refilter() {
         List<ItemCatalog.Entry> catalogue = catalogue();
         builtFrom = catalogue;
-
-        ItemSetting setting = getSetting();
-        String[] terms = query.trim().toLowerCase(Locale.ROOT).split("\\s+");
-        boolean searching = !query.trim().isEmpty();
-
-        List<Ranked> matches = new ArrayList<>();
-        for (int i = 0; i < catalogue.size(); i++) {
-            ItemCatalog.Entry entry = catalogue.get(i);
-            boolean selected = setting.contains(entry.getId());
-            if (selectedOnly && !selected) {
-                continue;
-            }
-            int rank = searching ? rank(entry, terms) : (selected ? 0 : 1);
-            if (rank >= 0) {
-                matches.add(new Ranked(entry, rank, i));
-            }
-        }
-        matches.sort(Comparator.comparingInt((Ranked r) -> r.rank).thenComparingInt(r -> r.order));
-
-        List<ItemCatalog.Entry> result = new ArrayList<>(matches.size());
-        for (Ranked ranked : matches) {
-            result.add(ranked.entry);
-        }
-        shown = result;
-    }
-
-    /**
-     * @return how well an item matches every term, lower is better, or -1 for no match
-     *
-     * <p>Each term has to appear in the name or the id. Then: the name starting with
-     * the first term beats a word in it starting with it, which beats the term
-     * turning up anywhere. So "oak" lists Oak Planks, then Dark Oak Planks, then
-     * anything with "oak" mid-word.
-     */
-    private static int rank(ItemCatalog.Entry entry, String[] terms) {
-        String name = entry.getName().toLowerCase(Locale.ROOT);
-        String id = entry.getId();
-        for (String term : terms) {
-            if (!name.contains(term) && !id.contains(term)) {
-                return -1;
-            }
-        }
-        String first = terms[0];
-        if (name.startsWith(first)) {
-            return 0;
-        }
-        if (name.contains(" " + first)) {
-            return 1;
-        }
-        return 2;
-    }
-
-    private static final class Ranked {
-
-        final ItemCatalog.Entry entry;
-        final int rank;
-        final int order;
-
-        Ranked(ItemCatalog.Entry entry, int rank, int order) {
-            this.entry = entry;
-            this.rank = rank;
-            this.order = order;
-        }
+        shown = ItemSearch.filter(getSetting(), catalogue, query, selectedOnly);
     }
 
     // ---------------------------------------------------------------- parts

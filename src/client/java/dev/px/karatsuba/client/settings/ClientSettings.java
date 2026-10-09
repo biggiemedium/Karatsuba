@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.config.section.SettingsSection;
 import dev.px.karatsuba.client.settings.interaction.InteractionSettings;
 import dev.px.karatsuba.client.settings.alerts.AlertSettings;
+import dev.px.karatsuba.client.settings.gui.GuiSettings;
 import dev.px.karatsuba.client.settings.updates.UpdateSettings;
 
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ public final class ClientSettings {
                 new InteractionSettings(),
                 new UpdateSettings(),
                 new AlertSettings(),
+                new GuiSettings(),
         };
     }
 
@@ -94,5 +96,10 @@ public final class ClientSettings {
     /** Which connection changes are announced. */
     public static AlertSettings alerts() {
         return get(AlertSettings.class);
+    }
+
+    /** How the module GUI looks and moves, and where its window was left. */
+    public static GuiSettings gui() {
+        return get(GuiSettings.class);
     }
 }
