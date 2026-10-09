@@ -129,6 +129,24 @@ dependencies {
 	clientCompileOnly "org.projectlombok:lombok:${lombok_version}"
 	clientAnnotationProcessor "org.projectlombok:lombok:${lombok_version}"
 
+	// The Spotify Web API client, behind Core's MediaProvider in adapter/integration.
+	// Nested in the mod jar with `include` (Fabric's jar-in-jar) rather than folded
+	// in like NanoVG, so another mod shipping the same Apache HTTP client is
+	// deduplicated by version instead of colliding class for class. Gson and SLF4J
+	// are left out: the game already ships both, and a second copy of either is a
+	// split package. httpclient5-cache only exists to pull in httpclient5, which
+	// brings httpcore5 and its HTTP/2 half; each is named here because `include`
+	// does not follow transitives.
+	implementation("se.michaelthelin.spotify:spotify-web-api-java:${spotify_api_version}") {
+		exclude group: 'com.google.code.gson'
+		exclude group: 'org.slf4j'
+	}
+	include "se.michaelthelin.spotify:spotify-web-api-java:${spotify_api_version}"
+	include "org.apache.httpcomponents.client5:httpclient5-cache:${httpclient5_version}"
+	include "org.apache.httpcomponents.client5:httpclient5:${httpclient5_version}"
+	include "org.apache.httpcomponents.core5:httpcore5:${httpcore5_version}"
+	include "org.apache.httpcomponents.core5:httpcore5-h2:${httpcore5_version}"
+
 	nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}") { transitive = false }
 	nanovg_natives.each { classifier ->
 		nanovg("org.lwjgl:lwjgl-nanovg:${lwjgl_version}:${classifier}") { transitive = false }

@@ -1,8 +1,6 @@
 package dev.px.karatsuba.client.hud.element;
 
 import dev.px.core.Core;
-import dev.px.gui.legacy.GuiStyle;
-import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
@@ -17,7 +15,7 @@ import dev.px.core.network.server.ServerBrand;
 import dev.px.core.network.server.ServerInfo;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.core.setting.impl.ColorSetting;
+
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.MultiEnumSetting;
@@ -29,6 +27,7 @@ import dev.px.karatsuba.client.debug.AlertType;
 import dev.px.karatsuba.client.debug.DebugAlert;
 import dev.px.karatsuba.client.debug.DebugMonitor;
 import dev.px.karatsuba.client.debug.PacketSample;
+import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,9 +52,8 @@ import java.util.Optional;
  * {@code OTHER}, hidden by default since they are most of the traffic.
  * The log is filtered by alert type and age.
  */
-public final class DebugElement extends AbstractHudElement {
+public final class DebugElement extends StyledElement {
 
-    private static final float PADDING = 4f;
     private static final float ROW_GAP = 1f;
     private static final float SECTION_GAP = 3f;
     private static final float LABEL_GAP = 6f;
@@ -109,15 +107,6 @@ public final class DebugElement extends AbstractHudElement {
     private final GroupSetting alertFilter = group("Alert Filter", false)
             .containing(alertTypes, alertLines, alertSeconds);
 
-    // -------------------------------------------------------------- appearance
-
-    private final ColorSetting headerColor = color("Header Colour", Color.of(120, 180, 255));
-    private final ColorSetting labelColor = color("Label Colour", Color.of(150, 160, 180));
-    private final ColorSetting valueColor = color("Value Colour", Color.WHITE);
-
-    private final GroupSetting appearance = group("Appearance", false)
-            .containing(headerColor, labelColor, valueColor);
-
     /** The name lists, parsed once per change rather than once per packet per frame. */
     private String parsedInclude;
     private String parsedExclude;
@@ -129,8 +118,8 @@ public final class DebugElement extends AbstractHudElement {
     }
 
     @Override
-    public void content(Content content) {
-        content.background(GuiStyle.surface(), GuiStyle.radius()).padding(PADDING).gap(SECTION_GAP);
+    protected void describe(Content content) {
+        content.gap(SECTION_GAP);
         content.align(Align.STRETCH);
         content.min(150f, 12f);
 
@@ -165,13 +154,13 @@ public final class DebugElement extends AbstractHudElement {
 
     private void connection(Content body) {
         LagService lag = Core.lag();
-        row(body, "TPS", Core.tps().hasEstimate() ? format("%.2f", Core.tps().getTps()) : "--", valueColor.resolve());
+        row(body, "TPS", Core.tps().hasEstimate() ? format("%.2f", Core.tps().getTps()) : "--", style().value());
         int ping = lag.getPing();
         row(body, "Ping", ping < 0 ? "--" : ping + "ms" + (lag.getAveragePing() >= 0
-                ? format(" (avg %.0f, jitter %.0f)", lag.getAveragePing(), lag.getPingJitter()) : ""), valueColor.resolve());
-        row(body, "Packets", format("%.0f in / %.0f out /s", lag.getInboundRate(), lag.getOutboundRate()), valueColor.resolve());
+                ? format(" (avg %.0f, jitter %.0f)", lag.getAveragePing(), lag.getPingJitter()) : ""), style().value());
+        row(body, "Packets", format("%.0f in / %.0f out /s", lag.getInboundRate(), lag.getOutboundRate()), style().value());
         row(body, "Lag", lag.isLagging() ? format("silent %.1fs", lag.getLagMillis() / 1000d) : "none",
-                lag.isLagging() ? Color.RED : valueColor.resolve());
+                lag.isLagging() ? Color.RED : style().value());
     }
 
     private void movement(Content body, DebugMonitor monitor) {
@@ -181,21 +170,21 @@ public final class DebugElement extends AbstractHudElement {
         }
         Vec3 at = Players.position();
         Vec2 look = Players.rotation();
-        row(body, "Position", format("%.2f, %.2f, %.2f", at.getX(), at.getY(), at.getZ()), valueColor.resolve());
-        row(body, "Speed", format("%.2f b/s", monitor.getHorizontalSpeed()), valueColor.resolve());
-        row(body, "Vertical", format("%+.2f b/s", monitor.getVerticalSpeed()), valueColor.resolve());
-        row(body, "Ground", Players.onGround() ? "yes" : "no", valueColor.resolve());
-        row(body, "Rotation", format("%.1f / %.1f", look.getYaw(), look.getPitch()), valueColor.resolve());
+        row(body, "Position", format("%.2f, %.2f, %.2f", at.getX(), at.getY(), at.getZ()), style().value());
+        row(body, "Speed", format("%.2f b/s", monitor.getHorizontalSpeed()), style().value());
+        row(body, "Vertical", format("%+.2f b/s", monitor.getVerticalSpeed()), style().value());
+        row(body, "Ground", Players.onGround() ? "yes" : "no", style().value());
+        row(body, "Rotation", format("%.1f / %.1f", look.getYaw(), look.getPitch()), style().value());
 
         DriftMonitor drift = Core.simulation().getDrift();
         row(body, "Drift", drift.isReliable()
                 ? format("%.4f h, %.4f v", drift.getHorizontalError(), drift.getVerticalError())
-                : "sampling", drift.isReliable() ? valueColor.resolve() : Color.GRAY);
+                : "sampling", drift.isReliable() ? style().value() : Color.GRAY);
 
         int rubberbands = monitor.getRubberbands();
         row(body, "Rubberbands", rubberbands == 0 ? "0"
                 : format("%d (last %.2f)", rubberbands, monitor.getLastRubberbandDistance()),
-                rubberbands == 0 ? valueColor.resolve() : AlertType.RUBBERBAND.getColor());
+                rubberbands == 0 ? style().value() : AlertType.RUBBERBAND.getColor());
     }
 
     private void server(Content body) {
@@ -204,12 +193,12 @@ public final class DebugElement extends AbstractHudElement {
             row(body, "Server", info.isSingleplayer() ? "singleplayer" : "not connected", Color.GRAY);
             return;
         }
-        row(body, "Address", info.getAddress(), valueColor.resolve());
+        row(body, "Address", info.getAddress(), style().value());
         ServerBrand brand = info.getBrand();
         String software = brand == null ? "--"
                 : (brand.getSoftware().isKnown() ? brand.getSoftware().getName() : brand.getRaw())
                 + (brand.getProxy() != null ? " via " + brand.getProxy().getName() : "");
-        row(body, "Software", software, valueColor.resolve());
+        row(body, "Software", software, style().value());
         Optional<Detection> primary = Core.anticheat().getPrimary();
         row(body, "Anticheat", primary.map(d -> d.getName() + " (" + lower(d.getConfidence().name()) + ")")
                 .orElse("none detected"), primary.isPresent() ? AlertType.ANTICHEAT.getColor() : Color.GRAY);
@@ -223,7 +212,7 @@ public final class DebugElement extends AbstractHudElement {
             return;
         }
         for (DebugMonitor.PacketRate rate : busiest) {
-            row(body, arrow(rate.inbound()) + " " + rate.name(), format("%.0f/s", rate.perSecond()), valueColor.resolve());
+            row(body, arrow(rate.inbound()) + " " + rate.name(), format("%.0f/s", rate.perSecond()), style().value());
         }
     }
 
@@ -237,7 +226,7 @@ public final class DebugElement extends AbstractHudElement {
         long now = Core.network().nanoTime();
         for (PacketSample sample : feed) {
             row(body, arrow(sample.isInbound()) + " " + sample.getName(),
-                    format("%.1fs", (now - sample.getNanos()) / 1_000_000_000d), labelColor.resolve());
+                    format("%.1fs", (now - sample.getNanos()) / 1_000_000_000d), style().muted());
         }
     }
 
@@ -254,10 +243,10 @@ public final class DebugElement extends AbstractHudElement {
                 row.align(Align.CENTER);
                 row.text(alert.getType().getLabel(), alert.getType().getColor());
                 row.space(LABEL_GAP, 0f);
-                row.text(alert.getMessage(), valueColor.resolve());
+                row.text(alert.getMessage(), style().value());
                 row.fill();
                 row.space(LABEL_GAP, 0f);
-                row.text(format("%.0fs", alert.ageSeconds(now)), labelColor.resolve());
+                row.text(format("%.0fs", alert.ageSeconds(now)), style().muted());
             });
         }
     }
@@ -318,7 +307,7 @@ public final class DebugElement extends AbstractHudElement {
     private void section(Content content, String title, java.util.function.Consumer<Content> body) {
         content.column(column -> {
             column.align(Align.STRETCH).gap(ROW_GAP);
-            column.text(title, headerColor.resolve());
+            column.text(title, style().label());
             body.accept(column);
         });
     }
@@ -327,7 +316,7 @@ public final class DebugElement extends AbstractHudElement {
         content.row(row -> {
             row.align(Align.CENTER);
             if (!label.isEmpty()) {
-                row.text(label, labelColor.resolve());
+                row.text(label, style().muted());
                 row.space(LABEL_GAP, 0f);
             }
             row.fill();

@@ -133,6 +133,9 @@ public final class IntegrationService extends SettingHolder implements Service {
 
     private void tickMedia() {
         if (mediaProvider == null || !mediaEnabled.isOn() || !mediaProvider.isAvailable()) {
+            // Dropped rather than kept: a provider that signs out would otherwise
+            // leave its last track on screen, still extrapolating, indefinitely.
+            currentTrack = null;
             return;
         }
         long interval = mediaPollSeconds.getInt() * 1000L;

@@ -7,9 +7,13 @@ import dev.px.karatsuba.client.hud.element.CoordinatesElement;
 import dev.px.karatsuba.client.hud.element.DebugElement;
 import dev.px.karatsuba.client.hud.element.NotificationElement;
 import dev.px.karatsuba.client.hud.element.PingElement;
+import dev.px.karatsuba.client.hud.element.NowPlayingElement;
 import dev.px.karatsuba.client.hud.element.ServerElement;
 import dev.px.karatsuba.client.hud.element.TpsElement;
 import dev.px.karatsuba.client.hud.element.WatermarkElement;
+import dev.px.karatsuba.client.hud.stack.HudStacks;
+import dev.px.karatsuba.client.hud.style.HudStyle;
+import dev.px.karatsuba.client.hud.style.VanillaAvoidance;
 
 /**
  * The HUD catalogue.
@@ -24,6 +28,12 @@ public final class HudElements {
     }
 
     public static void registerAll(Core core) {
+        // The style first: every element reads it on its first frame.
+        HudStyle.install(core);
+        // Which elements are docked together; read by every element as it draws.
+        HudStacks.install(core);
+        // Moves elements off the game's own HUD while it shows.
+        VanillaAvoidance.install(core);
         core.getHudService().registerAll(all());
     }
 
@@ -36,6 +46,7 @@ public final class HudElements {
                 new TpsElement(),
                 new PingElement(),
                 new ServerElement(),
+                new NowPlayingElement(),
                 new DebugElement(),
         };
     }

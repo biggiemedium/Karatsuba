@@ -67,6 +67,12 @@ public final class Palette {
     /** Disabled, placeholders and captions. 38%. */
     public static final Color TEXT_FAINT = Color.of(255, 255, 255, 97);
 
+    /** A warning: a keybind that clashes with another. Amber, the one colour besides the accent. */
+    public static final Color WARN = Color.of(242, 184, 88, 235);
+
+    /** Someone online: the dot on a friend's initial. Always beside the word "Online" or a distance. */
+    public static final Color ONLINE = Color.of(98, 204, 132, 255);
+
     /** The knob of a switch that is on, and text on the accent. */
     public static final Color ON_ACCENT = Color.of(255, 255, 255, 245);
 

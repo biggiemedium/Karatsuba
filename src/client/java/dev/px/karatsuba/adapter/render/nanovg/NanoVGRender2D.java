@@ -32,7 +32,6 @@ public final class NanoVGRender2D implements Render2D {
 
     /** Vertical steps used to approximate a true four-corner gradient. */
     private static final int GRADIENT_BANDS = 16;
-
     private final long context;
     private final GlStateGuard guard = new GlStateGuard();
 
@@ -139,6 +138,11 @@ public final class NanoVGRender2D implements Render2D {
         endFrame();
         suspended = true;
         return true;
+    }
+
+    /** @return whether a frame is open, so a game draw now would have to {@link #suspend()} first */
+    public boolean isInFrame() {
+        return inFrame;
     }
 
     /** Starts the frame {@link #suspend()} stepped out of again, at the same size. */

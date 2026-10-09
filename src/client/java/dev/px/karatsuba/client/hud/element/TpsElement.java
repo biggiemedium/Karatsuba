@@ -1,8 +1,6 @@
 package dev.px.karatsuba.client.hud.element;
 
 import dev.px.core.Core;
-import dev.px.gui.legacy.GuiStyle;
-import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
@@ -10,7 +8,7 @@ import dev.px.core.layout.Content;
 import dev.px.core.network.tps.TpsService;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.core.setting.impl.ColorSetting;
+import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
  * The server's tick rate.
@@ -20,13 +18,11 @@ import dev.px.core.setting.impl.ColorSetting;
  * there is no estimate, and the element says so rather than showing the target
  * as if it had been measured.
  *
- * <p>Coloured against the server's own target rather than a hard-coded 20, so a
- * server running {@code /tick rate 10} on purpose does not read as dying.
+ * <p>Judged against the server's own target rather than a hard-coded 20, so a
+ * server running {@code /tick rate 10} on purpose does not read as dying. A value
+ * of fixed width, and bars that carry the state by shape.
  */
-public final class TpsElement extends AbstractHudElement {
-
-    private static final float PADDING = 4f;
-    private static final float LABEL_GAP = 4f;
+public final class TpsElement extends StyledElement {
 
     /** At or above this share of the target, the server is keeping up. */
     private static final double HEALTHY = 0.9d;
@@ -36,46 +32,39 @@ public final class TpsElement extends AbstractHudElement {
 
     private static final double SAMPLE = 19.8d;
 
+    private final BooleanSetting showBars = bool("Quality Bars", true)
+            .describe("Three bars, more lit the closer the server is to its target rate");
+
     private final BooleanSetting colourByHealth = bool("Colour by Health", true)
-            .describe("Green, yellow or red against the server's target rate");
-
-    private final ColorSetting labelColor = color("Label Colour", Color.of(150, 160, 180));
-
-    private final ColorSetting valueColor = color("Value Colour", Color.WHITE)
-            .visibleWhen(() -> !colourByHealth.isOn());
+            .describe("Colour the value and bars against the server's target rate");
 
     public TpsElement() {
-        super("tps", "TPS", HudLayout.at(Anchor.BOTTOM_RIGHT, -4f, -20f));
+        super("tps", "TPS", HudLayout.at(Anchor.BOTTOM_RIGHT, -4f, -24f));
     }
 
     @Override
-    public void content(Content content) {
+    protected void describe(Content body) {
         TpsService tps = Core.tps();
         boolean measured = isEditing() || tps.hasEstimate();
         double value = isEditing() ? SAMPLE : tps.getTps();
+        int level = measured ? level(value, isEditing() ? 20d : tps.getTargetTps()) : 0;
+        Color colour = !measured ? style().muted() : colourByHealth.isOn() ? Health.of(level) : style().value();
+        watch(level, level);
 
-        content.background(GuiStyle.surface(), GuiStyle.radius()).padding(PADDING);
-        content.min(40f, 12f);
-        content.row(row -> {
+        body.row(row -> {
             row.align(Align.CENTER);
-            row.text("TPS", labelColor.resolve());
+            label(row, "TPS");
             row.space(LABEL_GAP, 0f);
-            row.text(measured ? String.format("%.1f", value) : "--", colour(measured, value, tps));
+            fixed(row, measured ? String.format("%.1f", value) : "--", "20.0", colour);
+            if (showBars.isOn()) {
+                row.space(LABEL_GAP, 0f);
+                bars(row, level, 3, colour);
+            }
         });
     }
 
-    private Color colour(boolean measured, double value, TpsService tps) {
-        if (!colourByHealth.isOn()) {
-            return valueColor.resolve();
-        }
-        if (!measured) {
-            return Color.GRAY;
-        }
-        double target = tps.getTargetTps();
+    private static int level(double value, double target) {
         double share = target > 0d && !Double.isNaN(target) ? value / target : 1d;
-        if (share >= HEALTHY) {
-            return Color.GREEN;
-        }
-        return share >= STRUGGLING ? Color.YELLOW : Color.RED;
+        return share >= HEALTHY ? 3 : share >= STRUGGLING ? 2 : 1;
     }
 }

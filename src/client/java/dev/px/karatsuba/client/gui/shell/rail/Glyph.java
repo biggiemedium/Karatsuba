@@ -29,5 +29,17 @@ public enum Glyph {
     /** An eye: show. */
     EYE,
     /** A tick: done. */
-    CHECK
+    CHECK,
+    /** A gear: settings. */
+    SETTINGS,
+    /** Two people: friends. */
+    PEOPLE,
+    /** A plus: add. */
+    ADD,
+    /** A cross: remove. */
+    REMOVE,
+    /** Two overlapping sheets: copy. */
+    COPY,
+    /** A house: home. */
+    HOME
 }

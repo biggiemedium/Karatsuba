@@ -30,6 +30,16 @@ public abstract class SettingRow<S extends Setting<?>> extends ControlRow {
     }
 
     @Override
+    public String description() {
+        return setting.getDescription();
+    }
+
+    @Override
+    public boolean isModified() {
+        return !setting.isDefault();
+    }
+
+    @Override
     protected void reset() {
         setting.reset();
     }

@@ -19,6 +19,10 @@
  *       and projection.</li>
  *   <li>{@link dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider} &mdash; font loading
  *       for that backend.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.render.shader.GlShaderBackend} &mdash; Core's
+ *       {@code ShaderService} on the game's GL context, installed by
+ *       {@link dev.px.karatsuba.adapter.render.shader.Shaders}; the client draws with
+ *       {@link dev.px.karatsuba.adapter.render.shader.ShaderPasses}.</li>
  *   <li>{@link dev.px.karatsuba.adapter.platform.MinecraftLogger} &mdash; Core's log, routed
  *       into the game's rather than {@code System.out}.</li>
  *   <li>{@link dev.px.karatsuba.adapter.account.MinecraftAuthProvider} &mdash; the
@@ -86,10 +90,12 @@
  * {@code ScreenEvent} and the rest are posted from here, because Core cannot see
  * the game's callbacks.
  *
- * <p>Two Core seams are deliberately empty. {@code PresenceProvider} and
- * {@code MediaProvider} are external services rather than game state &mdash; they
- * need credentials and a choice of vendor, and Core is identical with and without
- * them, which is why it treats both as optional.
+ * <p>Core's two integration seams are external services rather than game state
+ * &mdash; they need credentials and a choice of vendor, and Core is identical with
+ * and without them. {@code MediaProvider} is filled by
+ * {@link dev.px.karatsuba.adapter.integration.Spotify}, in {@code integration/},
+ * because signing in opens the player's browser. {@code PresenceProvider} is
+ * still deliberately empty.
  *
  * <h2>Layout</h2>
  * <table>
@@ -99,7 +105,9 @@
  *       {@code Core.builder(...)}</td></tr>
  *   <tr><td>{@code render/}</td><td>the world-space 3D backend;
  *       {@code render/nanovg/} is the 2D one and everything that exists only
- *       because it is NanoVG &mdash; fonts, textures, the GL state fence</td></tr>
+ *       because it is NanoVG &mdash; fonts, textures, the GL state fence;
+ *       {@code render/shader/} is Core's shader backend and the passes that draw
+ *       with it</td></tr>
  *   <tr><td>{@code game/}</td><td>the adapter layer Core leaves out, in Core's
  *       types. {@code game/player/} is the local player and what it does,
  *       {@code game/entity/} is everything else alive plus the crosshair,
@@ -127,6 +135,9 @@
  *       work can hand a result back to</td></tr>
  *   <tr><td>{@code account/}</td><td>the Microsoft login chain and the session
  *       swap it ends in</td></tr>
+ *   <tr><td>{@code integration/}</td><td>the transports behind Core's
+ *       integration seams: Spotify as the media provider, its sign-in and the
+ *       section that keeps it</td></tr>
  *   <tr><td>{@code world/}</td><td>block and grid queries, in the types Core's
  *       spatial utilities are written against</td></tr>
  * </table>

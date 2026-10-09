@@ -15,10 +15,12 @@ public final class TextRow extends Row {
 
     private final StringSetting setting;
     private final TextField field;
+    private boolean detailed;
 
     public TextRow(StringSetting setting) {
         this.setting = setting;
         this.field = add(new TextField(setting.get()));
+        field.grow(1f);
         if (setting.getMaxLength() > 0) {
             field.maxLength(setting.getMaxLength());
         }
@@ -31,6 +33,25 @@ public final class TextRow extends Row {
 
     public String name() {
         return setting.getName();
+    }
+
+    public String description() {
+        return setting.getDescription();
+    }
+
+    public boolean isModified() {
+        return !setting.isDefault();
+    }
+
+    /** Shows the description under the name, for the Settings section. */
+    public TextRow detailed() {
+        this.detailed = true;
+        tooltip((String) null);
+        return this;
+    }
+
+    public boolean isDetailed() {
+        return detailed;
     }
 
     /** Shows the setting's value while nobody is typing in the field. Once a frame. */

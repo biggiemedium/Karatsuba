@@ -1,7 +1,9 @@
 package dev.px.karatsuba.adapter.render.nanovg;
 
 import dev.px.core.render.Texture;
+import dev.px.karatsuba.adapter.render.shader.GlTexture;
 import org.lwjgl.nanovg.NanoVG;
+import org.lwjgl.nanovg.NanoVGGL3;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -18,7 +20,7 @@ import java.nio.ByteBuffer;
  * over once. {@link #load(NanoVGRender2D, InputStream)} does that from anything on
  * the classpath, which covers icons bundled in the mod jar.
  */
-public final class NanoVGTexture implements Texture {
+public final class NanoVGTexture implements Texture, GlTexture {
 
     private final long context;
     private final int width;
@@ -80,6 +82,15 @@ public final class NanoVGTexture implements Texture {
     /** The NanoVG image id, for {@code nvgImagePattern}. */
     int image() {
         return image;
+    }
+
+    /**
+     * The GL texture behind the NanoVG image, so a shader can sample an image loaded
+     * for the HUD. Rows are stored top first, so v = 0 is the top of the image.
+     */
+    @Override
+    public int glTextureId() {
+        return image == 0 ? 0 : NanoVGGL3.nvglImageHandle(context, image);
     }
 
     @Override

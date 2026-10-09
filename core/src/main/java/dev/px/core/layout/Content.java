@@ -169,6 +169,9 @@ public final class Content {
     /** Arbitrary drawing behind this box's parts. See {@link #backdrop}. */
     private Draw backdrop;
 
+    /** How opaque everything in this box draws, background included. See {@link #opacity}. */
+    private float opacity = 1f;
+
     /** Whether parts are cut off at this box's edges. See {@link #clip}. */
     private boolean clip;
 
@@ -226,6 +229,16 @@ public final class Content {
     public Content background(Color color, float radius) {
         this.background = color;
         this.radius = radius;
+        return this;
+    }
+
+    /**
+     * Draws everything in this box, background and all, at {@code opacity} (0 to
+     * 1): for an element fading in, out or to an idle dimness as a whole. Layout
+     * is untouched, so a faded box keeps its size and place. Zero draws nothing.
+     */
+    public Content opacity(float opacity) {
+        this.opacity = Math.max(0f, Math.min(1f, opacity));
         return this;
     }
 
@@ -376,6 +389,21 @@ public final class Content {
         return box(false, body);
     }
 
+    /**
+     * Nests a box built and measured on its own, as {@link #row} or {@link #column}
+     * would one built in place. For an element that needs its content's natural size
+     * before deciding how to frame it, without describing the content twice.
+     */
+    public Content include(Content child) {
+        parts.add(new BoxPart(child));
+        return this;
+    }
+
+    /** @return whether nothing has been added: an element with nothing to show */
+    public boolean isEmpty() {
+        return parts.isEmpty();
+    }
+
     private Content box(boolean horizontal, Consumer<Content> body) {
         Content child = new Content(horizontal);
         body.accept(child);
@@ -390,20 +418,28 @@ public final class Content {
 
     /** Text in the default font. */
     public Content text(String value, Color color) {
-        return add(new TextPart(null, value, color, false, null));
+        return add(new TextPart(null, value, color, TextPart.PLAIN, null));
     }
 
     public Content text(Font font, String value, Color color) {
-        return add(new TextPart(font, value, color, false, null));
+        return add(new TextPart(font, value, color, TextPart.PLAIN, null));
     }
 
     /** Text with a drop shadow, which is what most HUDs want over a busy game. */
     public Content textShadowed(String value, Color color) {
-        return add(new TextPart(null, value, color, true, null));
+        return add(new TextPart(null, value, color, TextPart.SHADOWED, null));
     }
 
     public Content textShadowed(Font font, String value, Color color, Color shadow) {
-        return add(new TextPart(font, value, color, true, shadow));
+        return add(new TextPart(font, value, color, TextPart.SHADOWED, shadow));
+    }
+
+    /**
+     * Text with an outline all the way round: the strongest protection for text
+     * with nothing behind it. A null font is the default font.
+     */
+    public Content textOutlined(Font font, String value, Color color, Color outline) {
+        return add(new TextPart(font, value, color, TextPart.OUTLINED, outline));
     }
 
     /**
@@ -761,6 +797,23 @@ public final class Content {
     }
 
     private void paint() {
+        if (opacity <= 0f) {
+            return;
+        }
+        boolean faded = opacity < 1f;
+        if (faded) {
+            Render.pushAlpha(opacity);
+        }
+        try {
+            paintOpaque();
+        } finally {
+            if (faded) {
+                Render.popAlpha();
+            }
+        }
+    }
+
+    private void paintOpaque() {
         if (backdrop != null) {
             backdrop.draw(placed.getX(), placed.getY(), placed.getWidth(), placed.getHeight());
         }
@@ -1043,18 +1096,25 @@ public final class Content {
      */
     private static final class TextPart implements Part {
 
+        static final int PLAIN = 0;
+        static final int SHADOWED = 1;
+        static final int OUTLINED = 2;
+
+        /** Behind text drawn with no colour of its own for it. */
+        private static final Color DEFAULT_EDGE = Color.of(0, 0, 0, 160);
+
         private final Font font;
         private final String value;
         private final Color color;
-        private final boolean shadowed;
-        private final Color shadow;
+        private final int effect;
+        private final Color edge;
 
-        TextPart(Font font, String value, Color color, boolean shadowed, Color shadow) {
+        TextPart(Font font, String value, Color color, int effect, Color edge) {
             this.font = font;
             this.value = value == null ? "" : value;
             this.color = color;
-            this.shadowed = shadowed;
-            this.shadow = shadow;
+            this.effect = effect;
+            this.edge = edge;
         }
 
         @Override
@@ -1069,16 +1129,17 @@ public final class Content {
         public void draw(Bounds at) {
             float x = at.getX();
             float y = at.getY();
-            if (shadowed) {
-                if (font != null && shadow != null) {
-                    Render.textShadowed(font, value, x, y, color, shadow);
-                } else {
-                    Render.textShadowed(value, x, y, color);
-                }
-            } else if (font != null) {
-                Render.text(font, value, x, y, color);
+            Font drawing = font != null ? font : Render.getDefaultFont();
+            if (drawing == null) {
+                return;
+            }
+            Color around = edge != null ? edge : DEFAULT_EDGE;
+            if (effect == SHADOWED) {
+                Render.textShadowed(drawing, value, x, y, color, around);
+            } else if (effect == OUTLINED) {
+                Render.textOutlined(drawing, value, x, y, color, around);
             } else {
-                Render.text(value, x, y, color);
+                Render.text(drawing, value, x, y, color);
             }
         }
     }

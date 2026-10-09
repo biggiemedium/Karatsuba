@@ -1,67 +1,47 @@
 package dev.px.karatsuba.client.hud.element;
 
 import dev.px.core.Core;
-import dev.px.gui.legacy.GuiStyle;
-import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
-import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;
 import dev.px.core.module.Module;
-import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
+import dev.px.gui.legacy.GuiStyle;
+import dev.px.karatsuba.client.hud.style.StyledElement;
+import dev.px.karatsuba.client.module.ClientModule;
 
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * The list of enabled modules.
+ * The modules switched on, longest first.
  *
- * <p>Its width changes as modules toggle and as their display info changes, which
- * is the normal case for a HUD element rather than an edge case &mdash; nothing
- * caches {@code content}, so growing and shrinking needs no invalidation.
- *
- * <p>Settings register by being declared, exactly as on a module, and are persisted
- * alongside the layout.
+ * <p>Aligned to the side it is anchored to like every
+ * other element: anchored right, the names hug the right edge and the list grows
+ * leftwards. As modules are switched on and off the list eases to its new size.
+ * An empty list takes no space; while positioning, a sample keeps it grabbable.
  */
-public final class ArrayListElement extends AbstractHudElement {
+public final class ArrayListElement extends StyledElement {
 
-    private static final float PADDING = 3f;
-    private static final float LINE_GAP = 1f;
+    public enum Tint { THEME_GRADIENT, LABEL, VALUE }
 
-    private final BooleanSetting background = bool("Background", true);
     private final BooleanSetting showInfo = bool("Show Info", true)
             .describe("The extra text a module puts after its name, like a mode");
-    private final EnumSetting<Tint> tint = enumOf("Tint", Tint.THEME_GRADIENT);
+    private final EnumSetting<Tint> tint = enumOf("Tint", Tint.THEME_GRADIENT)
+            .describe("A gradient through the theme's accents, or one of the style's text colours");
 
     public ArrayListElement() {
         super("arraylist", "ArrayList", HudLayout.at(Anchor.TOP_RIGHT, -4f, 4f));
     }
 
     @Override
-    public void content(Content content) {
+    protected void describe(Content body) {
         List<String> entries = entries();
-        if (entries.isEmpty()) {
-            // Describing nothing measures to nothing, so an empty list takes up no
-            // space and catches no clicks. Only reachable outside the editor:
-            // entries() substitutes a sample while positioning, which is what keeps
-            // an empty ArrayList grabbable.
-            return;
-        }
-
-        if (background.isOn()) {
-            content.background(GuiStyle.surface(), GuiStyle.radius());
-        }
-        content.padding(PADDING).gap(LINE_GAP);
-
-        // Right-anchored grows leftwards, so the text has to hug the right edge or
-        // it detaches from the corner it was placed against.
-        content.align(Core.hud().layoutOf(this).getAnchor().isRight() ? Align.END : Align.START);
-
+        watch(entries, entries);
         for (int i = 0; i < entries.size(); i++) {
-            content.text(entries.get(i), colorFor(i, entries.size()));
+            text(body, entries.get(i), colorFor(i, entries.size()));
         }
     }
 
@@ -82,14 +62,8 @@ public final class ArrayListElement extends AbstractHudElement {
     private Color colorFor(int index, int total) {
         return switch (tint.get()) {
             case THEME_GRADIENT -> GuiStyle.accent(total <= 1 ? 0f : index / (float) (total - 1));
-            case ACCENT -> GuiStyle.accent();
-            case WHITE -> Color.WHITE;
+            case LABEL -> style().label();
+            case VALUE -> style().value();
         };
-    }
-
-    public enum Tint {
-        THEME_GRADIENT,
-        ACCENT,
-        WHITE
     }
 }

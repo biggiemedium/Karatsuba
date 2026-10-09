@@ -144,6 +144,25 @@ final class Shapes {
         return colour.getAlpha() == 255 ? rgb : rgb + "  " + Math.round(colour.getAlpha() / 2.55f) + "%";
     }
 
+    /** @return {@code text} broken between words into lines no wider than {@code width} */
+    static java.util.List<String> wrap(String text, dev.px.core.render.font.Font font, float width) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String tried = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && font.widthOf(tried) > width) {
+                lines.add(line.toString());
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(tried);
+            }
+        }
+        if (line.length() > 0) {
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
     static float lerp(float from, float to, float t) {
         return from + (to - from) * t;
     }

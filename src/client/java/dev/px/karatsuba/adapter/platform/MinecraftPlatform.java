@@ -5,9 +5,12 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.Window;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.io.File;
+import java.util.function.Supplier;
 
 /**
  * Core's narrow seam into the running game.
@@ -85,13 +88,38 @@ public final class MinecraftPlatform implements Platform {
 
     // --------------------------------------------------------------- chat
 
+    /** The name the client signs its chat messages with, and its colour; a null name signs nothing. */
+    private static volatile Supplier<String> tagName = () -> null;
+    private static volatile Supplier<Integer> tagColour = () -> 0xFFFFFF;
+
+    /**
+     * Signs every message the client prints to chat, "[Name] message", the name in
+     * {@code colour} (RGB). Read at each message, so a setting switching it off or
+     * a theme change applies at once.
+     */
+    public static void tagMessages(Supplier<String> name, Supplier<Integer> colour) {
+        tagName = name == null ? () -> null : name;
+        tagColour = colour == null ? () -> 0xFFFFFF : colour;
+    }
+
     @Override
     public void printMessage(String message) {
         // Command output arrives before the HUD exists during early startup, and
         // after it is gone during shutdown.
         if (client.inGameHud != null) {
-            client.inGameHud.getChatHud().addMessage(Text.literal(message));
+            client.inGameHud.getChatHud().addMessage(tagged(message));
         }
+    }
+
+    private static Text tagged(String message) {
+        String name = tagName.get();
+        if (name == null || name.isEmpty()) {
+            return Text.literal(message);
+        }
+        MutableText tag = Text.literal("[").formatted(Formatting.DARK_GRAY)
+                .append(Text.literal(name).styled(style -> style.withColor(tagColour.get() & 0xFFFFFF)))
+                .append(Text.literal("] ").formatted(Formatting.DARK_GRAY));
+        return tag.append(Text.literal(message).formatted(Formatting.WHITE));
     }
 
     @Override

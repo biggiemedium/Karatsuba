@@ -7,11 +7,19 @@ import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGFont;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGTexture;
+import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Loads images and fonts bundled in the mod jar.
@@ -80,6 +88,72 @@ public final class Assets {
             Core.log().error("Could not load font " + fileName + "; falling back to the default", failure);
             return Core.fonts().getDefault();
         }
+    }
+
+    /** The mod's id, whose jar the bundled fonts are listed from. */
+    private static final String MOD_ID = "karatsuba";
+
+    /** The font files bundled, listed once: what is in a jar does not change while it runs. */
+    private static List<String> fontFiles;
+
+    /**
+     * @return the file names of every font bundled in {@code assets/karatsuba/font},
+     *         TrueType and OpenType, sorted; empty when there are none
+     *
+     * <p>Listed through Fabric's view of the mod, which is a folder in a dev run and
+     * the jar's own file system in a built one: a classpath folder cannot be listed
+     * directly, only its files opened by name.
+     */
+    public static List<String> fontFiles() {
+        if (fontFiles == null) {
+            fontFiles = listFonts();
+        }
+        return fontFiles;
+    }
+
+    /**
+     * A bundled font file at {@code size}, loaded the first time and kept after.
+     *
+     * @return the font, or Core's default if the file is missing or unreadable
+     */
+    public static Font fontFile(String fileName, float size) {
+        String name = "asset:" + fileName + "@" + size;
+        var existing = Core.fonts().find(name);
+        return existing.isPresent() ? existing.get() : font(name, fileName, size);
+    }
+
+    private static List<String> listFonts() {
+        try {
+            return listBundledFonts();
+        } catch (RuntimeException | LinkageError noLoader) {
+            // Outside Fabric (a test harness): nothing bundled to offer, and no reason to fail.
+            return List.of();
+        }
+    }
+
+    private static List<String> listBundledFonts() {
+        var container = FabricLoader.getInstance().getModContainer(MOD_ID);
+        if (container.isEmpty()) {
+            return List.of();
+        }
+        var folder = container.get().findPath("assets/" + MOD_ID + "/font");
+        if (folder.isEmpty() || !Files.isDirectory(folder.get())) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        try (Stream<Path> files = Files.list(folder.get())) {
+            files.map(path -> path.getFileName().toString())
+                    .filter(file -> {
+                        String lower = file.toLowerCase(Locale.ROOT);
+                        return lower.endsWith(".ttf") || lower.endsWith(".otf");
+                    })
+                    .forEach(names::add);
+        } catch (IOException failure) {
+            Core.log().error("Could not list the bundled fonts", failure);
+        }
+        Collections.sort(names);
+        Core.log().info("Bundled fonts: " + (names.isEmpty() ? "none" : String.join(", ", names)));
+        return Collections.unmodifiableList(names);
     }
 
     /**

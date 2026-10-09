@@ -175,6 +175,11 @@ public final class HudEditor {
         return !guides.isEmpty();
     }
 
+    /** @return whether an element is being moved (not resized) right now */
+    public boolean isDragging() {
+        return active && dragging;
+    }
+
     public Placement getSelected() {
         return placementFor(selectedId);
     }

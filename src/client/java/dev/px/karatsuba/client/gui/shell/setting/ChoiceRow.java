@@ -1,5 +1,6 @@
 package dev.px.karatsuba.client.gui.shell.setting;
 
+import dev.px.core.setting.Setting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.gui.Popup;
 import dev.px.karatsuba.client.gui.shell.popup.Menu;
@@ -8,6 +9,7 @@ import dev.px.karatsuba.client.gui.shell.popup.Unroll;
 import dev.px.karatsuba.client.gui.shell.style.Animations;
 import dev.px.karatsuba.client.gui.shell.style.Motion;
 import dev.px.karatsuba.client.gui.shell.style.Palette;
+import dev.px.karatsuba.client.setting.ChoiceSetting;
 
 import java.util.List;
 
@@ -18,38 +20,97 @@ import java.util.List;
  * view and one press away, with the highlight sliding to the one chosen. More
  * than that, or a row too narrow, and the row shows the current one on a chip
  * that opens a menu of them all, so a long enum never crowds the row.
+ *
+ * <p>Works the same for Core's {@link EnumSetting}, whose options are fixed, and
+ * the client's {@link ChoiceSetting}, whose options are read live: both are seen
+ * through {@link Choices}.
  */
-public final class ChoiceRow<E extends Enum<E>> extends SettingRow<EnumSetting<E>> {
+public final class ChoiceRow extends SettingRow<Setting<?>> {
 
     /** Widest the segments may be in all before the row falls back to a menu. */
     private static final float SEGMENTED_WIDTH = 132f;
 
-    private final Motion slide;
+    /** What the row needs of a setting with options: how many, what each says, which is chosen. */
+    private interface Choices {
+        int count();
 
-    public ChoiceRow(EnumSetting<E> setting) {
-        super(setting);
-        this.slide = new Motion(Animations.SWITCH * 1.5f, setting.getOptions().indexOf(setting.get()));
+        String label(int index);
+
+        int chosen();
+
+        void choose(int index);
     }
 
-    public List<E> options() {
-        return setting.getOptions();
+    private final Choices choices;
+    private final Motion slide;
+
+    private ChoiceRow(Setting<?> setting, Choices choices) {
+        super(setting);
+        this.choices = choices;
+        this.slide = new Motion(Animations.SWITCH * 1.5f, Math.max(0, choices.chosen()));
+    }
+
+    public static <E extends Enum<E>> ChoiceRow of(EnumSetting<E> setting) {
+        return new ChoiceRow(setting, new Choices() {
+            public int count() {
+                return setting.getOptions().size();
+            }
+
+            public String label(int index) {
+                return setting.labelOf(setting.getOptions().get(index));
+            }
+
+            public int chosen() {
+                return setting.getOptions().indexOf(setting.get());
+            }
+
+            public void choose(int index) {
+                setting.set(setting.getOptions().get(index));
+            }
+        });
+    }
+
+    public static ChoiceRow of(ChoiceSetting setting) {
+        return new ChoiceRow(setting, new Choices() {
+            public int count() {
+                return setting.getOptions().size();
+            }
+
+            public String label(int index) {
+                return setting.labelOf(setting.getOptions().get(index));
+            }
+
+            public int chosen() {
+                return setting.getOptions().indexOf(setting.resolved());
+            }
+
+            public void choose(int index) {
+                setting.set(setting.getOptions().get(index));
+            }
+        });
+    }
+
+    /** @return how many options there are, now */
+    public int count() {
+        return choices.count();
     }
 
     public int chosen() {
-        return options().indexOf(setting.get());
+        return choices.chosen();
     }
 
     public String label(int index) {
-        return setting.labelOf(options().get(index));
+        return choices.label(index);
     }
 
     public String current() {
-        return setting.labelOf(setting.get());
+        int chosen = chosen();
+        return chosen < 0 ? "" : label(chosen);
     }
 
     /** @return where the highlight is, as an option index that slides between whole numbers */
     public float slide() {
-        return slide.toward(chosen());
+        return slide.toward(Math.max(0, chosen()));
     }
 
     /**
@@ -57,12 +118,12 @@ public final class ChoiceRow<E extends Enum<E>> extends SettingRow<EnumSetting<E
      *         the name, at the width the row had last frame
      */
     public boolean segmented() {
-        List<E> options = options();
-        if (options.size() > 3) {
+        int count = count();
+        if (count > 3) {
             return false;
         }
         float width = 4f;
-        for (int i = 0; i < options.size(); i++) {
+        for (int i = 0; i < count; i++) {
             width += Palette.body().widthOf(label(i)) + 12f;
         }
         float rowWidth = getBounds() == null ? 0f : getBounds().getWidth();
@@ -74,9 +135,9 @@ public final class ChoiceRow<E extends Enum<E>> extends SettingRow<EnumSetting<E
     @Override
     protected boolean pressed(float x, float y) {
         if (segmented()) {
-            for (int i = 0; i < options().size(); i++) {
+            for (int i = 0; i < count(); i++) {
                 if (inside("option" + i, x, y)) {
-                    setting.set(options().get(i));
+                    choices.choose(i);
                     return true;
                 }
             }
@@ -89,7 +150,10 @@ public final class ChoiceRow<E extends Enum<E>> extends SettingRow<EnumSetting<E
     @Override
     protected boolean activated() {
         if (segmented()) {
-            setting.cycle();
+            int count = count();
+            if (count > 0) {
+                choices.choose((Math.max(0, chosen()) + 1) % count);
+            }
         } else {
             openMenu();
         }
@@ -99,9 +163,11 @@ public final class ChoiceRow<E extends Enum<E>> extends SettingRow<EnumSetting<E
     private void openMenu() {
         Menu menu = new Menu();
         Unroll[] popup = new Unroll[1];
-        for (E option : options()) {
-            menu.add(new MenuItem(setting.labelOf(option), () -> setting.is(option), false, () -> {
-                setting.set(option);
+        int count = count();
+        for (int i = 0; i < count; i++) {
+            int index = i;
+            menu.add(new MenuItem(label(i), () -> chosen() == index, false, () -> {
+                choices.choose(index);
                 getScreen().close(popup[0]);
             }));
         }

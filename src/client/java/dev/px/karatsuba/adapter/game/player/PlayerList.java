@@ -8,6 +8,9 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * What the tab list knows about another player: their ping and game mode.
  *
@@ -52,6 +55,45 @@ public final class PlayerList {
             case ADVENTURE -> GameMode.ADVENTURE;
             case SPECTATOR -> GameMode.SPECTATOR;
         };
+    }
+
+    /**
+     * @return the names on the server's player list (the tab list), yourself left
+     *         out; empty when not on a server
+     */
+    public static List<String> names() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        List<String> names = new ArrayList<>();
+        ClientPlayNetworkHandler network = client == null ? null : client.getNetworkHandler();
+        if (network == null) {
+            return names;
+        }
+        String self = client.getSession().getUsername();
+        for (PlayerListEntry entry : network.getPlayerList()) {
+            String name = entry.getProfile().getName();
+            if (name != null && !name.equalsIgnoreCase(self)) {
+                names.add(name);
+            }
+        }
+        return names;
+    }
+
+    /** @return how far away a player is, in blocks, or -1 when they are not loaded near you */
+    public static float distanceTo(String name) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.player == null || client.world == null) {
+            return -1f;
+        }
+        ClientWorld world = client.world;
+        if (world == null) {
+            return -1f;
+        }
+        for (PlayerEntity player : world.getPlayers()) {
+            if (player != client.player && player.getName().getString().equalsIgnoreCase(name)) {
+                return client.player.distanceTo(player);
+            }
+        }
+        return -1f;
     }
 
     private static PlayerListEntry entryFor(int entityId) {

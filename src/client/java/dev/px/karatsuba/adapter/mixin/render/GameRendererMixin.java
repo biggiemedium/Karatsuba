@@ -2,8 +2,14 @@ package dev.px.karatsuba.adapter.mixin.render;
 
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.render.EffectRenderEvent;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.px.karatsuba.adapter.event.game.render.EffectRenderEvent.Effect;
+import dev.px.karatsuba.adapter.render.shader.Silhouettes;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,6 +30,20 @@ public abstract class GameRendererMixin {
         if (Events.cancelled(new EffectRenderEvent(Effect.HURT_TILT))) {
             callback.cancel();
         }
+    }
+
+    /**
+     * The held items: drawn as the game draws them, then {@code HandRenderEvent},
+     * with a way for {@code Silhouettes} to draw them again exactly the same into
+     * its mask (same matrices, same lightmap, which is still enabled here).
+     */
+    @WrapOperation(method = "renderHand", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderItem(FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider$Immediate;Lnet/minecraft/client/network/ClientPlayerEntity;I)V"))
+    private void karatsuba$renderHands(HeldItemRenderer renderer, float tickDelta, MatrixStack matrices,
+                                       VertexConsumerProvider.Immediate vertexConsumers, ClientPlayerEntity player,
+                                       int light, Operation<Void> original) {
+        original.call(renderer, tickDelta, matrices, vertexConsumers, player, light);
+        Silhouettes.afterHands(() -> original.call(renderer, tickDelta, matrices, vertexConsumers, player, light));
     }
 
     /**

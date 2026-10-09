@@ -116,6 +116,52 @@ final class Glyphs {
                 Render.popClip();
                 Render.circle(cx, cy, s * 0.14f, colour);
             }
+            case SETTINGS -> {
+                // A gear: a ring with eight teeth, and a hole in the middle.
+                float r = s * 0.32f;
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.PI / 4d * i;
+                    float cos = (float) Math.cos(a);
+                    float sin = (float) Math.sin(a);
+                    Render.line(cx + cos * r, cy + sin * r, cx + cos * (s * 0.47f), cy + sin * (s * 0.47f),
+                            STROKE * 2.2f, colour);
+                }
+                // The body is a thick ring, which leaves the hole open.
+                Render.circleOutline(cx, cy, r * 0.72f, r * 0.62f, colour);
+            }
+            case PEOPLE -> {
+                // Two people, one a step behind the other: a head and shoulders each.
+                Render.circleOutline(x + s * 0.64f, y + s * 0.3f, s * 0.15f, STROKE, colour);
+                Render.pushClip(x + s * 0.4f, y + s * 0.5f, s * 0.6f, s * 0.5f);
+                Render.circleOutline(x + s * 0.68f, y + s * 0.95f, s * 0.3f, STROKE, colour);
+                Render.popClip();
+                Render.circle(x + s * 0.36f, y + s * 0.36f, s * 0.17f, colour);
+                Render.pushClip(x, y + s * 0.58f, s * 0.75f, s * 0.42f);
+                Render.circle(x + s * 0.36f, y + s * 1.02f, s * 0.36f, colour);
+                Render.popClip();
+            }
+            case ADD -> {
+                Render.line(cx, y + s * 0.15f, cx, y + s * 0.85f, STROKE * 1.2f, colour);
+                Render.line(x + s * 0.15f, cy, x + s * 0.85f, cy, STROKE * 1.2f, colour);
+            }
+            case REMOVE -> {
+                Render.line(x + s * 0.22f, y + s * 0.22f, x + s * 0.78f, y + s * 0.78f, STROKE * 1.2f, colour);
+                Render.line(x + s * 0.78f, y + s * 0.22f, x + s * 0.22f, y + s * 0.78f, STROKE * 1.2f, colour);
+            }
+            case COPY -> {
+                Render.roundRectOutline(x + s * 0.32f, y + s * 0.1f, s * 0.56f, s * 0.6f, 1.5f, STROKE, colour);
+                Render.roundRectOutline(x + s * 0.12f, y + s * 0.3f, s * 0.56f, s * 0.6f, 1.5f, STROKE, colour);
+            }
+            case HOME -> {
+                // A roof, the walls under it, and a door.
+                float eaves = y + s * 0.45f;
+                Render.line(x + s * 0.06f, eaves, cx, y + s * 0.08f, STROKE, colour);
+                Render.line(cx, y + s * 0.08f, x + s * 0.94f, eaves, STROKE, colour);
+                Render.line(x + s * 0.2f, y + s * 0.34f, x + s * 0.2f, y + s * 0.9f, STROKE, colour);
+                Render.line(x + s * 0.8f, y + s * 0.34f, x + s * 0.8f, y + s * 0.9f, STROKE, colour);
+                Render.line(x + s * 0.2f, y + s * 0.9f, x + s * 0.8f, y + s * 0.9f, STROKE, colour);
+                Render.roundRect(cx - s * 0.1f, y + s * 0.6f, s * 0.2f, s * 0.3f, 1f, colour);
+            }
             case CHECK -> {
                 Render.line(x + s * 0.12f, y + s * 0.52f, x + s * 0.4f, y + s * 0.8f, STROKE * 1.3f, colour);
                 Render.line(x + s * 0.4f, y + s * 0.8f, x + s * 0.9f, y + s * 0.22f, STROKE * 1.3f, colour);

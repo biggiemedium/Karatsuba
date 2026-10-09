@@ -2,13 +2,16 @@ package dev.px.karatsuba.adapter.mixin.game;
 
 import dev.px.karatsuba.adapter.event.ScreenBridge;
 import dev.px.karatsuba.adapter.input.InputBridge;
+import dev.px.karatsuba.adapter.render.shader.Silhouettes;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gui.screen.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * The screen swap and window focus, for the same reason as the input mixins:
@@ -27,6 +30,19 @@ public abstract class MinecraftClientMixin {
     private void karatsuba$setScreen(Screen screen, CallbackInfo callback) {
         if (ScreenBridge.onScreenChange(currentScreen, screen)) {
             callback.cancel();
+        }
+    }
+
+    /**
+     * While {@code Silhouettes} captures, the main framebuffer is its mask: every
+     * render layer binds whatever this returns before it draws, so this one answer
+     * moves the game's own entity and item draws into the mask.
+     */
+    @Inject(method = "getFramebuffer", at = @At("HEAD"), cancellable = true)
+    private void karatsuba$getFramebuffer(CallbackInfoReturnable<Framebuffer> callback) {
+        Framebuffer mask = Silhouettes.redirect();
+        if (mask != null) {
+            callback.setReturnValue(mask);
         }
     }
 

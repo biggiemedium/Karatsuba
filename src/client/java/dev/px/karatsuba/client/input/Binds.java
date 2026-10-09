@@ -4,9 +4,9 @@ import dev.px.core.Core;
 import dev.px.core.input.Bind;
 import dev.px.core.input.Key;
 import dev.px.karatsuba.client.gui.AccountsScreen;
-import dev.px.karatsuba.client.gui.ClientSettingsScreen;
 import dev.px.karatsuba.client.gui.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.shell.section.layout.LayoutSection;
+import dev.px.karatsuba.client.gui.shell.section.settings.SettingsSection;
 import dev.px.karatsuba.client.gui.ProfilesScreen;
 import dev.px.karatsuba.client.screen.Overlays;
 
@@ -64,7 +64,7 @@ public final class Binds {
         input.register("Legacy Click GUI", Bind.NONE, () -> Overlays.clickGui().toggle());
         input.register("HUD Editor", Bind.of(HUD_EDITOR), () -> Overlays.gui().open(LayoutSection.ID));
         input.register("HUD Elements", Bind.of(HUD_ELEMENTS), () -> Overlays.gui().open(HudSection.ID));
-        input.register("Client Settings", Bind.of(CLIENT_SETTINGS), ClientSettingsScreen::toggle);
+        input.register("Client Settings", Bind.of(CLIENT_SETTINGS), () -> Overlays.gui().open(SettingsSection.ID));
 
         // Unbound by default: a screen most people open from the GUI, not a key.
         input.register("Profiles", Bind.NONE, () -> Overlays.clickGui().open(new ProfilesScreen()));

@@ -205,6 +205,17 @@ public final class ModulesSection implements Section, Navigator {
         select(last);
     }
 
+    /** Opens with {@code query} in the search box: Home's "see all" for a search. */
+    public void searchFor(String query) {
+        search.setText(query);
+    }
+
+    /** Shows {@code module} in its category, selected: Home's way into a module. */
+    public void reveal(Module module) {
+        showCategory(module.getCategory());
+        select(module);
+    }
+
     // ------------------------------------------------------------- internals
 
     private boolean isSearching() {
@@ -262,6 +273,7 @@ public final class ModulesSection implements Section, Navigator {
         SmoothScroll list = settingsColumn.add(new SmoothScroll());
         list.gap(Palette.GAP_ROW);
         list.grow(1f);
+        settings.clear();
         settings.build(module, list);
     }
 

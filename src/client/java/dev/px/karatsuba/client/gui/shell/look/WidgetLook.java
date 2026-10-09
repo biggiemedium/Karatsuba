@@ -9,6 +9,10 @@ import dev.px.gui.render.WidgetRendererRegistry;
 import dev.px.karatsuba.client.gui.shell.widget.Description;
 import dev.px.karatsuba.client.gui.shell.widget.InspectorHeader;
 import dev.px.karatsuba.client.gui.shell.widget.ListItem;
+import dev.px.karatsuba.client.gui.shell.widget.FieldMessage;
+import dev.px.karatsuba.client.gui.shell.widget.ListHeading;
+import dev.px.karatsuba.client.gui.shell.widget.NavItem;
+import dev.px.karatsuba.client.gui.shell.widget.PageIntro;
 import dev.px.karatsuba.client.gui.shell.widget.PillButton;
 import dev.px.karatsuba.client.gui.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.shell.widget.SectionTitle;
@@ -74,6 +78,58 @@ final class WidgetLook {
             });
         }));
 
+        look.register(WidgetRenderer.of(NavItem.class, (item, c) -> {
+            boolean selected = item.isSelected();
+            float hover = item.hover();
+            float chosen = item.chosen();
+            String caption = item.caption();
+            c.align(Align.STRETCH).row(r -> r.height(ROW_HEIGHT).padding(INSET, 0f).align(Align.CENTER)
+                    .backdrop((x, y, w, h) -> {
+                        Render.roundRect(x, y, w, h, RADIUS_CONTROL, faded(HOVER, hover));
+                        Render.roundRect(x, y, w, h, RADIUS_CONTROL, faded(RAISED, chosen));
+                        float bar = (h - 10f) * chosen;
+                        if (bar > 0.5f) {
+                            Render.roundRect(x, y + (h - bar) / 2f, 2f, bar, 1f, accent());
+                        }
+                    })
+                    .text(selected ? strong() : body(), item.name(), TEXT_MUTED.lerp(TEXT, chosen))
+                    .fill()
+                    .text(small(), caption, accent()));
+        }));
+
+        look.register(WidgetRenderer.of(ListHeading.class, (heading, c) -> c.align(Align.STRETCH).row(r -> r
+                .height(ROW_HEIGHT - 4f).padding(6f, 0f).gap(6f).align(Align.CENTER)
+                .text(small(), heading.title().toUpperCase(java.util.Locale.ROOT), TEXT_FAINT)
+                .text(small(), heading.count(), TEXT_FAINT))));
+
+        // An error says so twice: in amber, and with a cross before it.
+        look.register(WidgetRenderer.of(FieldMessage.class, (message, c) -> {
+            boolean error = message.kind() == FieldMessage.Kind.ERROR;
+            // Wrapped here against the width the line had last frame, not left to a
+            // paragraph: a widget's natural width is measured unwrapped, and a long
+            // message would otherwise widen the whole column it sits in.
+            float left = error ? 16f : 4f;
+            var last = message.getBounds();
+            float room = (last != null && last.getWidth() > 0f ? last.getWidth() : 180f) - left - 4f;
+            java.util.List<String> lines = Shapes.wrap(message.text(), small(), room);
+            float line = small().getLineHeight();
+            dev.px.core.render.Color ink = error ? WARN : TEXT_MUTED;
+            c.align(Align.STRETCH).padding(left, 3f, 4f, 0f)
+                    .backdrop((x, y, w, h) -> {
+                        if (error) {
+                            Glyphs.draw(dev.px.karatsuba.client.gui.shell.rail.Glyph.REMOVE, x + 5f, y + 4f, 7f, WARN);
+                        }
+                    })
+                    .custom(0f, lines.size() * line, (x, y, w, h) -> {
+                        for (int i = 0; i < lines.size(); i++) {
+                            Render.text(small(), lines.get(i), x, y + i * line, ink);
+                        }
+                    });
+        }));
+
+        look.register(WidgetRenderer.of(PageIntro.class, (intro, c) -> c
+                .padding(INSET, 0f).paragraph(body(), intro.getText(), TEXT_MUTED)));
+
         look.register(WidgetRenderer.of(Description.class, (description, c) -> c
                 .paragraph(body(), description.getText(), TEXT_MUTED)));
 
@@ -113,7 +169,7 @@ final class WidgetLook {
             // Centred in whatever width it is given: its own in a toolbar, a whole column under a list.
             c.align(Align.STRETCH).row(r -> {
                 r.height(ROW_HEIGHT).padding(button.iconOnly() ? 5f : 8f, 0f).gap(5f).align(Align.CENTER)
-                        .backdrop((x, y, w, h) -> Render.roundRect(x, y, w, h, RADIUS_CONTROL,
+                        .backdrop((x, y, w, h) -> Render.roundRect(x, y, w, h, button.isRounded() ? h / 2f : RADIUS_CONTROL,
                                 enabled ? fill : faded(fill, 0.5f)))
                         .fill()
                         .custom(10f, 10f, (x, y, w, h) -> Glyphs.draw(button.glyph(), x, y, w, glyphInk));

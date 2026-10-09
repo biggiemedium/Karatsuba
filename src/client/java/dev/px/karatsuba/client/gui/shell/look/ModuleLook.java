@@ -28,6 +28,8 @@ public final class ModuleLook {
         PopupLook.register(look);
         FieldLook.register(look);
         ThemeLook.register(look);
+        FriendsLook.register(look);
+        HomeLook.register(look);
         return look;
     }
 }

@@ -5,6 +5,7 @@ import dev.px.core.config.section.SettingsSection;
 import dev.px.karatsuba.client.settings.interaction.InteractionSettings;
 import dev.px.karatsuba.client.settings.alerts.AlertSettings;
 import dev.px.karatsuba.client.settings.gui.GuiSettings;
+import dev.px.karatsuba.client.settings.general.GeneralSettings;
 import dev.px.karatsuba.client.settings.updates.UpdateSettings;
 
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public final class ClientSettings {
     /** Every section, in the order the screen shows them. */
     private static ClientSection[] create() {
         return new ClientSection[]{
+                new GeneralSettings(),
                 new InteractionSettings(),
                 new UpdateSettings(),
                 new AlertSettings(),
@@ -81,6 +83,11 @@ public final class ClientSettings {
         throw new IllegalStateException(type.getSimpleName() + " is not registered;"
                 + " ClientSettings.registerAll(core) runs during boot, before Core.start(),"
                 + " and lists every section in create()");
+    }
+
+    /** How the client tells you what it is doing: its chat tag and toggle alerts. */
+    public static GeneralSettings general() {
+        return get(GeneralSettings.class);
     }
 
     /** How every module's rotations, clicks and packets are checked and sent. */

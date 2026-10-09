@@ -1,8 +1,6 @@
 package dev.px.karatsuba.client.hud.element;
 
 import dev.px.core.Core;
-import dev.px.gui.legacy.GuiStyle;
-import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
@@ -13,28 +11,18 @@ import dev.px.core.network.server.ServerInfo;
 import dev.px.core.network.server.ServerSoftware;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.core.setting.impl.ColorSetting;
+import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Which server this is, what it runs, and what is probably watching.
+ * The server: its address, the software it runs, and its probable anticheat.
  *
- * <p>All three rows are Core's answers: {@code Core.server()} for the address and
- * the software its brand names, {@code Core.anticheat()} for the most confident
- * detection. What counts as recognisable software and which anticheats can be
- * named are the client's catalogues in {@code client/network}; this only shows
- * the result.
- *
- * <p>An anticheat detection is a guess with a confidence attached, and the row
- * says which so a {@code POSSIBLE} is never read as a certainty.
+ * <p>A label and a value per row. A detected anticheat is shown in the
+ * "fair" colour and named in words, so it reads the same without colour.
  */
-public final class ServerElement extends AbstractHudElement {
-
-    private static final float PADDING = 4f;
-    private static final float ROW_GAP = 1f;
-    private static final float LABEL_GAP = 6f;
+public final class ServerElement extends StyledElement {
 
     private final BooleanSetting address = bool("Address", true);
     private final BooleanSetting software = bool("Software", true);
@@ -44,50 +32,42 @@ public final class ServerElement extends AbstractHudElement {
             .describe("Show the brand exactly as the server sent it, rather than the software it names")
             .visibleWhen(software);
 
-    private final ColorSetting labelColor = color("Label Colour", Color.of(150, 160, 180));
-    private final ColorSetting valueColor = color("Value Colour", Color.WHITE);
-
     public ServerElement() {
-        super("server", "Server", HudLayout.at(Anchor.TOP_RIGHT, -4f, 4f));
+        super("server", "Server", HudLayout.at(Anchor.BOTTOM_RIGHT, -4f, -44f));
     }
 
     @Override
-    public void content(Content content) {
-        content.background(GuiStyle.surface(), GuiStyle.radius()).padding(PADDING).gap(ROW_GAP);
-        content.align(Align.STRETCH);
-        content.min(90f, 12f);
-
+    protected void describe(Content body) {
         if (isEditing()) {
-            sample(content);
+            sample(body);
             return;
         }
-
         ServerInfo server = Core.server().getInfo();
+        watch(server.getAddress(), Core.anticheat().getPrimary().map(detection -> detection.getName()).orElse(null));
         if (address.isOn()) {
-            row(content, "Server", server.isSingleplayer() ? "Singleplayer" : server.getAddress(), valueColor.resolve());
+            row(body, "Server", server.isSingleplayer() ? "Singleplayer" : server.getAddress(), style().value());
         }
         if (software.isOn() && server.isMultiplayer()) {
-            row(content, "Software", software(server.getBrand()), valueColor.resolve());
+            row(body, "Software", software(server.getBrand()), style().value());
         }
         if (anticheat.isOn() && server.isMultiplayer()) {
             Optional<Detection> primary = Core.anticheat().getPrimary();
-            row(content, "Anticheat",
+            row(body, "Anticheat",
                     primary.map(d -> d.getName() + " (" + d.getConfidence().name().toLowerCase(Locale.ROOT) + ")")
                             .orElse("None detected"),
-                    primary.isPresent() ? Color.ORANGE : Color.GRAY);
+                    primary.isPresent() ? Health.FAIR : style().muted());
         }
     }
 
-    /** What the box looks like while being positioned, so it does not resize under the cursor. */
-    private void sample(Content content) {
+    private void sample(Content body) {
         if (address.isOn()) {
-            row(content, "Server", "play.example.net", valueColor.resolve());
+            row(body, "Server", "play.example.net", style().value());
         }
         if (software.isOn()) {
-            row(content, "Software", "Paper via Velocity", valueColor.resolve());
+            row(body, "Software", "Paper via Velocity", style().value());
         }
         if (anticheat.isOn()) {
-            row(content, "Anticheat", "None detected", Color.GRAY);
+            row(body, "Anticheat", "None detected", style().muted());
         }
     }
 
@@ -104,13 +84,12 @@ public final class ServerElement extends AbstractHudElement {
         return proxy != null ? name + " via " + proxy.getName() : name;
     }
 
-    private void row(Content content, String label, String value, Color color) {
-        content.row(row -> {
+    private void row(Content body, String label, String value, Color color) {
+        body.row(row -> {
             row.align(Align.CENTER);
-            row.text(label, labelColor.resolve());
+            label(row, label);
             row.space(LABEL_GAP, 0f);
-            row.fill();
-            row.text(value, color);
+            text(row, value, color);
         });
     }
 }

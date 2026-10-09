@@ -8,15 +8,20 @@ import dev.px.core.input.Key;
 import dev.px.core.input.Modifier;
 import dev.px.core.input.MouseButton;
 import dev.px.core.layout.Bounds;
+import dev.px.core.render.Render;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.gui.shell.Section;
 import dev.px.karatsuba.client.gui.shell.Shell;
 import dev.px.karatsuba.client.gui.shell.rail.Glyph;
 import dev.px.karatsuba.client.gui.shell.section.hud.HudSection;
+import dev.px.karatsuba.client.gui.shell.style.Palette;
 import dev.px.karatsuba.client.gui.shell.widget.Caption;
 import dev.px.karatsuba.client.gui.shell.widget.PillButton;
+import dev.px.karatsuba.client.hud.stack.HudStacks;
+import dev.px.karatsuba.client.hud.style.StyledElement;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -60,6 +65,7 @@ public final class LayoutSection implements Section {
     private final LayoutHistory history = new LayoutHistory();
 
     private boolean altHeld;
+    private boolean shiftHeld;
     private long lastScaleAt;
     private long lastNudgeAt;
     private long resetArmedAt;
@@ -87,6 +93,12 @@ public final class LayoutSection implements Section {
         toolbar.add(new EditorToolbar.Status(this::status));
         toolbar.add(new PillButton(Glyph.CHECK, "Done", false, PillButton.Style.PRIMARY, null, null,
                 shell::returnFromFullscreen).tooltip("Back to the HUD    Esc"));
+        // The bar is fully rounded, so its buttons are too: corners would reach past its curved ends.
+        for (var child : toolbar.getChildren()) {
+            if (child instanceof PillButton button) {
+                button.rounded();
+            }
+        }
     }
 
     // --------------------------------------------------------------- Section
@@ -165,6 +177,15 @@ public final class LayoutSection implements Section {
         HudEditorView view = editor.view();
         toolbar.inTheWay(view.isInteracting() && nearToolbar(view));
         EditorLook.draw(view, width, height, readoutOpacity(view));
+        if (shiftHeld && editor.isDragging()) {
+            Placement target = dropTarget(Core.platform().getMouseX(), Core.platform().getMouseY());
+            if (target != null) {
+                // Where it would land: the target outlined in the accent, and a word saying so.
+                target.shape().stroke(2f, Palette.accent());
+                Bounds at = target.shape().bounds();
+                Render.text(Palette.small(), "Stack here", at.getX(), at.getBottom() + 3f, Palette.accent());
+            }
+        }
     }
 
     /** @return whether the dragged element is up where the toolbar is */
@@ -202,9 +223,39 @@ public final class LayoutSection implements Section {
 
     @Override
     public void release(float x, float y) {
-        editor().release();
+        HudEditor editor = editor();
+        // Shift held as an element is dropped on another: they stack.
+        Placement target = shiftHeld && editor.isDragging() ? dropTarget(x, y) : null;
+        String dragged = editor.getSelectedId();
+        editor.release();
+        if (target != null && dragged != null && HudStacks.get() != null) {
+            HudStacks.get().dock(dragged, target.getId());
+        }
         history.commit();
         AutoSave.markDirty();
+    }
+
+    /**
+     * @return the element under the cursor that the one being dragged would stack
+     *         with if dropped now, or null: both must be able to stack, and a
+     *         follower is never a target (it has no box of its own; its host is)
+     */
+    private Placement dropTarget(float x, float y) {
+        HudEditor editor = editor();
+        Placement dragged = editor.getSelected();
+        if (dragged == null || !(dragged.getElement() instanceof StyledElement mover) || !mover.dockable()) {
+            return null;
+        }
+        List<Placement> placements = editor.view().getPlacements();
+        // Topmost first, as a click would find it.
+        for (int i = placements.size() - 1; i >= 0; i--) {
+            Placement candidate = placements.get(i);
+            if (candidate != dragged && candidate.hits(x, y)
+                    && candidate.getElement() instanceof StyledElement styled && styled.dockable()) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -227,6 +278,7 @@ public final class LayoutSection implements Section {
     @Override
     public void modifiers(Set<Modifier> modifiers) {
         altHeld = modifiers.contains(Modifier.ALT);
+        shiftHeld = modifiers.contains(Modifier.SHIFT);
     }
 
     @Override

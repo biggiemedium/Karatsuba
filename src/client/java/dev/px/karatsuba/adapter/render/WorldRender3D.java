@@ -11,6 +11,7 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.Frustum;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -41,6 +42,7 @@ public final class WorldRender3D implements Render3D {
     private Matrix4f positionMatrix = new Matrix4f();
     private Matrix4f projectionMatrix = new Matrix4f();
     private Vec3 cameraPosition = Vec3.ZERO;
+    private Frustum frustum;
 
     private boolean depthTest = true;
 
@@ -55,6 +57,15 @@ public final class WorldRender3D implements Render3D {
         this.cameraPosition = Vec3.of(camera.getPos().x, camera.getPos().y, camera.getPos().z);
         this.positionMatrix = new Matrix4f(context.positionMatrix());
         this.projectionMatrix = new Matrix4f(context.projectionMatrix());
+        this.frustum = context.frustum();
+    }
+
+    /**
+     * This frame's view frustum, for culling what is drawn again offscreen
+     * ({@code Silhouettes}). Null before the first world frame.
+     */
+    public Frustum frustum() {
+        return frustum;
     }
 
     // ------------------------------------------------------------- lifecycle

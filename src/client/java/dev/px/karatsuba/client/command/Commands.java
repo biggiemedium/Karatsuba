@@ -29,6 +29,7 @@ public final class Commands {
                 new FriendCommand(),
                 new RecordCommand(),
                 new ServerCommand(),
+                new SpotifyCommand(),
         };
     }
 }

@@ -87,6 +87,9 @@ public final class HudService implements Service, ConfigSection {
 
     private final HudEditor editor;
 
+    /** Moves elements out of the way of what the layout cannot see. Null for none. See {@link PlacementAdjuster}. */
+    private volatile PlacementAdjuster adjuster;
+
     /**
      * How each element is drawn.
      *
@@ -131,6 +134,14 @@ public final class HudService implements Service, ConfigSection {
     @Override
     public void stop() {
         editor.close();
+    }
+
+    /**
+     * Installs what moves elements out of the way of things their layouts cannot
+     * see, such as the game's own HUD. Null removes it.
+     */
+    public void setAdjuster(PlacementAdjuster adjuster) {
+        this.adjuster = adjuster;
     }
 
     static boolean editingGlobally() {
@@ -194,8 +205,13 @@ public final class HudService implements Service, ConfigSection {
                 continue;
             }
             Size natural = content.size();
+            Bounds placed = place(layout, natural, screenWidth, screenHeight);
+            PlacementAdjuster moving = adjuster;
+            if (moving != null && !editingGlobally) {
+                placed = moving.adjust(element, placed);
+            }
             placements.add(new Placement(element, layout, natural,
-                    place(layout, natural, screenWidth, screenHeight), content));
+                    placed, content));
         }
         // Stable, so equal z-order falls back to the order elements were registered.
         placements.sort(Comparator.comparingInt(placement -> placement.getLayout().getZOrder()));

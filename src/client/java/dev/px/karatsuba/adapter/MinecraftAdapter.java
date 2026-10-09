@@ -7,6 +7,7 @@ import dev.px.core.util.net.Http;
 import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
+import dev.px.karatsuba.adapter.asset.RemoteImages;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.combat.Combat;
 import dev.px.karatsuba.adapter.projectile.Projectiles;
@@ -17,6 +18,7 @@ import dev.px.karatsuba.adapter.game.entity.LivingTracker;
 import dev.px.karatsuba.adapter.game.entity.MinecraftEntitySource;
 import dev.px.karatsuba.adapter.game.entity.PlayerTracker;
 import dev.px.karatsuba.adapter.game.player.Rotations;
+import dev.px.karatsuba.adapter.integration.Spotify;
 import dev.px.karatsuba.adapter.network.MinecraftPacketDescriber;
 import dev.px.karatsuba.adapter.network.NetworkBridge;
 import dev.px.karatsuba.adapter.movement.EntityRules;
@@ -26,6 +28,9 @@ import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGFontProvider;
 import dev.px.karatsuba.adapter.render.nanovg.NanoVGRender2D;
+import dev.px.karatsuba.adapter.render.shader.SceneTexture;
+import dev.px.karatsuba.adapter.render.shader.Shaders;
+import dev.px.karatsuba.adapter.render.shader.Silhouettes;
 import dev.px.karatsuba.adapter.world.PlacementSync;
 import dev.px.karatsuba.adapter.world.WorldCollisionSpace;
 import net.minecraft.SharedConstants;
@@ -88,6 +93,11 @@ public final class MinecraftAdapter {
         Render.install(render2D);
         Render.install(render3D);
 
+        // Core's shader service on the game's GL context: the backend, the loader
+        // (an editable folder over the jar), F3+T reloads and the adapter's globals.
+        // Nothing compiles until a shader is first drawn.
+        Shaders.install(core);
+
         // Before start(): FontService resolves its default during service startup,
         // and throws if no provider is set by then.
         core.getFontService().setProvider(new NanoVGFontProvider(render2D));
@@ -138,6 +148,11 @@ public final class MinecraftAdapter {
         // start(): GuiService.install registers it as a service and config section.
         Gui.install(core);
 
+        // Spotify, as Core's media provider, and the section that keeps its sign-in.
+        // Before start(), which loads that section. Polls nothing until the player
+        // connects an account and switches Now Playing on.
+        Spotify.install(core);
+
         // The one piece of packet knowledge, installed on the network service so
         // the timeline, TPS, lag, server and anticheat services all read through
         // it. Without it lag still works from arrivals alone, and a recording
@@ -172,6 +187,9 @@ public final class MinecraftAdapter {
      */
     public static void shutdown() {
         Assets.dispose();
+        RemoteImages.dispose();
+        SceneTexture.release();
+        Silhouettes.release();
         if (render2D != null) {
             render2D.destroy();
             render2D = null;
@@ -200,5 +218,13 @@ public final class MinecraftAdapter {
      */
     public static NanoVGRender2D render2D() {
         return render2D;
+    }
+
+    /**
+     * The live 3D backend, for what needs this frame's camera and frustum.
+     * Null before {@link #install} and after {@link #shutdown}.
+     */
+    public static WorldRender3D render3D() {
+        return render3D;
     }
 }

@@ -20,9 +20,11 @@ import dev.px.karatsuba.client.gui.shell.frame.Veil;
 import dev.px.karatsuba.client.gui.shell.frame.WindowFrame;
 import dev.px.karatsuba.client.gui.shell.look.ModuleLook;
 import dev.px.karatsuba.client.gui.shell.rail.Rail;
+import dev.px.karatsuba.client.gui.shell.section.home.HomeSection;
 import dev.px.karatsuba.client.gui.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.shell.section.modules.ModulesSection;
+import dev.px.karatsuba.client.gui.shell.section.settings.SettingsSection;
 import dev.px.karatsuba.client.gui.shell.style.Animations;
 import dev.px.karatsuba.client.gui.shell.style.Easing;
 import dev.px.karatsuba.client.gui.shell.style.Motion;
@@ -56,7 +58,12 @@ import java.util.function.Supplier;
 public final class ClientGui implements Shell {
 
     /** The section the GUI last showed in its window, to reopen on. */
-    private static String lastSection = ModulesSection.ID;
+    /** The section the GUI last showed in its window, to reopen on: Home until anything else is chosen. */
+    private static String lastSection = HomeSection.ID;
+
+    /** The server the GUI was last opened on; joining another one opens Home, with its fresh status. */
+    private static String lastHost;
+    private static boolean openedThisSession;
 
     private final Screen window;
     private final Stack windowRoot;
@@ -120,6 +127,14 @@ public final class ClientGui implements Shell {
         panel.add(new ResizeGrip(frame, ResizeGrip.Edge.BOTTOM));
         panel.add(new ResizeGrip(frame, ResizeGrip.Edge.CORNER));
 
+        // Home the first time each session and after a change of server, when the
+        // overview has news; otherwise wherever it was left, so you carry on.
+        String host = Core.server().getHost();
+        if (!openedThisSession || !java.util.Objects.equals(host, lastHost)) {
+            lastSection = HomeSection.ID;
+        }
+        openedThisSession = true;
+        lastHost = host;
         Section start = find(startSection != null ? startSection : lastSection);
         if (start == null) {
             start = find(ModulesSection.ID);
@@ -336,7 +351,17 @@ public final class ClientGui implements Shell {
             case ENTER:
                 return screen.activate();
             case ESCAPE:
-                if (screen.cancel() || active.back()) {
+                // A drag, an open menu, or the caret in a text field is a step to back out of.
+                // Focus left on a tab or a row by clicking it is not: it would cost an
+                // extra press of Escape that nothing on screen explains.
+                if (screen.isDragging() || !screen.getPopups().isEmpty()
+                        || screen.getFocused() instanceof dev.px.gui.widget.TextField) {
+                    if (screen.cancel()) {
+                        return true;
+                    }
+                }
+                screen.clearFocus();
+                if (active.back()) {
                     return true;
                 }
                 if (inFullscreen()) {
@@ -368,11 +393,15 @@ public final class ClientGui implements Shell {
             }
             return true;
         }
+        if (key == Key.COMMA) {
+            show(SettingsSection.ID);
+            return true;
+        }
         if (key == Key.F && !inFullscreen()) {
             return active.find();
         }
-        // The editor's own Ctrl keys (undo, redo).
-        return inFullscreen() && active.key(key, modifiers);
+        // A section's own Ctrl keys: the editor's undo and redo, Friends' undo of a removal.
+        return active.key(key, modifiers);
     }
 
     /** Moves to the next or previous section in the window, skipping full-screen ones. */
@@ -392,6 +421,11 @@ public final class ClientGui implements Shell {
     private static int digit(Key key) {
         String name = key.name();
         return name.startsWith("NUM_") ? name.charAt(4) - '0' : -1;
+    }
+
+    @Override
+    public Section section(String sectionId) {
+        return find(sectionId);
     }
 
     private Section find(String id) {

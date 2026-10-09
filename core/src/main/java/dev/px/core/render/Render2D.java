@@ -81,6 +81,31 @@ public interface Render2D {
      */
     void textShadowed(Font font, String value, float x, float y, Color color, Color shadowColor);
 
+    /**
+     * Draws text with an outline: a thin edge of {@code outlineColor} all the way
+     * round each glyph, which keeps it readable over any background.
+     *
+     * <p>Eight copies half a unit out, the diagonals pulled in so the edge is round
+     * rather than square. Half a unit is enough to separate a glyph from snow
+     * without thickening it, and it scales with the text, so an element drawn at
+     * twice the size gets an edge twice as wide. Not a blurred halo: glyphs blurred
+     * in a font atlas are rasterised at the unscaled size, and turn blocky the
+     * moment the HUD scales them up.
+     */
+    default void textOutlined(Font font, String value, float x, float y, Color color, Color outlineColor) {
+        float radius = 0.5f;
+        float diagonal = radius * 0.7071f;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx != 0 || dy != 0) {
+                    float step = dx != 0 && dy != 0 ? diagonal : radius;
+                    text(font, value, x + dx * step, y + dy * step, outlineColor);
+                }
+            }
+        }
+        text(font, value, x, y, color);
+    }
+
     // ------------------------------------------------------------ textures
 
     /**

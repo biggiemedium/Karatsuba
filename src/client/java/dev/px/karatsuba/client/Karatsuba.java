@@ -6,6 +6,8 @@ import dev.px.karatsuba.client.command.Commands;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.config.BindsSection;
 import dev.px.karatsuba.client.config.ConfigLayout;
+import dev.px.karatsuba.client.social.FriendRecords;
+import dev.px.karatsuba.client.gui.shell.section.home.RecentModules;
 import dev.px.karatsuba.client.debug.DebugMonitor;
 import dev.px.karatsuba.client.hud.HudElements;
 import dev.px.karatsuba.client.input.Binds;
@@ -13,6 +15,7 @@ import dev.px.karatsuba.client.module.Categories;
 import dev.px.karatsuba.client.module.Modules;
 import dev.px.karatsuba.client.anticheat.AntiCheats;
 import dev.px.karatsuba.client.network.Servers;
+import dev.px.karatsuba.client.render.ShaderCatalogue;
 import dev.px.karatsuba.client.screen.Overlays;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.setting.SettingTypes;
@@ -142,6 +145,10 @@ public final class Karatsuba {
         Categories.registerAll(core);
         Themes.registerAll(core);
 
+        // The GLSL programs render modules draw with. Pure data: nothing compiles
+        // until a module first draws with one.
+        ShaderCatalogue.registerAll(core);
+
         Modules.registerAll(core);
         Commands.registerAll(core);
         HudElements.registerAll(core);
@@ -164,6 +171,12 @@ public final class Karatsuba {
         // After the binds exist, before start() loads over them. Core has no
         // section for action binds, so without this a rebind lasts until restart.
         BindsSection.install();
+
+        // Notes and sightings for each friend, beside Core's list of them.
+        FriendRecords.install();
+
+        // What was switched on or off lately, for the GUI's Home.
+        RecentModules.install();
 
         // Before start(), which is the first load: one file per section.
         ConfigLayout.install();

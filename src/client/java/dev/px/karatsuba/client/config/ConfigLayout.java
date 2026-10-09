@@ -2,6 +2,10 @@ package dev.px.karatsuba.client.config;
 
 import dev.px.core.Core;
 import dev.px.core.config.ConfigLocation;
+import dev.px.karatsuba.adapter.integration.SpotifySettings;
+import dev.px.karatsuba.client.hud.stack.HudStacks;
+import dev.px.karatsuba.client.hud.style.HudStyle;
+import dev.px.karatsuba.client.social.FriendRecords;
 import dev.px.core.config.ConfigService;
 
 /**
@@ -13,11 +17,13 @@ import dev.px.core.config.ConfigService;
  *     default/                  one folder per profile; switching profile switches these
  *       modules.json            every module's enabled flag, keybind and settings
  *       hud.json                HUD element positions, scale, z-order and settings
+ *       hud-style.json          the HUD Style every element inherits
+ *       hud-stacks.json         which HUD elements are docked together
  *       gui.json                click GUI window positions and state
  *       theme.json              the accent colours
  *       binds.json              the action keybinds: Click GUI, HUD Editor, Profiles
  *       notifications.json      notification settings
- *       integrations.json       Discord presence and media settings
+ *       integrations.json       the Now Playing switch and its poll interval
  *       commands.json           the command prefix
  *       interaction.json        how attacks and clicks are checked and sent (Client Settings)
  *       updates.json            update checks (Client Settings)
@@ -25,6 +31,7 @@ import dev.px.core.config.ConfigService;
  *   shared/                     the same whichever profile is active
  *     friends.json
  *     accounts.json
+ *     spotify.json            the Spotify Client ID and sign-in
  *     profile.json              which profile was active last (Core's own)
  *   legacy/                     single-file profiles from before the split, kept as they were
  * </pre>
@@ -58,6 +65,8 @@ public final class ConfigLayout {
         // Per profile.
         config.place("modules", ConfigLocation.profile("modules"));
         config.place("hud", ConfigLocation.profile("hud"));
+        config.place(HudStyle.ID, ConfigLocation.profile(HudStyle.ID));
+        config.place(HudStacks.ID, ConfigLocation.profile(HudStacks.ID));
         config.place("gui", ConfigLocation.profile("gui"));
         config.place("theme", ConfigLocation.profile("theme"));
         config.place(BindsSection.ID, ConfigLocation.profile("binds"));
@@ -68,6 +77,8 @@ public final class ConfigLayout {
         // Shared by every profile: who your friends and accounts are does not
         // change with the settings you play on.
         config.place("friends", ConfigLocation.shared("friends"));
+        config.place(FriendRecords.ID, ConfigLocation.shared(FriendRecords.ID));
         config.place("accounts", ConfigLocation.shared("accounts"));
+        config.place(SpotifySettings.ID, ConfigLocation.shared(SpotifySettings.ID));
     }
 }

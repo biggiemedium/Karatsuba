@@ -5,6 +5,7 @@ import dev.px.core.command.Command;
 import dev.px.core.command.CommandContext;
 import dev.px.core.command.CommandInfo;
 import dev.px.core.social.Friend;
+import dev.px.karatsuba.client.social.FriendRecords;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,6 +45,7 @@ public final class FriendCommand extends Command {
             context.fail(name + " is already a friend");
         }
         Friend friend = Core.social().add(name);
+        FriendRecords.added(friend.getName());
         context.reply("Added " + friend.getName());
     }
 
@@ -52,6 +54,7 @@ public final class FriendCommand extends Command {
         if (!Core.social().remove(name)) {
             context.fail(name + " is not a friend");
         }
+        FriendRecords.forget(name);
         context.reply("Removed " + name);
     }
 

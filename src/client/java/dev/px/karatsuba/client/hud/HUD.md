@@ -1,7 +1,8 @@
 # HUD plan
 
 A working document for Karatsuba's HUD elements, like `module/MODULES.md`: what
-exists, what is worth keeping, and what to build.
+exists, what is worth keeping, and what to build. How elements should look and
+behave (style, alignment, stacks, context) is in `PLAN.md`.
 
 ## The bar for an element
 
@@ -24,20 +25,21 @@ numbers you never act on are filler.
 
 | Element | What it shows | Data from | Settings | Default spot |
 |---|---|---|---|---|
-| **Watermark** | Client name and version | `Core` | none | top left |
-| **ArrayList** | Enabled modules and their display info | `Core.modules()` | Background, Show Info, Tint | top right |
-| **Coordinates** | Position, three rows | the player | Labels, Precision, Label/Value Colour | bottom left |
-| **Notifications** | Toast queue, slid and faded | `Core.notifications()` | none | bottom right |
-| **TPS** | Server tick rate, coloured against the server's own target | `Core.tps()` | Colour by Health, colours | bottom right, 20 up |
-| **Ping** | Ping, or how long the server has been silent | `Core.lag()` | Show Lag, Colour by Health, Good Below / Bad Above, colours | bottom right |
-| **Server** | Address, software, probable anticheat with its confidence | `Core.server()`, `Core.anticheat()` | Address, Software, Anticheat, Raw Brand, colours | top right |
-| **Debug** | Connection, movement, server, busiest packets, packet feed, alert log | `DebugMonitor`, Core network services, simulation | sections, packet and alert filters, colours | top left, 20 down |
+| **Watermark** | Client name (label) and version (muted) | `Core` | Show Version | top left |
+| **ArrayList** | Enabled modules and their display info | `Core.modules()` | Show Info, Tint | top right |
+| **Coordinates** | Position, fixed-width numbers | the player | Arrangement (stacked or inline), Labels, Precision | bottom left |
+| **Notifications** | Toast queue, slid and faded, a card per toast | `Core.notifications()` | Width | middle right |
+| **TPS** | Server tick rate against the server's own target, with quality bars | `Core.tps()` | Quality Bars, Colour by Health | bottom right, 24 up |
+| **Ping** | Ping, or how long the server has been silent, with quality bars | `Core.lag()` | Show Lag, Quality Bars, Colour by Health, Good Below / Bad Above | bottom right |
+| **Server** | Address, software, probable anticheat with its confidence | `Core.server()`, `Core.anticheat()` | Address, Software, Anticheat, Raw Brand | bottom right, 44 up |
+| **Now Playing** | Cover art, title, artist, album, progress bar and time; fades in and out, nothing when idle | `Core.integrations()`, fed by the adapter's Spotify provider; covers via `RemoteImages` | Layout (Cover auto/left/right/off, Fit Cover To Text, Cover Size, Auto Width, Width, Long Titles), Show (Artist, Album, Progress Bar, Time, While Paused) | middle left |
+| **Debug** | Connection, movement, server, busiest packets, packet feed, alert log | `DebugMonitor`, Core network services, simulation | sections, packet and alert filters | top left, 24 down |
 
 ## Problems found while listing
 
 | Problem | Detail | Suggestion |
 |---|---|---|
-| Default layouts overlap | **Ping and Notifications** both start at bottom right, (-4, -4). **ArrayList and Server** both start at top right, (-4, 4). A fresh config draws them on top of each other | Give each a distinct default, or stack Ping, TPS and Server into one info column |
+| ~~Default layouts overlap~~ | Fixed 2026-10-09: Notifications moved to middle right, Server to bottom right above TPS, Now Playing to middle left. Every element now also has a Style group (Background, Align, Custom Style) and follows the HUD Style (see PLAN.md) | Done |
 | Debug is a dev tool | 355 lines, packet feeds and filters: invaluable while building, noise in a fight | Keep, but treat as a dev tool. Hide by default, or move to a dev-only screen with Recorder and Fake Player |
 | Watermark is filler | No settings, nothing to act on | Keep it small, or merge into a client info element (name, version, profile, FPS) |
 | TPS, Ping and Server are three elements for one subject | All "how is the connection" | Merge into one **Connection** element with toggleable rows, like Debug's sections |

@@ -1,9 +1,12 @@
 package dev.px.karatsuba.client.gui.shell;
 
 import dev.px.karatsuba.client.gui.shell.frame.WindowFrame;
+import dev.px.karatsuba.client.gui.shell.section.friends.FriendsSection;
+import dev.px.karatsuba.client.gui.shell.section.home.HomeSection;
 import dev.px.karatsuba.client.gui.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.shell.section.modules.ModulesSection;
+import dev.px.karatsuba.client.gui.shell.section.settings.SettingsSection;
 import dev.px.karatsuba.client.gui.shell.section.themes.ThemesSection;
 
 import java.util.List;
@@ -18,8 +21,8 @@ import java.util.List;
  * section that is not built yet gets no placeholder, so the rail never offers a
  * dead end.
  *
- * <p>Navigation, when it comes, goes after Layout: it is a thing you work on,
- * and it then takes Ctrl+4 while Themes moves to Ctrl+5.
+ * <p>Navigation, when it comes, goes after Friends: it is a thing you work on,
+ * and it then takes Ctrl+6, with Themes and Settings moving down one.
  */
 public final class Sections {
 
@@ -28,10 +31,13 @@ public final class Sections {
 
     static List<Section> create(Shell shell, WindowFrame frame) {
         return List.of(
+                new HomeSection(shell),
                 new ModulesSection(shell, frame),
                 new HudSection(shell),
                 new LayoutSection(shell),
-                new ThemesSection()
+                new FriendsSection(shell),
+                new ThemesSection(),
+                new SettingsSection(shell, frame)
         );
     }
 }

@@ -181,7 +181,6 @@ public final class NanoVGRender2D implements Render2D {
         nvgFillColor(vg, colorInto(color, fill));
         nvgText(vg, x, y, value);
     }
-
     /** Text is anchored top-left, which is the corner every Core API talks about. */
     private void apply(Font font) {
         NanoVGFont resolved = font instanceof NanoVGFont ? (NanoVGFont) font : null;

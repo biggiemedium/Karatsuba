@@ -3,6 +3,7 @@ package dev.px.karatsuba.adapter.mixin.render;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.render.NameTagEvent;
+import dev.px.karatsuba.adapter.render.shader.Silhouettes;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.entity.Entity;
@@ -26,6 +27,11 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 
     @Inject(method = "updateRenderState", at = @At("TAIL"))
     private void karatsuba$updateRenderState(T entity, S state, float tickDelta, CallbackInfo callback) {
+        // A silhouette is the entity's shape; its label would be outlined too.
+        if (state.displayName != null && Silhouettes.isCapturing()) {
+            state.displayName = null;
+            return;
+        }
         if (state.displayName != null
                 && Events.cancelled(new NameTagEvent(entity.getId(), entity instanceof PlayerEntity,
                         Vec3.of(entity.getX(), entity.getY(), entity.getZ())))) {

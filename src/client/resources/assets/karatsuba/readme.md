@@ -11,6 +11,7 @@ never goes through the game's resource manager.
 | `texture/icon/` | small UI images: category icons, badges | `Assets.texture(path)` |
 | `texture/background/` | larger images: GUI backdrops, banners | `Assets.texture(path)` |
 | `sound/` | `.ogg` clips | the game's sound system, not Core |
+| `shaders/` | GLSL programs and includes | `Core.shaders()`, paths relative to `shaders/`; see `shaders/readme.md` |
 
 `Assets` is `dev.px.karatsuba.adapter.asset.Assets`.
 

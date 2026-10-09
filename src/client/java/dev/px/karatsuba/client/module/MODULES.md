@@ -66,7 +66,7 @@ Building.
 | Building | Scaffold |
 | Mining | Auto Tool |
 | Inventory | Elytra Swap, Inventory Manager, XCarry |
-| Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search |
+| Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search, Shaders |
 | Utility | Anti AFK, Anti Hunger, Anti Sound, Fake Player, Middle Click, Recorder |
 
 **What moved in the refactor:**
@@ -179,6 +179,12 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Render
 
+- **Shaders** · done (tested in game 2026-10-09: outline, glow, through walls off, hands, self, skybox): the
+  chosen entities and your hands drawn again into an offscreen mask (`adapter.render.shader.Silhouettes`,
+  by the game's own renderers) and shaded by `effect/silhouette.fsh`: a fill plus a hard Outline or a
+  fading Glow. Targets: Hands, Self, Players, Hostiles, Passives, Neutrals, Crystals, Items, Pearls,
+  Experience, Projectiles; Range; Through Walls. Skybox replaces the overworld sky (`SkyRenderEvent`)
+  with `effect/sky.fsh`: horizon-to-zenith gradient and twinkling stars. Theme Colours supported.
 - **Projectiles** · done (needs in-game testing): a camera-facing ribbon trail (tapering,
   glow, core line, head dot) behind every arrow, pearl, potion and the rest in the air;
   with Landing, where each will land from `Projectiles.kit().follow` (1.21.4 physics from

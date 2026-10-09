@@ -14,6 +14,9 @@ public interface Shell {
 
     Section active();
 
+    /** @return the section with this id, or null */
+    Section section(String sectionId);
+
     /** Switches to a section, by id. Switching to the one already showing does nothing. */
     void show(String sectionId);
 

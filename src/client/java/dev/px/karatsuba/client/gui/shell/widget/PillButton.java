@@ -32,6 +32,7 @@ public final class PillButton extends Widget {
 
     private final Motion hover = Motion.hover();
     private final Motion on;
+    private boolean rounded;
 
     public PillButton(Glyph glyph, String label, boolean iconOnly, Style style,
                       BooleanSupplier lit, BooleanSupplier enabled, Runnable action) {
@@ -66,6 +67,20 @@ public final class PillButton extends Widget {
     public PillButton labelledBy(Supplier<String> source) {
         this.label = source;
         return this;
+    }
+
+    /**
+     * Fully rounds the button's ends. For a button inside something itself fully
+     * rounded, such as the editor's toolbar, so their curves run alongside each
+     * other and no corner reaches past the edge around it.
+     */
+    public PillButton rounded() {
+        this.rounded = true;
+        return this;
+    }
+
+    public boolean isRounded() {
+        return rounded;
     }
 
     public boolean iconOnly() {

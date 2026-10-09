@@ -71,7 +71,7 @@ final class PopupLook {
         look.register(WidgetRenderer.of(ItemList.class, (list, c) -> c.align(Align.STRETCH)
                 .custom("rows", 0f, ItemList.ROW * ItemList.VISIBLE_ROWS, (x, y, w, h) -> itemRows(list, x, y, w, h))));
 
-        look.register(WidgetRenderer.of(TextButton.class, (button, c) -> c.padding(4f, 2f)
+        look.register(WidgetRenderer.of(TextButton.class, (button, c) -> c.padding(INSET, 2f)
                 .text(small(), button.label(), button.isActive() ? accent()
                         : button.isHovered() ? TEXT : TEXT_MUTED)));
     }

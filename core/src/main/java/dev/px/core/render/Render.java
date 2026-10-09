@@ -176,6 +176,11 @@ public final class Render {
         backend2D.textShadowed(font, value, x, y, color, shadow);
     }
 
+    /** Text with an outline all the way round, for text over backgrounds nothing controls. */
+    public static void textOutlined(Font font, String value, float x, float y, Color color, Color outline) {
+        backend2D.textOutlined(font, value, x, y, color, outline);
+    }
+
     /** Draws text anchored at {@code x} according to {@code alignment}. */
     public static void text(Font font, String value, float x, float y, Alignment alignment, Color color) {
         backend2D.text(font, value, x + alignment.offsetFor(font.widthOf(value)), y, color);

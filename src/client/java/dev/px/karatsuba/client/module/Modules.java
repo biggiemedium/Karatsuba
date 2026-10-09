@@ -32,6 +32,7 @@ import dev.px.karatsuba.client.module.render.ProjectilesModule;
 import dev.px.karatsuba.client.module.render.CombatInfoModule;
 import dev.px.karatsuba.client.module.render.RenderAdjustmentsModule;
 import dev.px.karatsuba.client.module.render.SearchModule;
+import dev.px.karatsuba.client.module.render.ShadersModule;
 import dev.px.karatsuba.client.module.utility.AntiAfkModule;
 import dev.px.karatsuba.client.module.utility.AntiHungerModule;
 import dev.px.karatsuba.client.module.utility.AntiSoundModule;
@@ -107,6 +108,7 @@ public final class Modules {
                 new ProjectilesModule(),
                 new RenderAdjustmentsModule(),
                 new SearchModule(),
+                new ShadersModule(),
 
                 // Utility
                 new AntiAfkModule(),

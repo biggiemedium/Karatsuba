@@ -4,9 +4,11 @@ import dev.px.core.math.Box;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.render.BlockOutlineEvent;
 import dev.px.karatsuba.adapter.render.BlockVisibility;
+import dev.px.karatsuba.adapter.render.shader.Silhouettes;
 import dev.px.karatsuba.adapter.world.Voxels;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.WorldRenderer;
@@ -65,6 +67,19 @@ public abstract class WorldRendererMixin {
                                                          CallbackInfoReturnable<Integer> callback) {
         if (BlockVisibility.isFullBright()) {
             callback.setReturnValue(LightmapTextureManager.MAX_LIGHT_COORDINATE);
+        }
+    }
+
+    /**
+     * No Fabulous item or translucent target while {@code Silhouettes} captures.
+     * Their render targets fall back to {@code getFramebuffer()} when these are
+     * null, which during a capture is the mask, so translucent entity parts and
+     * dropped items land in it too.
+     */
+    @Inject(method = {"getEntityFramebuffer", "getTranslucentFramebuffer"}, at = @At("HEAD"), cancellable = true)
+    private void karatsuba$sideTargets(CallbackInfoReturnable<Framebuffer> callback) {
+        if (Silhouettes.isCapturing()) {
+            callback.setReturnValue(null);
         }
     }
 
