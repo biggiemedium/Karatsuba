@@ -1,5 +1,5 @@
 // Local copy of Minecraft-Client-Core (https://github.com/biggiemedium/Minecraft-Client-Core),
-// at release 2.3.
+// at release 2.4.
 //
 // Built as a plain Java subproject so it can be edited in place: Karatsuba
 // consumes it via `implementation project(':core')` instead of JitPack.
@@ -17,7 +17,7 @@ plugins {
 }
 
 group = 'dev.px'
-version = '2.3'
+version = '2.4'
 
 // Kept at 8 (as upstream) so Core stays portable across game versions. The mod
 // itself compiles at 21; depending on 8-targeted classes from 21 is fine.
@@ -101,6 +101,10 @@ dependencies {
     // The fixtures use Lombok like the rest of the tests.
     testFixturesCompileOnly 'org.projectlombok:lombok:1.18.30'
     testFixturesAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // Core's own flow tests run in the test kit's sandbox. Test scope only: Core's
+    // main code never imports it, and the kit depends on Core, not the other way.
+    testImplementation project(':testkit')
 }
 
 tasks.withType(JavaCompile) {

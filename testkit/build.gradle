@@ -1,0 +1,50 @@
+// Local copy of Minecraft-Client-Core's `testkit` library
+// (https://github.com/biggiemedium/Minecraft-Client-Core), at release 2.4.
+//
+// A sandbox with no game in it, for testing flows and anything else built on
+// Core. Test scope only: Core's and the libraries' tests use it, and it is never
+// folded into the mod jar. Do not add a Minecraft dependency here.
+
+plugins {
+    id 'java-library'
+}
+
+group = 'dev.px'
+version = '2.4'
+
+// Kept at 8 (as upstream), like Core.
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+
+repositories {
+    mavenCentral()
+}
+
+// Upstream's suite is a plain main() with its own assertions, not JUnit, so the
+// `test` task never sees it. This is how it gets run: `gradlew :testkit:smoke`.
+tasks.register('smoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs the test kit suite (no Minecraft).'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.px.testkit.test.TestkitSmokeTest'
+}
+
+dependencies {
+    api project(':core')
+    testImplementation testFixtures(project(':core'))
+
+    // Lombok: compile-time only, nothing lands in the jar.
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    testCompileOnly 'org.projectlombok:lombok:1.18.30'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // Gson ships with Minecraft on every version, so it is compileOnly here; the
+    // tests run with no Minecraft to supply it.
+    compileOnly 'com.google.code.gson:gson:2.8.9'
+    testImplementation 'com.google.code.gson:gson:2.8.9'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:-unchecked' << '-parameters'
+}

@@ -26,6 +26,14 @@ include 'projectile'
 // dev.px.gui.legacy), also a local copy. Depends on :core.
 include 'gui'
 
+// Core's optional navigation library (route following, local planner, danger, the
+// travel step for flows), also a local copy. Depends on :core.
+include 'navigation'
+
+// Core's test kit: a sandbox with no game in it, for tests only. Never in the mod
+// jar. Depends on :core.
+include 'testkit'
+
 // A local Paper server running Grim, offline, for testing against an anticheat
 // without an account. Not part of the mod; see dev/server/build.gradle.
 include 'dev:server'
