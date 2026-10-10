@@ -18,8 +18,11 @@ public final class ShaderCatalogue {
     /** Fill, outline or glow around a silhouette mask. */
     public static final String SILHOUETTE = "silhouette";
 
-    /** A two-colour sky with stars, in place of the vanilla one. */
-    public static final String SKY = "sky";
+    /** A night in deep space: stars, a galaxy and nebulae, in place of the vanilla sky. */
+    public static final String SKY_SPACE = "sky_space";
+
+    /** An aurora over a clear night, in place of the vanilla sky. */
+    public static final String SKY_AURORA = "sky_aurora";
 
     private ShaderCatalogue() {
     }
@@ -30,9 +33,13 @@ public final class ShaderCatalogue {
                         .vertex("core/quad.vsh")
                         .fragment("effect/silhouette.fsh")
                         .build(),
-                ShaderSource.named(SKY)
+                ShaderSource.named(SKY_SPACE)
                         .vertex("core/quad.vsh")
-                        .fragment("effect/sky.fsh")
+                        .fragment("effect/sky/space.fsh")
+                        .build(),
+                ShaderSource.named(SKY_AURORA)
+                        .vertex("core/quad.vsh")
+                        .fragment("effect/sky/aurora.fsh")
                         .build());
     }
 }

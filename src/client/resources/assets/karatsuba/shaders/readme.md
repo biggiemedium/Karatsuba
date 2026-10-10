@@ -39,6 +39,16 @@ ShaderPasses.rect("frosted", x, y, width, height,
 | `uRect`, `uScale` | vec4 (x, y, w, h), float | `rect` / `screen` |
 | `uInverseProjection`, `uInverseView`, `uCameraPosition` | mat4, mat4, vec3 | `sky`; `core/sky.glsl` declares them |
 
+## Shared headers
+
+`#include` is include-once, relative to the including file.
+
+| File | Gives |
+|---|---|
+| `core/sky.glsl` | `skyDirection(vUv)`, the world direction through a sky-pass pixel |
+| `core/noise.glsl` | `hash12/13/33`, value `noise(vec2/vec3)`, `fbm(vec2)` (4 octaves), `fbm(vec3)` (5) |
+| `core/stars.glsl` | `stars(direction, density, time)`, a pixel-sized starfield in three depths (uses `fwidth`: call from uniform control flow) |
+
 ## Editing live
 
 Files in `.minecraft/karatsuba/shaders/` win over the ones here, path for path.

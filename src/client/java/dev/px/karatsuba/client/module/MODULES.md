@@ -183,8 +183,14 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   chosen entities and your hands drawn again into an offscreen mask (`adapter.render.shader.Silhouettes`,
   by the game's own renderers) and shaded by `effect/silhouette.fsh`: a fill plus a hard Outline or a
   fading Glow. Targets: Hands, Self, Players, Hostiles, Passives, Neutrals, Crystals, Items, Pearls,
-  Experience, Projectiles; Range; Through Walls. Skybox replaces the overworld sky (`SkyRenderEvent`)
-  with `effect/sky.fsh`: horizon-to-zenith gradient and twinkling stars. Theme Colours supported.
+  Experience, Projectiles; Range; Through Walls. Theme Colours supported.
+  Skybox (needs in-game testing) replaces the overworld sky (`SkyRenderEvent`) with
+  one of two shaders, and cancels all fog (`EffectRenderEvent` FOG) while the shader sky
+  was drawn this or last frame, so the Nether/End keep theirs. Space (`effect/sky/space.fsh`): stars at three depths, a galaxy band with
+  core and dust lanes, two-colour domain-warped nebulae, slowly turning about a tilted pole.
+  Aurora (`effect/sky/aurora.fsh`): 24 stacked slices of a warped ribbon pattern make curtains,
+  bright lower edge to second colour, rippling rays, stars through faint parts. Shared
+  `core/noise.glsl`, `core/stars.glsl`. Stars, Speed; Theme Colours supported.
 - **Projectiles** · done (needs in-game testing): a camera-facing ribbon trail (tapering,
   glow, core line, head dot) behind every arrow, pearl, potion and the rest in the air;
   with Landing, where each will land from `Projectiles.kit().follow` (1.21.4 physics from

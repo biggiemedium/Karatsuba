@@ -12,6 +12,7 @@ import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.shader.Uniforms;
+import dev.px.karatsuba.adapter.event.game.render.EffectRenderEvent;
 import dev.px.karatsuba.adapter.event.game.render.HandRenderEvent;
 import dev.px.karatsuba.adapter.event.game.render.SkyRenderEvent;
 import dev.px.karatsuba.adapter.render.shader.ShaderPasses;
@@ -26,7 +27,7 @@ import java.util.Set;
 
 /**
  * Shader effects over the world: entities and your hands outlined, filled or
- * glowing in one colour, and the sky replaced with a shader of its own.
+ * glowing in one colour, and the sky replaced with a night in space or an aurora.
  *
  * <h2>Entities and hands</h2>
  * Each frame the chosen entities are drawn again, by the game's own renderers,
@@ -40,14 +41,25 @@ import java.util.Set;
  * stays in front of them and only what you could see is shaded.
  *
  * <h2>Skybox</h2>
- * The vanilla overworld sky (dome, sunrise, sun, moon and stars) is replaced by
- * {@code effect/sky.fsh}: a gradient from the horizon colour to the zenith colour,
- * with optional twinkling stars. Clouds, weather and the world draw over it as
- * usual. If the shader fails to compile the vanilla sky stays.
+ * The vanilla overworld sky (dome, sunrise, sun, moon and stars) is replaced by one
+ * of two shaders:
+ * <ul>
+ *   <li><b>Space</b>, {@code effect/sky/space.fsh}: stars at three depths, the band
+ *       of a galaxy with a bright core and dark dust lanes, and nebula clouds in two
+ *       colours, all turning slowly about a tilted pole.</li>
+ *   <li><b>Aurora</b>, {@code effect/sky/aurora.fsh}: folded curtains of light over a
+ *       clear night, bright along their lower edge and fading up into a second
+ *       colour, rippling and drifting, with stars through where they are faint.</li>
+ * </ul>
+ * Clouds, weather and the world draw over it as usual. While the shader sky is up
+ * the fog is off too, distance and fluid fog alike: the game tints it from the
+ * vanilla sky, so the far terrain would otherwise fade into a daytime blue. In a
+ * dimension the shader does not replace (the Nether, the End) the fog stays. If the
+ * shader fails to compile the vanilla sky and its fog stay.
  *
  * <h2>Theme Colours</h2>
  * On, the shader colour is a slow wave between the theme's two accents, and the
- * sky runs from the secondary accent at the horizon to the primary overhead.
+ * nebula and the aurora run from the primary accent to the secondary.
  */
 @ModuleInfo(name = "Shaders", description = "Outlines and glows entities and your hands, and can replace the sky",
         category = "Render")
@@ -130,30 +142,98 @@ public final class ShadersModule extends ClientModule {
     // ------------------------------------------------------------------- sky
 
     private final BooleanSetting skybox = bool("Skybox", false)
-            .describe("Replace the overworld sky with a shader sky");
+            .describe("Replace the overworld sky with a shader sky, and clear the fog");
 
-    private final ColorSetting zenith = color("Zenith", Color.of(40, 30, 90, 255))
-            .describe("The sky straight overhead")
-            .visibleWhen(() -> !themeColours.isOn());
+    private final EnumSetting<Sky> sky = enumOf("Sky", Sky.SPACE)
+            .describe("Deep space, or an aurora over a clear night");
 
-    private final ColorSetting horizon = color("Horizon", Color.of(230, 110, 160, 255))
-            .describe("The sky at the horizon")
-            .visibleWhen(() -> !themeColours.isOn());
+    private final NumberSetting<Float> stars = number("Stars", 1f, 0f, 2f)
+            .step(0.1f)
+            .describe("How many stars, against the default; 0 for none");
 
-    private final BooleanSetting stars = bool("Stars", true)
-            .describe("Twinkling stars across the upper sky");
+    private final NumberSetting<Float> speed = number("Speed", 1f, 0f, 4f)
+            .step(0.1f)
+            .describe("How fast the sky turns or the aurora moves");
+
+    private final NumberSetting<Float> nebula = number("Nebula", 0.7f, 0f, 1f)
+            .step(0.05f)
+            .describe("How strong the nebula clouds are; 0 for none")
+            .visibleWhen(() -> sky.get() == Sky.SPACE);
+
+    private final ColorSetting nebulaA = color("Nebula Primary", Color.of(130, 50, 200, 255))
+            .visibleWhen(() -> sky.get() == Sky.SPACE && !themeColours.isOn());
+
+    private final ColorSetting nebulaB = color("Nebula Secondary", Color.of(30, 120, 210, 255))
+            .visibleWhen(() -> sky.get() == Sky.SPACE && !themeColours.isOn());
+
+    private final BooleanSetting galaxy = bool("Galaxy", true)
+            .describe("The band of a galaxy across the sky, with its core and dust")
+            .visibleWhen(() -> sky.get() == Sky.SPACE);
+
+    private final NumberSetting<Float> intensity = number("Intensity", 1f, 0.2f, 2f)
+            .step(0.1f)
+            .describe("How bright the aurora is")
+            .visibleWhen(() -> sky.get() == Sky.AURORA);
+
+    private final ColorSetting lower = color("Aurora Lower", Color.of(40, 255, 140, 255))
+            .describe("The curtains' bright lower edge")
+            .visibleWhen(() -> sky.get() == Sky.AURORA && !themeColours.isOn());
+
+    private final ColorSetting upper = color("Aurora Upper", Color.of(150, 70, 230, 255))
+            .describe("The curtains' tops")
+            .visibleWhen(() -> sky.get() == Sky.AURORA && !themeColours.isOn());
 
     private final GroupSetting skyGroup = group("Skybox Options", true)
-            .containing(zenith, horizon, stars)
+            .containing(sky, stars, speed, nebula, nebulaA, nebulaB, galaxy, intensity, lower, upper)
             .visibleWhen(skybox);
 
     /** Refilled each frame rather than allocated. */
     private final Set<Target> targets = EnumSet.noneOf(Target.class);
 
+    /**
+     * Whether the shader sky was drawn this frame, and last frame. The sky's fog is
+     * set up before the sky pass asks, so it goes by last frame's answer.
+     */
+    private boolean skyDrawn;
+    private boolean skyWasDrawn;
+
     // ---------------------------------------------------------------- events
+
+    @Override
+    protected void onDisable() {
+        skyDrawn = false;
+        skyWasDrawn = false;
+    }
+
+    @Subscribe
+    private void onSky(SkyRenderEvent event) {
+        if (!skybox.isOn()) {
+            return;
+        }
+        boolean drew = sky.get() == Sky.SPACE
+                ? ShaderPasses.sky(ShaderCatalogue.SKY_SPACE, this::space)
+                : ShaderPasses.sky(ShaderCatalogue.SKY_AURORA, this::aurora);
+        // Only once ours is up: a sky shader that failed leaves the vanilla sky.
+        if (drew) {
+            skyDrawn = true;
+            event.cancel();
+        }
+    }
+
+    /** No fog under a shader sky: the game would tint it the vanilla sky's colour. */
+    @Subscribe
+    private void onEffect(EffectRenderEvent event) {
+        if (event.is(EffectRenderEvent.Effect.FOG) && skybox.isOn() && (skyDrawn || skyWasDrawn)) {
+            event.cancel();
+        }
+    }
 
     @Subscribe
     private void onRender3D(Render3DEvent event) {
+        // Last in the world frame: this frame's sky answer becomes last frame's.
+        skyWasDrawn = skyDrawn;
+        skyDrawn = false;
+
         collectTargets();
         if (targets.isEmpty()) {
             return;
@@ -175,25 +255,26 @@ public final class ShadersModule extends ClientModule {
         }
     }
 
-    @Subscribe
-    private void onSky(SkyRenderEvent event) {
-        if (!skybox.isOn()) {
-            return;
-        }
+    // -------------------------------------------------------------- internal
+
+    private void space(Uniforms uniforms) {
         boolean themed = themeColours.isOn();
-        Color top = ThemeColors.of(zenith, themed, 0f);
-        Color bottom = ThemeColors.of(horizon, themed, 1f);
-        boolean drew = ShaderPasses.sky(ShaderCatalogue.SKY, u -> u
-                .set("uZenith", top)
-                .set("uHorizon", bottom)
-                .set("uStars", stars.isOn() ? 1f : 0f));
-        // Only once ours is up: a sky shader that failed leaves the vanilla sky.
-        if (drew) {
-            event.cancel();
-        }
+        uniforms.set("uNebulaA", ThemeColors.of(nebulaA, themed, 0f))
+                .set("uNebulaB", ThemeColors.of(nebulaB, themed, 1f))
+                .set("uNebula", nebula.get())
+                .set("uGalaxy", galaxy.isOn() ? 1f : 0f)
+                .set("uStarDensity", stars.get())
+                .set("uSpeed", speed.get());
     }
 
-    // -------------------------------------------------------------- internal
+    private void aurora(Uniforms uniforms) {
+        boolean themed = themeColours.isOn();
+        uniforms.set("uLower", ThemeColors.of(lower, themed, 0f))
+                .set("uUpper", ThemeColors.of(upper, themed, 1f))
+                .set("uIntensity", intensity.get())
+                .set("uStarDensity", stars.get())
+                .set("uSpeed", speed.get());
+    }
 
     private void silhouette(Uniforms uniforms, Texture mask) {
         boolean themed = themeColours.isOn();
@@ -233,5 +314,10 @@ public final class ShadersModule extends ClientModule {
     public enum Style {
         OUTLINE,
         GLOW
+    }
+
+    public enum Sky {
+        SPACE,
+        AURORA
     }
 }
