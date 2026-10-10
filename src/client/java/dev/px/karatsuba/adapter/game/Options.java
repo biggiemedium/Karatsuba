@@ -76,6 +76,24 @@ public final class Options {
         return options == null ? 0.5d : options.getMouseSensitivity().getValue();
     }
 
+    /** @return the FOV Effects slider, 0..1, or 1 (the vanilla default) with no game up */
+    public static double fovEffectScale() {
+        GameOptions options = options();
+        return options == null ? 1d : options.getFovEffectScale().getValue();
+    }
+
+    /**
+     * Sets the FOV Effects slider: how far sprinting, flying and speed effects
+     * widen the view. Clamped to the slider's own 0..1, so it goes through
+     * {@code setValue}. Borrowed, so restore it.
+     */
+    public static void fovEffectScale(double value) {
+        GameOptions options = options();
+        if (options != null) {
+            options.getFovEffectScale().setValue(Math.max(0d, Math.min(1d, value)));
+        }
+    }
+
     private static GameOptions options() {
         return MinecraftClient.getInstance().options;
     }

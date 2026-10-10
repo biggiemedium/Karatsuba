@@ -9,6 +9,7 @@ import dev.px.karatsuba.adapter.event.game.network.MovementPacketEvent;
 import dev.px.karatsuba.adapter.event.game.network.PacketEvent;
 import dev.px.karatsuba.adapter.event.game.network.ScreenCloseEvent;
 import dev.px.karatsuba.adapter.game.item.Inventories;
+import dev.px.karatsuba.adapter.network.PacketHold;
 import io.netty.channel.ChannelHandlerContext;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.NetworkSide;
@@ -65,13 +66,17 @@ public abstract class ClientConnectionMixin {
             at = @At("HEAD"), cancellable = true)
     private void karatsuba$send(Packet<?> packet, PacketCallbacks callbacks, boolean flush,
                                 CallbackInfo callback) {
+        if (PacketHold.isReleasing()) {
+            // A held packet going out: every handler saw it when it was sent.
+            return;
+        }
         boolean refused = refusedOnSend(packet);
         // After the adapter's handlers, so Core sees the packet as it will
         // actually leave -- a rewritten position included.
         if (isClientSide() && CorePacketEvents.sent(packet, refused)) {
             refused = true;
         }
-        if (refused) {
+        if (refused || isClientSide() && PacketHold.take((ClientConnection) (Object) this, packet, callbacks, flush)) {
             callback.cancel();
         }
     }

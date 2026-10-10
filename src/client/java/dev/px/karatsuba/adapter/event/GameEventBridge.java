@@ -8,6 +8,7 @@ import dev.px.core.event.impl.Render2DEvent;
 import dev.px.core.event.impl.Render3DEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
+import dev.px.karatsuba.adapter.network.PacketHold;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.adapter.event.game.render.WorldOverlayEvent;
@@ -63,7 +64,11 @@ public final class GameEventBridge {
 
     private void installTicks() {
         ClientTickEvents.START_CLIENT_TICK.register(ignored -> Core.bus().post(new TickEvent(Stage.PRE)));
-        ClientTickEvents.END_CLIENT_TICK.register(ignored -> Core.bus().post(new TickEvent(Stage.POST)));
+        ClientTickEvents.END_CLIENT_TICK.register(ignored -> {
+            Core.bus().post(new TickEvent(Stage.POST));
+            // After every handler: a hold nobody let go of ends by itself.
+            PacketHold.tick();
+        });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(ignored -> {
             // Core first: stop() saves the config, and it needs its services up to
@@ -194,8 +199,10 @@ public final class GameEventBridge {
             Core.bus().post(new WorldEvent(true, server == null ? null : server.address));
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, ignored) ->
-                Core.bus().post(new WorldEvent(false, null)));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, ignored) -> {
+            PacketHold.clear();
+            Core.bus().post(new WorldEvent(false, null));
+        });
 
         // Chunks coming and going, for anything that remembers what is in them.
         // Block changes inside a loaded chunk come from WorldChunkMixin.

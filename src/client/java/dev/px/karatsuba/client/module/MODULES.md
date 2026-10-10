@@ -62,7 +62,7 @@ Building.
 | Category | Modules |
 |---|---|
 | Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Surround, Velocity, Web Aura |
-| Movement | Parkour, Safe Walk, Speed, Sprint, Step |
+| Movement | Elytra Fly (Bounce, Firework), Parkour, Safe Walk, Speed, Sprint, Step |
 | Building | Scaffold |
 | Mining | Auto Tool |
 | Inventory | Elytra Swap, Inventory Manager, XCarry |
@@ -120,6 +120,7 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   on, Blast Protection first. Re-Equip puts the elytra back once safe while still
   falling. The chest slot never empties mid-swap (pieces in the main inventory go
   via a borrowed hotbar slot, which is put back after).
+- **Elytra Fly** · done (needs in-game testing), modal like Velocity. **Bounce** (Meteor's, i.e. Elytra Recast): forward held, head locked low, jump held on the ground and re-pressed in the air so vanilla re-opens the elytra; waits for two airborne movement packets and a released jump (Grim PacketEntityAction/ElytraF/ElytraB), never forces sprint (SprintF). **Firework** (Lambda's): keys steer a silent look, a rocket kept burning; hover freezes the body only while a rocket is attached, inside Grim's firework box (`UncertaintyHandler.tickFireworksBox`). Rockets push along the sent look (`FireworkRocketEntityMixin`). Packet-stall hover and velocity sets left out.
 - Shared pieces: `Ledges` (simulation questions) and `TickKey` (a one-tick key
   press, always released at tick end).
 - **Speed** · rework: Grim simulates every tick from your keys, so a "speed" there

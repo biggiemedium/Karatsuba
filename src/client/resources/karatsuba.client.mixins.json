@@ -38,6 +38,8 @@
 		"render.SkyRenderingMixin",
 		"render.WorldRendererMixin",
 		"sound.SoundSystemMixin",
+		"world.FireworkRocketEntityAccessor",
+		"world.FireworkRocketEntityMixin",
 		"world.PersistentProjectileEntityInvoker",
 		"world.WorldChunkMixin"
 	],

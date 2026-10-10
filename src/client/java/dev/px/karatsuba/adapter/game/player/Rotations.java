@@ -70,6 +70,9 @@ public final class Rotations {
     private static float stashedYaw;
     private static float stashedPitch;
 
+    /** Whether the last movement packets carried a silent rotation rather than the camera's. */
+    private static boolean sentSilent;
+
     /**
      * The yaw the last movement packets carried, unwrapped, or null before any.
      *
@@ -200,8 +203,21 @@ public final class Rotations {
         if (self != null) {
             lastSentYaw = self.getYaw();
         }
+        sentSilent = stashed;
         pendingSilent = null;
         restore();
+    }
+
+    /**
+     * @return whether the last movement packets carried a silent rotation, so the
+     *         server's idea of where the player looks is not the camera's
+     *
+     * <p>For game code that runs outside the player's own tick and reads the
+     * player's look: a firework boosting a glide does, and has to read the
+     * server's (see {@code FireworkRocketEntityMixin}).
+     */
+    public static boolean sentSilent() {
+        return sentSilent;
     }
 
     /**

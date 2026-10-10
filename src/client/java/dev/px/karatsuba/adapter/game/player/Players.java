@@ -10,7 +10,14 @@ import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.projectile.FireworkRocketEntity;
+import dev.px.karatsuba.adapter.mixin.world.FireworkRocketEntityAccessor;
 
 /**
  * The local player, as questions with Core-typed answers.
@@ -279,6 +286,53 @@ public final class Players {
     public static boolean gliding() {
         ClientPlayerEntity self = player();
         return self != null && self.isGliding();
+    }
+
+    /**
+     * @return whether the game would open an elytra for the player now, the ground
+     *         aside: something worn that glides and is not about to break, and not
+     *         riding, levitating, in water, climbing or flying
+     *
+     * <p>The conditions vanilla checks before it sends the take-off packet
+     * ({@code ClientPlayerEntity.tickMovement}, {@code checkGliding}, {@code canGlide}),
+     * which are also the ones Grim cancels a take-off for (ElytraD, E, G, H, I).
+     * Being in the air is left to the caller, because a module bouncing along the
+     * ground asks this on the ground too.
+     */
+    public static boolean canGlide() {
+        ClientPlayerEntity self = player();
+        if (self == null || self.hasVehicle() || self.isTouchingWater() || self.isClimbing()
+                || self.getAbilities().flying || self.hasStatusEffect(StatusEffects.LEVITATION)) {
+            return false;
+        }
+        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
+            if (LivingEntity.canGlideWith(self.getEquippedStack(slot), slot)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return whether a firework rocket is attached to the player, boosting a glide
+     *
+     * <p>As the client sees it, which is also when Grim counts it: Grim adds a
+     * rocket when the client answers the transaction sent with its spawn, and
+     * keeps it a tick past its removal ({@code CompensatedFireworks}).
+     */
+    public static boolean fireworkBoosting() {
+        ClientPlayerEntity self = player();
+        ClientWorld world = MinecraftClient.getInstance().world;
+        if (self == null || world == null) {
+            return false;
+        }
+        for (Entity entity : world.getEntities()) {
+            if (entity instanceof FireworkRocketEntity rocket && !rocket.isRemoved()
+                    && ((FireworkRocketEntityAccessor) rocket).karatsuba$getShooter() == self) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** @return health plus absorption: everything a hit has to get through */

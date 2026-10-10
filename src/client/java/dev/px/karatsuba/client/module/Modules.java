@@ -16,6 +16,7 @@ import dev.px.karatsuba.client.module.inventory.InventoryManagerModule;
 import dev.px.karatsuba.client.module.inventory.XCarryModule;
 import dev.px.karatsuba.client.module.inventory.ElytraSwapModule;
 import dev.px.karatsuba.client.module.mining.AutoToolModule;
+import dev.px.karatsuba.client.module.movement.ElytraFlyModule;
 import dev.px.karatsuba.client.module.movement.ParkourModule;
 import dev.px.karatsuba.client.module.movement.SafeWalkModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
@@ -79,6 +80,7 @@ public final class Modules {
                 new WebAuraModule(),
 
                 // Movement
+                new ElytraFlyModule(),
                 new ParkourModule(),
                 new SafeWalkModule(),
                 new SpeedModule(),

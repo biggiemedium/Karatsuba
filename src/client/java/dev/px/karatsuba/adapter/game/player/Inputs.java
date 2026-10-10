@@ -201,6 +201,19 @@ public final class Inputs {
         return keys.forward() || keys.backward() || keys.left() || keys.right() || keys.jump();
     }
 
+    /**
+     * @return whether the keys last told to the server held jump
+     *
+     * <p>Read before this tick's movement, it is last tick's jump: the one the
+     * game compares against to decide whether jump is a new press, which is what
+     * opens an elytra. Grim compares the same pair (ElytraB): a take-off needs
+     * jump let go in the last input packet and held in the next.
+     */
+    public static boolean reportedJump() {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        return player != null && player.input != null && player.input.playerInput.jump();
+    }
+
     /** Whether the next movement tick reports no movement keys; see {@link #holdStill()}. */
     private static boolean holdingStill;
 
