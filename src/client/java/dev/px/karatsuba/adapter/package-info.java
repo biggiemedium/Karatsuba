@@ -38,6 +38,12 @@
  *       {@code SimulationService}: the player's own movement, scored every tick
  *       against Core's simulation under a physics profile read from the player's
  *       attributes.</li>
+ *   <li>{@link dev.px.karatsuba.adapter.game.player.MovementKeys} &mdash; the
+ *       movement sink for {@code Core.controls()}: whoever wins the keys this tick
+ *       has them written over the keyboard's, corrected to the yaw the game moves
+ *       by. What the client's tasks walk through. The buttons' sink is the
+ *       client's ({@code service/ControlClicks}), because a click goes out
+ *       through its action service.</li>
  *   <li>{@link dev.px.karatsuba.adapter.network.MinecraftPacketDescriber} &mdash;
  *       what Core needs to read a packet: the timeline recorder, and the roles
  *       {@code Core.tps()}, {@code Core.lag()}, {@code Core.server()} and

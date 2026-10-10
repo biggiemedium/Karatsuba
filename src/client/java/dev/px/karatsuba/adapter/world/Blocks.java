@@ -3,8 +3,12 @@ package dev.px.karatsuba.adapter.world;
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.CampfireBlock;
+import net.minecraft.block.LadderBlock;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
@@ -115,6 +119,71 @@ public final class Blocks {
             return BlastResistance.NONE;
         }
         return Voxels.blastResistance(world.getBlockState(pos));
+    }
+
+    /**
+     * @return whether standing in this cell, or on it, hurts: lava, fire, a lit
+     *         campfire, magma, cactus, a berry bush, a wither rose, powder snow
+     *
+     * <p>Contact damage only, so a route planner can keep out of it. Falling is
+     * the planner's own limit, and suffocation is a cell it cannot stand in anyway.
+     */
+    public static boolean hurts(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return false;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        if (world.isOutOfHeightLimit(pos)) {
+            return false;
+        }
+        BlockState state = world.getBlockState(pos);
+        return state.getFluidState().isIn(FluidTags.LAVA)
+                || state.isIn(BlockTags.FIRE)
+                || (state.isIn(BlockTags.CAMPFIRES) && CampfireBlock.isLitCampfire(state))
+                || state.isOf(net.minecraft.block.Blocks.MAGMA_BLOCK)
+                || state.isOf(net.minecraft.block.Blocks.CACTUS)
+                || state.isOf(net.minecraft.block.Blocks.SWEET_BERRY_BUSH)
+                || state.isOf(net.minecraft.block.Blocks.WITHER_ROSE)
+                || state.isOf(net.minecraft.block.Blocks.POWDER_SNOW);
+    }
+
+    /** @return whether this cell can be climbed: a ladder, vines, scaffolding, twisting vines */
+    public static boolean isClimbable(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return false;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        return !world.isOutOfHeightLimit(pos) && world.getBlockState(pos).isIn(BlockTags.CLIMBABLE);
+    }
+
+    /**
+     * @return the direction from a ladder to the wall it hangs on, which is the
+     *         way to face to climb it; null for anything but a ladder
+     */
+    public static dev.px.core.math.Direction ladderWall(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return null;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        BlockState state = world.getBlockState(pos);
+        if (!state.isOf(net.minecraft.block.Blocks.LADDER)) {
+            return null;
+        }
+        // A ladder faces away from its wall.
+        return Voxels.toCore(state.get(LadderBlock.FACING).getOpposite());
+    }
+
+    /** @return whether this cell holds any fluid: water, lava, or a waterlogged block */
+    public static boolean isLiquid(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return false;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        return !world.isOutOfHeightLimit(pos) && !world.getFluidState(pos).isEmpty();
     }
 
     /** @return whether this cell is air, which is not the same as being passable */

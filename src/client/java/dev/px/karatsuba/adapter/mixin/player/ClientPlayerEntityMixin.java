@@ -7,6 +7,7 @@ import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent;
 import dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent;
 import dev.px.karatsuba.adapter.game.player.Inputs;
+import dev.px.karatsuba.adapter.game.player.MovementKeys;
 import dev.px.karatsuba.adapter.game.player.Rotations;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -98,7 +99,10 @@ public abstract class ClientPlayerEntityMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/input/Input;tick()V", shift = At.Shift.AFTER))
     private void karatsuba$afterInput(CallbackInfo callback) {
         Rotations.correctInput(self().input);
-        // After the Move Fix: standing still overrides whatever it corrected.
+        // After the Move Fix: a movement claim replaces the player's keys outright,
+        // corrected to the yaw the game moves by.
+        MovementKeys.apply(self().input);
+        // After both: standing still overrides whatever they wrote.
         Inputs.applyHoldStill(self().input);
     }
 

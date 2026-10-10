@@ -26,6 +26,7 @@ import dev.px.core.config.ConfigService;
  *       integrations.json       the Now Playing switch and its poll interval
  *       commands.json           the command prefix
  *       interaction.json        how attacks and clicks are checked and sent (Client Settings)
+ *       automation.json         how tasks hold the controls and plan their routes (Client Settings)
  *       updates.json            update checks (Client Settings)
  *     hypixel/...
  *   shared/                     the same whichever profile is active

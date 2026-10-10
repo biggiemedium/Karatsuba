@@ -9,6 +9,7 @@ import dev.px.karatsuba.client.hud.element.NotificationElement;
 import dev.px.karatsuba.client.hud.element.PingElement;
 import dev.px.karatsuba.client.hud.element.NowPlayingElement;
 import dev.px.karatsuba.client.hud.element.ServerElement;
+import dev.px.karatsuba.client.hud.element.TaskElement;
 import dev.px.karatsuba.client.hud.element.TpsElement;
 import dev.px.karatsuba.client.hud.element.WatermarkElement;
 import dev.px.karatsuba.client.hud.stack.HudStacks;
@@ -47,6 +48,7 @@ public final class HudElements {
                 new PingElement(),
                 new ServerElement(),
                 new NowPlayingElement(),
+                new TaskElement(),
                 new DebugElement(),
         };
     }

@@ -17,6 +17,7 @@ import dev.px.karatsuba.adapter.game.entity.CrystalTracker;
 import dev.px.karatsuba.adapter.game.entity.LivingTracker;
 import dev.px.karatsuba.adapter.game.entity.MinecraftEntitySource;
 import dev.px.karatsuba.adapter.game.entity.PlayerTracker;
+import dev.px.karatsuba.adapter.game.player.MovementKeys;
 import dev.px.karatsuba.adapter.game.player.Rotations;
 import dev.px.karatsuba.adapter.integration.Spotify;
 import dev.px.karatsuba.adapter.network.MinecraftPacketDescriber;
@@ -118,6 +119,12 @@ public final class MinecraftAdapter {
         // be installed here rather than needing to exist before build().
         Rotations.install(core);
         core.getSimulationService().setCollisionSpace(WorldCollisionSpace.INSTANCE);
+
+        // The movement keys, for Core.controls(): what a flow walking a route, or
+        // anything else claiming the keys, steers through. Inert without claims.
+        // The buttons' sink is the client's: a click goes out through its action
+        // service, which is a decision about how the client behaves.
+        MovementKeys.install(core);
 
         // What feeds the simulation: the player's own movement is observed and
         // scored by MotionBridge from the player mixin. Other entities need no

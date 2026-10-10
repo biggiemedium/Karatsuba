@@ -12,6 +12,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -42,6 +43,9 @@ import net.minecraft.world.RaycastContext;
  * <p><b>Game thread only.</b> The crosshair target is recomputed every frame.
  */
 public final class Targets {
+
+    /** What {@link #entityAlong} answers when the ray meets no entity. */
+    public static final int NO_ENTITY = -1;
 
     private Targets() {
     }
@@ -109,6 +113,40 @@ public final class Targets {
             return null;
         }
         return new Hit(Voxels.toVec3i(hit.getBlockPos()), Voxels.toCore(hit.getSide()), Voxels.toVec3(hit.getPos()));
+    }
+
+    /**
+     * Finds the entity a look ray meets first, the way the game picks the entity
+     * under the crosshair: any entity that can be hit, not spectating, and not
+     * behind a block the ray meets sooner.
+     *
+     * <p>For acting along a rotation that is not the camera's &mdash; the one the
+     * server was last sent &mdash; where the crosshair would name the wrong thing.
+     *
+     * @return the entity's id, or {@link #NO_ENTITY} when the ray meets none
+     *         within {@code range}
+     */
+    public static int entityAlong(Vec3 eye, Vec2 rotation, double range) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientWorld world = client.world;
+        if (world == null || client.player == null) {
+            return NO_ENTITY;
+        }
+        Vec3d from = Voxels.toVec3d(eye);
+        Vec3d direction = Vec3d.fromPolar(rotation.getPitch(), rotation.getYaw());
+        Vec3d to = from.add(direction.multiply(range));
+        double limit = range * range;
+        BlockHitResult block = world.raycast(new RaycastContext(from, to,
+                RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, client.player));
+        if (block.getType() != HitResult.Type.MISS) {
+            to = block.getPos();
+            limit = to.squaredDistanceTo(from);
+        }
+        net.minecraft.util.math.Box swept = client.player.getBoundingBox()
+                .stretch(direction.multiply(range)).expand(1d);
+        EntityHitResult hit = ProjectileUtil.raycast(client.player, from, to, swept,
+                entity -> !entity.isSpectator() && entity.canHit(), limit);
+        return hit == null ? NO_ENTITY : hit.getEntity().getId();
     }
 
     /** @return whether the crosshair is on a block */

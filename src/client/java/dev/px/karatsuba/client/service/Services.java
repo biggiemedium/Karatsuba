@@ -54,6 +54,9 @@ public final class Services {
         motion = core.getServices().register(new MotionService(core.getBus()));
         actions = core.getServices().register(new ActionService(core.getBus()));
         packets = core.getServices().register(new PacketService(core.getBus(), core.getLogger()));
+        // Core's buttons, sent through the hands above. Nothing reaches it directly:
+        // a click is asked of Core.controls(), which hands the winner to it.
+        core.getServices().register(new ControlClicks(core.getBus(), core.getControlService(), actions));
     }
 
     /**

@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.input;
 
 import dev.px.core.Core;
+import dev.px.karatsuba.client.automation.Automation;
 import dev.px.core.input.Bind;
 import dev.px.core.input.Key;
 import dev.px.karatsuba.client.gui.AccountsScreen;
@@ -72,5 +73,9 @@ public final class Binds {
         // Also unbound: switching accounts is rare enough that a key would be one
         // more thing to press by accident mid-game.
         input.register("Accounts", Bind.NONE, () -> Overlays.clickGui().open(new AccountsScreen()));
+
+        // Unbound, like the screens above: one press ends whatever task is running,
+        // which is worth a key for anyone running tasks and a trap for anyone not.
+        input.register("Stop Task", Bind.NONE, () -> Automation.get().stop("by keybind"));
     }
 }

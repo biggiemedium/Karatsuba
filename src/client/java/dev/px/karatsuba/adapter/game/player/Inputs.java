@@ -91,6 +91,23 @@ public final class Inputs {
     }
 
     /**
+     * @return whether the player themselves holds a movement key: one that is
+     *         down and that nothing here forced
+     *
+     * <p>For handing control back when the player reaches for the keyboard.
+     * Keys written for Core's movement claims never show here: those are written
+     * to the game's input, not pressed on its bindings.
+     */
+    public static boolean playerMoving() {
+        for (Control control : MOVEMENT) {
+            if (!FORCED.contains(control) && pressed(control)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @return whether the player appears to be doing anything at all
      *
      * <p>Movement, jumping, attacking or using. What an idle check wants, and

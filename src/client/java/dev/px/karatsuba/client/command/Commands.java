@@ -30,6 +30,7 @@ public final class Commands {
                 new RecordCommand(),
                 new ServerCommand(),
                 new SpotifyCommand(),
+                new TaskCommand(),
         };
     }
 }

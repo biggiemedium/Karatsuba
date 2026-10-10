@@ -2,6 +2,7 @@ package dev.px.karatsuba.client;
 
 import dev.px.core.Core;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
+import dev.px.karatsuba.client.automation.Automation;
 import dev.px.karatsuba.client.command.Commands;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.config.BindsSection;
@@ -48,6 +49,8 @@ import dev.px.karatsuba.client.theme.Themes;
  *       game</li>
  *   <li>{@link Services} &mdash; {@code service/}, the arbiters that decide which
  *       module wins when two want the same thing</li>
+ *   <li>{@link Automation} &mdash; {@code automation/}, the tasks the player can
+ *       start: walking somewhere, following someone</li>
  *   <li>{@link Servers} &mdash; {@code network/}, what Core's server detection
  *       can recognise</li>
  *   <li>{@link AntiCheats} &mdash; {@code anticheat/}, what Core's anticheat
@@ -138,6 +141,10 @@ public final class Karatsuba {
         // plays by (how rotations, clicks and packets go out). After the services,
         // which a section hands itself to, and before any module is created.
         ClientSettings.registerAll(core);
+
+        // Tasks, run as flows under the Automation settings just registered. Before
+        // start(), which starts it; nothing runs until a task is asked for.
+        Automation.install(core);
 
         // The rows for setting types Core does not have, before any screen is built.
         SettingTypes.registerAll(core);

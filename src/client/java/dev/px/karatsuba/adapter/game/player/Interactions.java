@@ -243,6 +243,22 @@ public final class Interactions {
         return result.isAccepted();
     }
 
+    /**
+     * @return how far the block being broken is, 0 to 1 in the game's ten crack
+     *         stages, or -1 when nothing is being broken
+     *
+     * <p>Read-only: the breaking itself is the game's, driven by the attack
+     * button held while the crosshair is on the block, so its speed and packets
+     * are exactly a player's.
+     */
+    public static float breakingProgress() {
+        ClientPlayerInteractionManager interactions = MinecraftClient.getInstance().interactionManager;
+        if (interactions == null || !interactions.isBreakingBlock()) {
+            return -1f;
+        }
+        return Math.max(0, interactions.getBlockBreakingProgress()) / 10f;
+    }
+
     /** Plays the arm animation, which is also what tells the server the arm moved. */
     public static void swing(Hand hand) {
         swing(hand, Swing.CLIENT);

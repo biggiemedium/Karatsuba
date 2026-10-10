@@ -35,6 +35,9 @@
  *       <td>{@link dev.px.karatsuba.client.screen.Overlays}</td></tr>
  *   <tr><td>an arbiter for something two modules want</td><td>{@code service/}</td>
  *       <td>{@link dev.px.karatsuba.client.service.Services}</td></tr>
+ *   <tr><td>a task (something to carry out, then stop)</td><td>{@code automation/task/},
+ *       its steps in {@code automation/step/}</td>
+ *       <td>{@link dev.px.karatsuba.client.automation.task.Tasks}</td></tr>
  *   <tr><td>server software to recognise from a brand</td><td>&mdash;</td>
  *       <td>{@link dev.px.karatsuba.client.network.Servers}</td></tr>
  *   <tr><td>an anticheat signature</td><td>{@code anticheat/}</td>

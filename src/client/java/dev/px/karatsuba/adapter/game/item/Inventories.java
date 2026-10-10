@@ -11,6 +11,7 @@ import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
+import net.minecraft.component.type.FoodComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerInventory;
@@ -23,6 +24,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Hand;
+
+import java.util.Set;
 
 /**
  * The player's inventory, as questions with Core-typed answers.
@@ -175,6 +178,54 @@ public final class Inventories {
             }
         }
         return best;
+    }
+
+    /**
+     * Foods never eaten for hunger: they poison, teleport, or are worth more in a
+     * fight. Golden apples are eaten by name, when they are what is wanted.
+     */
+    private static final Set<String> NOT_FOR_HUNGER = Set.of(
+            "minecraft:rotten_flesh", "minecraft:spider_eye", "minecraft:poisonous_potato",
+            "minecraft:pufferfish", "minecraft:chorus_fruit", "minecraft:suspicious_stew",
+            "minecraft:golden_apple", "minecraft:enchanted_golden_apple");
+
+    /**
+     * @return the hotbar slot of the best food to eat for hunger, or {@link #NOT_FOUND}
+     *
+     * <p>Ranked on what the game says the food restores, hunger plus saturation,
+     * so modded and future foods rank themselves. Never anything that poisons or
+     * teleports, and never a golden apple: those are for a fight.
+     */
+    public static int bestFoodSlot() {
+        PlayerInventory inventory = inventory();
+        if (inventory == null) {
+            return NOT_FOUND;
+        }
+        int best = NOT_FOUND;
+        float bestValue = 0f;
+        for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
+            ItemStack stack = inventory.getStack(slot);
+            FoodComponent food = stack.get(DataComponentTypes.FOOD);
+            if (food == null || NOT_FOR_HUNGER.contains(Registries.ITEM.getId(stack.getItem()).toString())) {
+                continue;
+            }
+            float value = food.nutrition() + food.saturation();
+            if (value > bestValue) {
+                bestValue = value;
+                best = slot;
+            }
+        }
+        return best;
+    }
+
+    /** @return whether this hotbar slot holds something edible, even with a full hunger bar */
+    public static boolean alwaysEdible(int slot) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || slot < 0 || slot >= HOTBAR_SIZE) {
+            return false;
+        }
+        FoodComponent food = inventory.getStack(slot).get(DataComponentTypes.FOOD);
+        return food != null && food.canAlwaysEat();
     }
 
     /**

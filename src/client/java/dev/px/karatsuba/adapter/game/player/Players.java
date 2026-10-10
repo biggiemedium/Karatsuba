@@ -198,6 +198,21 @@ public final class Players {
     }
 
     /**
+     * @return whether the game would let the player sprint, as far as hunger goes:
+     *         more than six food, flying allowed, or riding
+     *
+     * <p>The rule {@code ClientPlayerEntity.canSprint} applies, for a planner
+     * deciding whether to plan sprints at all. Blindness, using an item and the
+     * rest are checked by the game as it moves.
+     */
+    public static boolean canSprint() {
+        ClientPlayerEntity self = player();
+        return self != null && (self.hasVehicle()
+                || self.getHungerManager().getFoodLevel() > 6
+                || self.getAbilities().allowFlying);
+    }
+
+    /**
      * Turns sprinting on or off.
      *
      * <p>One of the few writers here, and it exists so a module never reaches for
@@ -270,6 +285,26 @@ public final class Players {
     public static float healthPool() {
         ClientPlayerEntity self = player();
         return self == null ? 0f : self.getHealth() + self.getAbsorptionAmount();
+    }
+
+    /** @return the hunger bar, 0 to 20; 20 out of a world, where nothing is hungry */
+    public static int foodLevel() {
+        ClientPlayerEntity self = player();
+        return self == null ? 20 : self.getHungerManager().getFoodLevel();
+    }
+
+    /**
+     * Closes the open container the way the player's Escape does: the screen
+     * goes, and the server is told the window closed.
+     *
+     * <p>Grim flags a close sent while the last input packet held a movement key
+     * (MultiActionsD), so a caller stands the player still first.
+     */
+    public static void closeContainer() {
+        ClientPlayerEntity self = player();
+        if (self != null && inOtherContainer()) {
+            self.closeHandledScreen();
+        }
     }
 
     /** @return whether an item is in use: eating, drinking, blocking, drawing a bow */

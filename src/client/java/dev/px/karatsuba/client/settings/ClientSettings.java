@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.config.section.SettingsSection;
 import dev.px.karatsuba.client.settings.interaction.InteractionSettings;
 import dev.px.karatsuba.client.settings.alerts.AlertSettings;
+import dev.px.karatsuba.client.settings.automation.AutomationSettings;
 import dev.px.karatsuba.client.settings.gui.GuiSettings;
 import dev.px.karatsuba.client.settings.general.GeneralSettings;
 import dev.px.karatsuba.client.settings.updates.UpdateSettings;
@@ -41,6 +42,7 @@ public final class ClientSettings {
         return new ClientSection[]{
                 new GeneralSettings(),
                 new InteractionSettings(),
+                new AutomationSettings(),
                 new UpdateSettings(),
                 new AlertSettings(),
                 new GuiSettings(),
@@ -93,6 +95,11 @@ public final class ClientSettings {
     /** How every module's rotations, clicks and packets are checked and sent. */
     public static InteractionSettings interaction() {
         return get(InteractionSettings.class);
+    }
+
+    /** How tasks hold the controls, plan their routes and report back. */
+    public static AutomationSettings automation() {
+        return get(AutomationSettings.class);
     }
 
     /** Update checks. */

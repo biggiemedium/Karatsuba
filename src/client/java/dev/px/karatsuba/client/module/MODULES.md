@@ -224,25 +224,23 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ## The pathing layer
 
-Not a module: the layer Travel, Mining and Building modules will run on, built so
-any planner (ours, or Baritone as a path provider) can plug in. Core already ships
-the bottom of it: `util.spatial.AStar` over a `PathSpace` (diagonals, vertical
-moves, step-up, maximum fall, a node budget, a weighted heuristic), with the
-adapter's `WorldPathSpace` (walking and flying).
+Not a module: built (2026-10-09) as `client/automation/`, on Core's flow engine and the
+navigation library. See `automation/package-info.java`.
 
-1. **Goals and movements:** goals beyond one cell ("near", "any of", "on this Y")
-   and movements with costs (walk, jump, fall, pillar, bridge, break by tool and
-   break time).
-2. **Search:** behind a `PathProvider` interface (goal in, path out). Core's A* is
-   the default.
-3. **Executor:** a path turned into per-tick keys (`Inputs`), rotations
-   (`Rotations`) and block actions (`Services.actions()`), each step checked against
-   Core `Simulation` before committing. This is what makes it Grim-safe.
-4. **Tasks:** goto, follow, mine-until, build-region. Automation later queues these.
-
-Layers 1–2 as a version-independent library like Combat; the world view and the
-executor in the adapter. Baritone can stand in as a path provider; letting it drive
-the player would fight our rotations, the Move Fix and Grim.
+- **Tasks** (`automation/task/`, listed in `Tasks`, run by `.task <kind>`): goto, follow,
+  climb, mine, open, close, eat, offhand, fight, retreat, pearl. Built from steps in
+  `automation/step/` (Eat, UseBlock, CloseContainer, BreakBlock, Climb, Melee, Throw,
+  Equip), each doing one thing the way a player does. Run one at a time by
+  `Automation`, stopped by `.task stop` or the Stop Task bind, shown by the Task HUD
+  element and the route drawn in the world. Rules: Client Settings > Automation.
+- **Planning:** the library's `LocalPlanner`, every move simulated, walking only. Far
+  goals are reached a plan at a time.
+- **The keys and buttons:** Core's `controls()`, written by the adapter's `MovementKeys`
+  (Move Fix consistent) and the client's `service/ControlClicks` (through ActionService).
+- **Next:** a long-range provider (Baritone as a `PathProvider` in the adapter, given to
+  `Navigation.setLongRange`); then mine-until and build-region tasks, which need breaking
+  and placing steps. Letting Baritone drive would fight our rotations, the Move Fix and
+  Grim, so prefer it as a planner of coarse routes the local planner walks.
 
 ## Suggested order
 
