@@ -59,8 +59,18 @@ public final class AutomationSettings extends ClientSection {
     private final NumberSetting<Integer> range = integer("Planner Range", 24, 8, 64)
             .describe("How far ahead each plan reaches, in blocks; further goals are reached a plan at a time");
 
+    private final BooleanSetting backgroundPlanning = bool("Background Planning", true)
+            .describe("Plan routes on a worker thread, walking on briefly while it works; off plans on the game thread, which can stall it");
+
     private final NumberSetting<Integer> searchBudget = integer("Search Budget", 2000, 250, 20000)
             .describe("Moves one plan may try before taking the closest it found; higher finds more, costs more");
+
+    private final BooleanSetting longRange = bool("Long Range", true)
+            .describe("Plan far goals across the loaded world first, then walk the route a plan at a time");
+
+    private final NumberSetting<Integer> longRangeBudget = integer("Long Range Budget", 12000, 1000, 60000)
+            .describe("Blocks one long-range search may try; higher sees round bigger obstacles, costs more per replan")
+            .visibleWhen(longRange);
 
     private final NumberSetting<Integer> stuckTicks = integer("Stuck After", 100, 20, 600)
             .describe("Ticks without getting closer before a task counts as stuck");
@@ -123,8 +133,20 @@ public final class AutomationSettings extends ClientSection {
         return range.getInt();
     }
 
+    public boolean backgroundPlanning() {
+        return backgroundPlanning.isOn();
+    }
+
     public int searchBudget() {
         return searchBudget.getInt();
+    }
+
+    public boolean longRange() {
+        return longRange.isOn();
+    }
+
+    public int longRangeBudget() {
+        return longRangeBudget.getInt();
     }
 
     public int stuckTicks() {

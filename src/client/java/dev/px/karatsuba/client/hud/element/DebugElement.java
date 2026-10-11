@@ -26,6 +26,11 @@ import dev.px.karatsuba.adapter.network.MinecraftPacketKind;
 import dev.px.karatsuba.client.debug.AlertType;
 import dev.px.karatsuba.client.debug.DebugAlert;
 import dev.px.karatsuba.client.debug.DebugMonitor;
+import dev.px.karatsuba.client.debug.PerformanceMonitor;
+import dev.px.karatsuba.client.automation.navigation.TripStats;
+import dev.px.karatsuba.client.automation.navigation.Navigation;
+import dev.px.karatsuba.client.automation.navigation.Replan;
+import dev.px.navigation.plan.PlanStats;
 import dev.px.karatsuba.client.debug.PacketSample;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
@@ -72,9 +77,11 @@ public final class DebugElement extends StyledElement {
             .describe("Every packet as it goes past, newest first");
     private final BooleanSetting alerts = bool("Alerts", true)
             .describe("Rubberbands, lag spikes, anticheat, knockback and servers joined");
+    private final BooleanSetting performance = bool("Performance", true)
+            .describe("Where the client's time goes: tick, flows, drawing and route planning");
 
     private final GroupSetting sections = group("Sections", true)
-            .containing(connection, movement, server, packetRates, packetFeed, alerts);
+            .containing(connection, movement, server, packetRates, packetFeed, alerts, performance);
 
     // ---------------------------------------------------------- packet filter
 
@@ -147,6 +154,9 @@ public final class DebugElement extends StyledElement {
         }
         if (alerts.isOn()) {
             section(content, "Alerts", body -> alerts(body, monitor));
+        }
+        if (performance.isOn()) {
+            section(content, "Performance", this::performance);
         }
     }
 
@@ -249,6 +259,57 @@ public final class DebugElement extends StyledElement {
                 row.text(format("%.0fs", alert.ageSeconds(now)), style().muted());
             });
         }
+    }
+
+    private void performance(Content body) {
+        PerformanceMonitor perf = PerformanceMonitor.get();
+        if (perf == null) {
+            row(body, "", "not running", Color.GRAY);
+            return;
+        }
+        row(body, "Client tick", window(perf.getTick()), heat(perf.getTick().max(), PerformanceMonitor.TICK_SPIKE_MS));
+        row(body, "Flows", window(perf.getFlows()), heat(perf.getFlows().max(), PerformanceMonitor.TICK_SPIKE_MS));
+        row(body, "Drawing", window(perf.getFrame()), style().value());
+        row(body, "Game-thread plans", format("%d/s, %.1f ms/s, max %.1f", perf.getLocalPlans(),
+                perf.getLocalPlanTime().sum(), perf.getLocalPlanTime().max()),
+                heat(perf.getLocalPlanTime().max(), PerformanceMonitor.PLAN_SPIKE_MS));
+        PlanStats last = perf.getLastLocal();
+        if (last != null && last.getExpanded() > 0) {
+            row(body, "Last plan", format("%s %d st%s, %,d sim, %.1f ms", lower(last.getOutcome().name()),
+                    last.getExpanded(), last.isBudgetSpent() ? " (budget)" : "", last.getSimulatedTicks(),
+                    last.getMicros() / 1000d), style().muted());
+        }
+        PlanStats worker = perf.getLastWorker();
+        row(body, "Worker plans", worker == null ? perf.getWorkerPlans() + "/s"
+                : format("%d/s, last %.1f ms, %d st; asked %d ticks ahead", perf.getWorkerPlans(),
+                worker.getMicros() / 1000d, worker.getExpanded(), perf.getSegments().getLead()), style().muted());
+        Navigation.CoarseStats coarse = perf.getLastCoarse();
+        row(body, "Long range", coarse == null ? perf.getCoarsePlans() + "/s"
+                : format("%d/s, last %.1f ms, %,d cells, %,d kept (worker)", perf.getCoarsePlans(),
+                coarse.lastMillis(), coarse.lastExpanded(), coarse.nodes()), style().muted());
+        TripStats trip = perf.getTripStats();
+        if (trip != null) {
+            StringBuilder reasons = new StringBuilder();
+            for (Replan reason : Replan.values()) {
+                int count = trip.count(reason);
+                if (count > 0) {
+                    reasons.append(reasons.length() == 0 ? "" : ", ")
+                            .append(lower(reason.name()).replace('_', ' ')).append(' ').append(count);
+                }
+            }
+            row(body, "Trip plans", trip.getPlans() + (reasons.length() == 0 ? "" : " (" + reasons + ")"), style().muted());
+            row(body, "Smoothness", format("%d spliced, %d ticks waiting", trip.getSplices(), trip.getWaitTicks()),
+                    trip.getWaitTicks() == 0 ? style().value() : Color.YELLOW);
+        }
+    }
+
+    private static String window(PerformanceMonitor.Window window) {
+        return format("%.2f ms, max %.1f", window.average(), window.max());
+    }
+
+    /** @return red at or past {@code spike}, yellow past half of it */
+    private Color heat(double ms, double spike) {
+        return ms >= spike ? Color.RED : ms >= spike / 2d ? Color.YELLOW : style().value();
     }
 
     // ------------------------------------------------------------------ filter

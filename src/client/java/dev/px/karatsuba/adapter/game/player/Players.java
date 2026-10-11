@@ -347,6 +347,12 @@ public final class Players {
         return self == null ? 20 : self.getHungerManager().getFoodLevel();
     }
 
+    /** @return whether the player is burning, as the client sees it */
+    public static boolean onFire() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isOnFire();
+    }
+
     /**
      * Closes the open container the way the player's Escape does: the screen
      * goes, and the server is told the window closed.

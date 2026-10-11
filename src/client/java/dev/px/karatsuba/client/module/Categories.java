@@ -28,7 +28,8 @@ public enum Categories implements Category {
     MINING("Mining", 4, "pickaxe"),
     INVENTORY("Inventory", 5, "chest"),
     RENDER("Render", 6, "eye"),
-    UTILITY("Utility", 7, "wrench");
+    UTILITY("Utility", 7, "wrench"),
+    AUTOMATION("Automation", 8, "robot");
 
     /**
      * Registers every category.

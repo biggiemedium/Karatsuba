@@ -10,6 +10,7 @@ evaluationDependsOn(':combat')
 evaluationDependsOn(':projectile')
 evaluationDependsOn(':gui')
 evaluationDependsOn(':navigation')
+evaluationDependsOn(':pathing')
 
 version = project.mod_version
 group = project.maven_group
@@ -118,6 +119,7 @@ dependencies {
 	implementation project(':projectile')
 	implementation project(':gui')
 	implementation project(':navigation')
+	implementation project(':pathing')
 
 	// Lombok, compile-time only: nothing lands in the jar, and no mod that depends
 	// on this one needs it. Declared for both source sets because Loom's
@@ -193,6 +195,7 @@ jar {
 	from project(':projectile').sourceSets.main.output
 	from project(':gui').sourceSets.main.output
 	from project(':navigation').sourceSets.main.output
+	from project(':pathing').sourceSets.main.output
 
 	// Same for NanoVG and its natives: LWJGL finds a native by scanning the
 	// classpath, so flattening the natives jars in is what makes them loadable.

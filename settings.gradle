@@ -30,6 +30,10 @@ include 'gui'
 // travel step for flows), also a local copy. Depends on :core.
 include 'navigation'
 
+// Karatsuba's own pathfinding algorithms (D* Lite for long range). Not vendored.
+// Depends on :core; no Minecraft.
+include 'pathing'
+
 // Core's test kit: a sandbox with no game in it, for tests only. Never in the mod
 // jar. Depends on :core.
 include 'testkit'

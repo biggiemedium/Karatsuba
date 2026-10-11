@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Where a route may not go: the planner's {@code allowed} rule.
@@ -35,7 +36,8 @@ import java.util.Set;
  * <p>A plan asks about the same cells thousands of times, so each answer is kept
  * until the next tick ({@link #newTick}), when a block may have changed.
  *
- * <p><b>Game thread only</b>, like the planner.
+ * <p>An instance is single-threaded: the live one belongs to the game thread,
+ * and a plan made elsewhere builds its own over a snapshot.
  */
 final class RouteRules {
 
@@ -50,11 +52,25 @@ final class RouteRules {
     private static final byte WET = 2;
 
     private final AutomationSettings settings;
+    private final Predicate<Vec3i> hurts;
+    private final Predicate<Vec3i> liquid;
     private final Map<Vec3i, Byte> cells = new HashMap<>();
     private final Set<Vec3i> standing = new HashSet<>();
 
+    /** The live world, for the game thread. */
     RouteRules(AutomationSettings settings) {
+        this(settings, Blocks::hurts, Blocks::isLiquid);
+    }
+
+    /**
+     * Rules over another view of the world: a {@code WorldSnapshot}, for a plan
+     * made off the game thread. Each such plan gets its own instance, since the
+     * cache is not shared safely.
+     */
+    RouteRules(AutomationSettings settings, Predicate<Vec3i> hurts, Predicate<Vec3i> liquid) {
         this.settings = settings;
+        this.hurts = hurts;
+        this.liquid = liquid;
     }
 
     /** @return whether the player may be in {@code state}, by the settings as they are now */
@@ -116,8 +132,8 @@ final class RouteRules {
             return known;
         }
         byte kind = standing.contains(cell) ? SAFE
-                : Blocks.hurts(cell) ? HURTS
-                : Blocks.isLiquid(cell) ? WET
+                : hurts.test(cell) ? HURTS
+                : liquid.test(cell) ? WET
                 : SAFE;
         cells.put(cell, kind);
         return kind;

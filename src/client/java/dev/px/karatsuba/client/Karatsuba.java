@@ -10,6 +10,7 @@ import dev.px.karatsuba.client.config.ConfigLayout;
 import dev.px.karatsuba.client.social.FriendRecords;
 import dev.px.karatsuba.client.gui.shell.section.home.RecentModules;
 import dev.px.karatsuba.client.debug.DebugMonitor;
+import dev.px.karatsuba.client.debug.PerformanceMonitor;
 import dev.px.karatsuba.client.hud.HudElements;
 import dev.px.karatsuba.client.input.Binds;
 import dev.px.karatsuba.client.module.Categories;
@@ -174,6 +175,9 @@ public final class Karatsuba {
         // boot, so a rubberband that happened before it was switched on still
         // shows in its log.
         DebugMonitor.install();
+        // Times the tick, the flows, the drawing and every route plan, for that same
+        // element's Performance section. After Automation, whose planners it reads.
+        PerformanceMonitor.install();
 
         // After the binds exist, before start() loads over them. Core has no
         // section for action binds, so without this a rebind lasts until restart.

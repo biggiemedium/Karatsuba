@@ -11,7 +11,7 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.karatsuba.client.automation.Automation;
 import dev.px.karatsuba.client.automation.task.Task;
 import dev.px.karatsuba.client.hud.style.StyledElement;
-import dev.px.navigation.Travel;
+import dev.px.karatsuba.client.automation.navigation.Trip;
 
 import java.util.Locale;
 
@@ -74,7 +74,7 @@ public final class TaskElement extends StyledElement {
 
     /** @return the progress of the trip under way, or null when the task is not travelling */
     private static Progress progress(Automation automation) {
-        for (Travel.Trip trip : automation.getNavigation().getActiveTrips()) {
+        for (Trip trip : automation.getNavigation().getActiveTrips()) {
             if (trip.getProgress() != null) {
                 return trip.getProgress();
             }

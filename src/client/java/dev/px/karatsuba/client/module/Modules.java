@@ -2,6 +2,7 @@ package dev.px.karatsuba.client.module;
 
 import dev.px.core.Core;
 import dev.px.core.module.Module;
+import dev.px.karatsuba.client.module.automation.AutoCombatModule;
 import dev.px.karatsuba.client.module.building.ScaffoldModule;
 import dev.px.karatsuba.client.module.combat.AutoTotemModule;
 import dev.px.karatsuba.client.module.combat.AutoXPModule;
@@ -37,6 +38,7 @@ import dev.px.karatsuba.client.module.render.ShadersModule;
 import dev.px.karatsuba.client.module.utility.AntiAfkModule;
 import dev.px.karatsuba.client.module.utility.AntiHungerModule;
 import dev.px.karatsuba.client.module.utility.AntiSoundModule;
+import dev.px.karatsuba.client.module.utility.AutoEatModule;
 import dev.px.karatsuba.client.module.utility.FakePlayerModule;
 import dev.px.karatsuba.client.module.utility.MiddleClickModule;
 import dev.px.karatsuba.client.module.utility.RecorderModule;
@@ -116,9 +118,13 @@ public final class Modules {
                 new AntiAfkModule(),
                 new AntiHungerModule(),
                 new AntiSoundModule(),
+                new AutoEatModule(),
                 new FakePlayerModule(),
                 new MiddleClickModule(),
                 new RecorderModule(),
+
+                // Automation
+                new AutoCombatModule(),
         };
     }
 }

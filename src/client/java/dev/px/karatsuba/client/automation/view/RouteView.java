@@ -5,10 +5,9 @@ import dev.px.core.math.Vec3;
 import dev.px.core.navigation.Route;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.client.automation.navigation.Navigation;
+import dev.px.karatsuba.client.automation.navigation.Trip;
 import dev.px.karatsuba.client.render.ThemeColors;
 import dev.px.karatsuba.client.settings.automation.AutomationSettings;
-import dev.px.navigation.Navigator;
-import dev.px.navigation.Travel;
 
 import java.util.List;
 
@@ -49,11 +48,10 @@ public final class RouteView {
         if (!settings.showRoute()) {
             return;
         }
-        for (Travel.Trip trip : navigation.getActiveTrips()) {
-            Navigator navigator = trip.getNavigator();
-            Route section = navigator.getSection();
-            if (section != null) {
-                draw(section.getWaypoints(), section.isPrecise() ? navigator.getSectionTick() : 0);
+        for (Trip trip : navigation.getActiveTrips()) {
+            Route segment = trip.getSegment();
+            if (segment != null) {
+                draw(segment.getWaypoints(), trip.getSegmentTick());
             }
         }
     }

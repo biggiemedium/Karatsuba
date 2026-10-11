@@ -23,7 +23,10 @@ public enum AlertType {
     KNOCKBACK("Knockback", Color.YELLOW),
 
     /** Joining a server, or it announcing its software. */
-    SERVER("Server", Color.GRAY);
+    SERVER("Server", Color.GRAY),
+
+    /** A tick or a plan that took long enough to feel: see {@code PerformanceMonitor}. */
+    PERFORMANCE("Performance", Color.of(255, 120, 200, 255));
 
     private final String label;
     private final Color color;

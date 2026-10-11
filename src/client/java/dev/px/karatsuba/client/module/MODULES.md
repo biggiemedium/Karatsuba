@@ -39,6 +39,7 @@ Exploit), which only said that a module did not fit anywhere else.
 | **Inventory** | Moving and keeping items: armour, refills, carrying | Live |
 | **Render** | What you see | Live |
 | **Utility** | Small, finished tools, plus chat and dev tools until either earns its own category | Live |
+| **Automation** | Modules built from task flow: they plan and move like a task, but stay a toggle | Live |
 
 **Two rules for sorting:**
 
@@ -53,9 +54,10 @@ Exploit), which only said that a module did not fit anywhere else.
 **A category ships with its first module.** It is added to `Categories` in the same
 change as the first module in it, so the click GUI never shows an empty window.
 
-**Automation** (task queues, macros, scripting) is not a category. It will be a
-client system of its own later, with the pathing layer underneath Travel, Mining and
-Building.
+**Automation** is the category for modules built from task flow: a module that runs
+Core flows made of the automation's steps rather than a tick handler, so it plans,
+moves and composes like a task while staying a toggle. The task system itself
+(`.task`, the `Automation` service) is still a client system, not a module.
 
 ## What exists today
 
@@ -67,7 +69,8 @@ Building.
 | Mining | Auto Tool |
 | Inventory | Elytra Swap, Inventory Manager, XCarry |
 | Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search, Shaders |
-| Utility | Anti AFK, Anti Hunger, Anti Sound, Fake Player, Middle Click, Recorder |
+| Utility | Anti AFK, Anti Hunger, Anti Sound, Auto Eat, Fake Player, Middle Click, Recorder |
+| Automation | Auto Combat (holes) |
 
 **What moved in the refactor:**
 
@@ -173,9 +176,11 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   one a tick, only while the server believes you are still, armour > refill > cleaner,
   all below Auto Totem. Kits per profile were dropped: they break the moment you
   rearrange your inventory to go base hunting.
-- **Auto Eat** · S–M: real held right-click through the game's input, so it slows
-  you and reports item use as vanilla does (silent eating fails Grim). Picks quiet
-  moments and gives combat priority.
+- **Auto Eat** · done in **Utility** (needs in-game testing): the first module built
+  from flow steps. Two Core reflexes around the automation's `Eat` step: a golden
+  apple when low in a fight (or with no other way to heal), a meal when hungry and
+  safe or hurt below regen hunger, given up if an enemy closes to melee. Real held
+  right-click, so Grim sees vanilla item use; only flows needing the use button pause.
 - **Shulker Preview** · S: a shulker's contents on hover.
 
 ### Render
@@ -240,8 +245,14 @@ navigation library. See `automation/package-info.java`.
   Equip), each doing one thing the way a player does. Run one at a time by
   `Automation`, stopped by `.task stop` or the Stop Task bind, shown by the Task HUD
   element and the route drawn in the world. Rules: Client Settings > Automation.
-- **Planning:** the library's `LocalPlanner`, every move simulated, walking only. Far
-  goals are reached a plan at a time.
+- **Planning (2026-10-11), one algorithm per job:** short range is the library's
+  `LocalPlanner` (every move simulated) on a worker (`SegmentPlanner`, world read from
+  `WorldSnapshot` copies). Walking is the client's own `Driver` per `Trip`, which plans
+  the next segment while the current one is walked and splices it in (no stop between
+  plans). Long range is D* Lite (`pathing/` module, our own, tested by `:pathing:smoke`)
+  over `ChunkTerrain` (2 bits a block per seen chunk), repaired on chunk loads and block
+  changes, on its own thread (`LongRangePlanner`). Baritone would replace it via
+  `Navigation.setLongRange`.
 - **The keys and buttons:** Core's `controls()`, written by the adapter's `MovementKeys`
   (Move Fix consistent) and the client's `service/ControlClicks` (through ActionService).
 - **Next:** a long-range provider (Baritone as a `PathProvider` in the adapter, given to

@@ -12,6 +12,8 @@ import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.Action;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
+import java.util.function.IntSupplier;
+
 /**
  * Eats or drinks one item from the hotbar, start to finish.
  *
@@ -36,6 +38,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * <pre>{@code
  * Eat.food()                        // the best food for hunger; done at once if not hungry
  * Eat.item("golden_apple")          // this item, hungry or not
+ * Eat.food().priority(ClaimPriority.NORMAL)   // the hotbar and the use claimed lower
  * }</pre>
  */
 public final class Eat extends Step {
@@ -45,6 +48,9 @@ public final class Eat extends Step {
 
     /** The item to eat, or null for the best food for hunger. */
     private final String item;
+
+    /** What the slot and the use are claimed at. */
+    private IntSupplier priority = () -> ClaimPriority.HIGH;
 
     private int slot;
     private boolean started;
@@ -66,6 +72,24 @@ public final class Eat extends Step {
         return new Eat(itemId, "eat " + itemId);
     }
 
+    /**
+     * Claims the hotbar slot and the use at {@code priority} rather than
+     * {@link ClaimPriority#HIGH}. Equal claims go to whoever asked first, so to
+     * eat while a combat module holds the hotbar at {@code HIGH} this has to be
+     * higher; to wait for it, lower.
+     *
+     * @return this step
+     */
+    public Eat priority(int priority) {
+        return priority(() -> priority);
+    }
+
+    /** @return this step, claiming at whatever {@code priority} says when it asks; for a setting */
+    public Eat priority(IntSupplier priority) {
+        this.priority = priority;
+        return this;
+    }
+
     @Override
     protected void start(FlowContext c) {
         // Resumed after a pause, an eat in progress was let go: start it over.
@@ -80,7 +104,7 @@ public final class Eat extends Step {
                 return Status.DONE;
             }
             // Kept selected to the last bite: a slot let go swaps back mid-eat.
-            Services.inventory().request(this, slot, ClaimPriority.HIGH);
+            Services.inventory().request(this, slot, priority.getAsInt());
             c.hold(Click.USE);
             return Status.RUNNING;
         }
@@ -94,7 +118,7 @@ public final class Eat extends Step {
         if (++waited > PATIENCE) {
             return c.fail("the game would not start eating");
         }
-        Services.inventory().request(this, slot, ClaimPriority.HIGH);
+        Services.inventory().request(this, slot, priority.getAsInt());
         if (Inventories.selectedSlot() != slot || Services.inventory().getServerSlot() != slot) {
             return Status.RUNNING;
         }
@@ -103,7 +127,7 @@ public final class Eat extends Step {
             c.hold(Click.USE);
             return Status.RUNNING;
         }
-        Services.actions().submit(this, Action.use().priority(ClaimPriority.HIGH));
+        Services.actions().submit(this, Action.use().priority(priority.getAsInt()));
         return Status.RUNNING;
     }
 

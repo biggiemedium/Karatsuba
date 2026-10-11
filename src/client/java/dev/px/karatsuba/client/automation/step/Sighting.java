@@ -30,7 +30,7 @@ public final class Sighting {
     private final String name;
     private final double range;
 
-    private GameEntity seen;
+    private volatile GameEntity seen;
     private String label;
 
     private Sighting(String name, double range) {

@@ -12,7 +12,7 @@ import dev.px.karatsuba.client.automation.task.Task;
 import dev.px.karatsuba.client.automation.task.TaskArgs;
 import dev.px.karatsuba.client.automation.task.TaskType;
 import dev.px.karatsuba.client.automation.task.Tasks;
-import dev.px.navigation.Travel;
+import dev.px.karatsuba.client.automation.navigation.Trip;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -100,10 +100,10 @@ public final class TaskCommand extends Command {
         if (view.getReason() != null) {
             context.reply("Why: " + view.getReason());
         }
-        for (Travel.Trip trip : automation.getNavigation().getActiveTrips()) {
+        for (Trip trip : automation.getNavigation().getActiveTrips()) {
             Progress progress = trip.getProgress();
             if (progress != null) {
-                context.reply("Route: " + progress + ", " + trip.getNavigator().getStats());
+                context.reply("Route: " + progress + ", " + trip.getStats());
             }
         }
     }

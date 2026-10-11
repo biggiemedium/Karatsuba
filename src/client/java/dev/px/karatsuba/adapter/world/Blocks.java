@@ -137,7 +137,11 @@ public final class Blocks {
         if (world.isOutOfHeightLimit(pos)) {
             return false;
         }
-        BlockState state = world.getBlockState(pos);
+        return hurts(world.getBlockState(pos));
+    }
+
+    /** @return whether standing in or on a block in this state hurts; see {@link #hurts(Vec3i)} */
+    public static boolean hurts(BlockState state) {
         return state.getFluidState().isIn(FluidTags.LAVA)
                 || state.isIn(BlockTags.FIRE)
                 || (state.isIn(BlockTags.CAMPFIRES) && CampfireBlock.isLitCampfire(state))

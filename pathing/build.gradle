@@ -1,0 +1,41 @@
+// Karatsuba's own pathfinding algorithms: one per job, on Core's types, with NO
+// Minecraft on the classpath, so every one is tested on hand-drawn grids.
+//
+// Not a vendored library: this is Karatsuba's, and nothing here is re-applied on
+// a Core upgrade. The client wires these to the game through the adapter.
+
+plugins {
+    id 'java-library'
+}
+
+group = 'dev.px'
+version = '1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+// Same harness as Core and the libraries: plain main() with Core's Checks, not
+// JUnit. Run with `gradlew :pathing:smoke`.
+tasks.register('smoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs the pathing test suite (no Minecraft).'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.px.karatsuba.pathing.test.PathingSmokeTest'
+}
+
+dependencies {
+    api project(':core')
+    testImplementation testFixtures(project(':core'))
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs << '-Xlint:-unchecked' << '-parameters'
+}
