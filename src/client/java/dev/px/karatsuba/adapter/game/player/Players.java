@@ -108,6 +108,17 @@ public final class Players {
     }
 
     /**
+     * @return ticks left on the hurt animation, or 0 in a menu
+     *
+     * <p>10 on the tick damage lands and counting down to 0, so {@code 9} is the
+     * first tick the player can act on a hit.
+     */
+    public static int hurtTime() {
+        ClientPlayerEntity self = player();
+        return self == null ? 0 : self.hurtTime;
+    }
+
+    /**
      * @return motion in blocks per tick, or {@link Vec3#ZERO} in a menu
      *
      * <p>Per tick, not per second: multiply by 20 for the number a speedometer

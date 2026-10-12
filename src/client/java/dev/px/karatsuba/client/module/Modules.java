@@ -23,6 +23,7 @@ import dev.px.karatsuba.client.module.movement.SafeWalkModule;
 import dev.px.karatsuba.client.module.movement.SpeedModule;
 import dev.px.karatsuba.client.module.movement.SprintModule;
 import dev.px.karatsuba.client.module.movement.StepModule;
+import dev.px.karatsuba.client.module.movement.StrafeModule;
 import dev.px.karatsuba.client.module.render.BlockOverlayModule;
 import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
@@ -88,6 +89,7 @@ public final class Modules {
                 new SpeedModule(),
                 new SprintModule(),
                 new StepModule(),
+                new StrafeModule(),
 
                 // Building
                 new ScaffoldModule(),
