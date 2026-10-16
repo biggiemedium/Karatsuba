@@ -1,6 +1,10 @@
 package dev.px.karatsuba.client.screen;
 
+import dev.px.core.Core;
 import dev.px.karatsuba.adapter.screen.OverlayHost;
+import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.settings.ClientSettings;
+import dev.px.karatsuba.client.settings.gui.GuiSettings;
 
 /**
  * The overlay catalogue: everything the client puts on screen.
@@ -15,14 +19,15 @@ import dev.px.karatsuba.adapter.screen.OverlayHost;
  * keystroke before the HUD editor is.
  *
  * <p>The instances are singletons because they are the client's screens, not
- * documents &mdash; there is one HUD and one click GUI. {@link #hud()} and
- * {@link #clickGui()} are how a keybind or a command reaches them.
+ * documents &mdash; there is one HUD, and one of each interface. {@link #hud()},
+ * {@link #active()} and {@link #clickGui()} are how a keybind or a command reaches them.
  */
 public final class Overlays {
 
     private static final HudOverlay HUD = new HudOverlay();
     private static final ClickGuiOverlay CLICK_GUI = new ClickGuiOverlay();
-    private static final ClientGuiOverlay GUI = new ClientGuiOverlay();
+    private static final ClientGuiOverlay CLASSIC = new ClientGuiOverlay();
+    private static final AppleGuiOverlay APPLE = new AppleGuiOverlay();
 
     private Overlays() {
     }
@@ -38,7 +43,8 @@ public final class Overlays {
     public static void install() {
         OverlayHost.register(HUD);
         OverlayHost.register(CLICK_GUI);
-        OverlayHost.register(GUI);
+        OverlayHost.register(CLASSIC);
+        OverlayHost.register(APPLE);
     }
 
     /** The HUD, and its editor. */
@@ -46,9 +52,45 @@ public final class Overlays {
         return HUD;
     }
 
-    /** The client GUI: Modules, HUD, the Layout editor and Themes. */
-    public static ClientGuiOverlay gui() {
-        return GUI;
+    /** The interface the open binds reach: Classic or Apple, as Interface settings say. */
+    public static InterfaceOverlay active() {
+        return ClientSettings.get(GuiSettings.class).style() == GuiSettings.Style.APPLE ? APPLE : CLASSIC;
+    }
+
+    /** The Classic GUI: Modules, HUD, the Layout editor and Themes. */
+    public static ClientGuiOverlay classic() {
+        return CLASSIC;
+    }
+
+    /** The Apple GUI, built to {@code gui/apple/DESIGN.md}. */
+    public static AppleGuiOverlay apple() {
+        return APPLE;
+    }
+
+    /** @return whether either interface is open, closing included */
+    public static boolean anyInterfaceOpen() {
+        return CLASSIC.isCapturing() || APPLE.isCapturing();
+    }
+
+    /**
+     * Makes the other interface the active one. If the active one was open it
+     * closes and the other opens in its place; otherwise a notification says
+     * which is active now, since nothing on screen would.
+     */
+    public static void switchInterface() {
+        GuiSettings settings = ClientSettings.get(GuiSettings.class);
+        InterfaceOverlay from = active();
+        boolean wasOpen = from.isCapturing();
+        from.close();
+        GuiSettings.Style next = settings.style() == GuiSettings.Style.APPLE
+                ? GuiSettings.Style.CLASSIC : GuiSettings.Style.APPLE;
+        settings.style(next);
+        AutoSave.markDirty();
+        if (wasOpen) {
+            active().open(null);
+        } else {
+            Core.notifications().info("Interface", next == GuiSettings.Style.APPLE ? "Apple" : "Classic");
+        }
     }
 
     /** The legacy GUI's screens: the click GUI, and anything else opened through it. */

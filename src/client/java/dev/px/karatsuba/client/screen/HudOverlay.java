@@ -2,7 +2,7 @@ package dev.px.karatsuba.client.screen;
 
 import dev.px.core.Core;
 import dev.px.karatsuba.adapter.screen.Overlay;
-import dev.px.karatsuba.client.gui.shell.section.layout.LayoutSection;
+import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
 
 /**
  * The HUD on screen.
@@ -20,7 +20,7 @@ public final class HudOverlay implements Overlay {
 
     /** Opens the client GUI on its Layout editor, or closes it if it is already there. */
     public void toggleEditor() {
-        Overlays.gui().open(LayoutSection.ID);
+        Overlays.active().open(LayoutSection.ID);
     }
 
     @Override

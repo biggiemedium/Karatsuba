@@ -24,6 +24,9 @@ public final class ShaderCatalogue {
     /** An aurora over a clear night, in place of the vanilla sky. */
     public static final String SKY_AURORA = "sky_aurora";
 
+    /** Frosted glass behind a rounded rect of UI; drawn through {@link Glass}. */
+    public static final String GLASS = "glass";
+
     private ShaderCatalogue() {
     }
 
@@ -40,6 +43,10 @@ public final class ShaderCatalogue {
                 ShaderSource.named(SKY_AURORA)
                         .vertex("core/quad.vsh")
                         .fragment("effect/sky/aurora.fsh")
+                        .build(),
+                ShaderSource.named(GLASS)
+                        .vertex("core/quad.vsh")
+                        .fragment("effect/glass.fsh")
                         .build());
     }
 }

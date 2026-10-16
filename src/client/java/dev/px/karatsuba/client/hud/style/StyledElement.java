@@ -140,7 +140,9 @@ public abstract class StyledElement extends AbstractHudElement {
         }
 
         Size natural = body.measure();
-        boolean ease = sized && HudStyle.get().animates();
+        // Not while the layout editor is open: an element being scaled or dragged there
+        // must sit exactly under the cursor, not ease after it.
+        boolean ease = sized && HudStyle.get().animates() && !Core.hud().getEditor().isActive();
         float w = ease(width, natural.getWidth(), ease);
         float h = ease(height, natural.getHeight(), ease);
         sized = true;

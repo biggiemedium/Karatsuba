@@ -2,8 +2,9 @@ package dev.px.karatsuba.client.settings.gui;
 
 import dev.px.core.Core;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.client.gui.shell.style.Animations;
+import dev.px.karatsuba.client.gui.stable.shell.style.Animations;
 import dev.px.karatsuba.client.settings.ClientSection;
 
 /**
@@ -17,8 +18,14 @@ import dev.px.karatsuba.client.settings.ClientSection;
  */
 public final class GuiSettings extends ClientSection {
 
+    /** The client's two interfaces, each a GUI of its own with its own HUD editor. */
+    public enum Style { CLASSIC, APPLE }
+
+    private final EnumSetting<Style> style = enumOf("Style", Style.CLASSIC)
+            .describe("Which interface the GUI keys open. The Switch Interface key flips it");
+
     private final BooleanSetting animations = bool("Animations", true)
-            .describe("Turn off and the GUI changes instantly, with no motion");
+            .describe("Turn off and the Classic GUI changes instantly, with no motion");
 
     private final NumberSetting<Double> frameX = hidden(decimal("Frame X", 0d, 0d, 10000d));
     private final NumberSetting<Double> frameY = hidden(decimal("Frame Y", 0d, 0d, 10000d));
@@ -33,6 +40,15 @@ public final class GuiSettings extends ClientSection {
     @Override
     protected void onRegister(Core core) {
         Animations.readFrom(animations::isOn);
+    }
+
+    /** @return the interface the open binds reach */
+    public Style style() {
+        return style.get();
+    }
+
+    public void style(Style chosen) {
+        style.set(chosen);
     }
 
     /** @return whether the window has been moved or resized and saved */

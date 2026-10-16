@@ -4,11 +4,11 @@ import dev.px.core.Core;
 import dev.px.karatsuba.client.automation.Automation;
 import dev.px.core.input.Bind;
 import dev.px.core.input.Key;
-import dev.px.karatsuba.client.gui.AccountsScreen;
-import dev.px.karatsuba.client.gui.shell.section.hud.HudSection;
-import dev.px.karatsuba.client.gui.shell.section.layout.LayoutSection;
-import dev.px.karatsuba.client.gui.shell.section.settings.SettingsSection;
-import dev.px.karatsuba.client.gui.ProfilesScreen;
+import dev.px.karatsuba.client.gui.stable.AccountsScreen;
+import dev.px.karatsuba.client.gui.stable.shell.section.hud.HudSection;
+import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
+import dev.px.karatsuba.client.gui.stable.shell.section.settings.SettingsSection;
+import dev.px.karatsuba.client.gui.stable.ProfilesScreen;
 import dev.px.karatsuba.client.screen.Overlays;
 
 /**
@@ -60,12 +60,14 @@ public final class Binds {
     public static void registerAll(Core core) {
         var input = core.getInputService();
 
-        input.register("Click GUI", Bind.of(CLICK_GUI), () -> Overlays.gui().toggle());
+        input.register("Click GUI", Bind.of(CLICK_GUI), () -> Overlays.active().toggle());
         // The old window-per-category click GUI, kept reachable while the new one beds in.
         input.register("Legacy Click GUI", Bind.NONE, () -> Overlays.clickGui().toggle());
-        input.register("HUD Editor", Bind.of(HUD_EDITOR), () -> Overlays.gui().open(LayoutSection.ID));
-        input.register("HUD Elements", Bind.of(HUD_ELEMENTS), () -> Overlays.gui().open(HudSection.ID));
-        input.register("Client Settings", Bind.of(CLIENT_SETTINGS), () -> Overlays.gui().open(SettingsSection.ID));
+        // Flips between the Classic and Apple interfaces; unbound, since most players keep one.
+        input.register("Switch Interface", Bind.NONE, Overlays::switchInterface);
+        input.register("HUD Editor", Bind.of(HUD_EDITOR), () -> Overlays.active().open(LayoutSection.ID));
+        input.register("HUD Elements", Bind.of(HUD_ELEMENTS), () -> Overlays.active().open(HudSection.ID));
+        input.register("Client Settings", Bind.of(CLIENT_SETTINGS), () -> Overlays.active().open(SettingsSection.ID));
 
         // Unbound by default: a screen most people open from the GUI, not a key.
         input.register("Profiles", Bind.NONE, () -> Overlays.clickGui().open(new ProfilesScreen()));

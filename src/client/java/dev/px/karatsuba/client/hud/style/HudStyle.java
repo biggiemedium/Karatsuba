@@ -7,7 +7,7 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.client.gui.shell.style.Animations;
+import dev.px.karatsuba.client.gui.stable.shell.style.Animations;
 
 /**
  * The HUD's one style: what every {@link StyledElement} looks like unless it has
@@ -40,7 +40,7 @@ public final class HudStyle extends SettingHolder {
     private final GroupSetting text = group("Text", true).containing(style.text());
 
     private final BooleanSetting animate = bool("Animate", true)
-            .describe("Ease elements between sizes, fades and positions. Also needs Animations on in Interface");
+            .describe("Ease elements between sizes and fades. Also needs Animations on in Interface");
 
     private final GroupSetting motion = group("Motion", true).containing(animate);
 

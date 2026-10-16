@@ -30,11 +30,16 @@ import org.lwjgl.opengl.GL30;
  */
 public final class SceneTexture implements Texture, GlTexture {
 
-    private static final SceneTexture INSTANCE = new SceneTexture();
+    private static final SceneTexture INSTANCE = new SceneTexture(false);
 
+    /** A second copy with its mip chain built, kept apart so plain captures never sample stale levels. */
+    private static final SceneTexture MIPMAPPED = new SceneTexture(true);
+
+    private final boolean mipmapped;
     private Framebuffer copy;
 
-    private SceneTexture() {
+    private SceneTexture(boolean mipmapped) {
+        this.mipmapped = mipmapped;
     }
 
     /**
@@ -46,6 +51,16 @@ public final class SceneTexture implements Texture, GlTexture {
         RenderSystem.assertOnRenderThread();
         INSTANCE.blit(MinecraftClient.getInstance().getFramebuffer());
         return INSTANCE;
+    }
+
+    /**
+     * {@link #capture()}, with every mip level rebuilt from it, for shaders that blur
+     * cheaply by reading a smaller level: {@code textureLod(uScene, uv, level)}.
+     */
+    public static Texture captureMipmapped() {
+        RenderSystem.assertOnRenderThread();
+        MIPMAPPED.blit(MinecraftClient.getInstance().getFramebuffer());
+        return MIPMAPPED;
     }
 
     private void blit(Framebuffer main) {
@@ -68,13 +83,28 @@ public final class SceneTexture implements Texture, GlTexture {
                 GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
         GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, read);
         GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, draw);
+
+        if (mipmapped) {
+            // The filter goes back to plain LINEAR whenever the framebuffer is resized,
+            // so it is set again each time; the levels are allocated by the generate.
+            int bound = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            GlStateManager._bindTexture(copy.getColorAttachment());
+            GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
+            GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+            GlStateManager._bindTexture(bound);
+        }
     }
 
-    /** Frees the copy. From {@code MinecraftAdapter.shutdown}, on the render thread. */
+    /** Frees the copies. From {@code MinecraftAdapter.shutdown}, on the render thread. */
     public static void release() {
-        if (INSTANCE.copy != null) {
-            INSTANCE.copy.delete();
-            INSTANCE.copy = null;
+        INSTANCE.free();
+        MIPMAPPED.free();
+    }
+
+    private void free() {
+        if (copy != null) {
+            copy.delete();
+            copy = null;
         }
     }
 

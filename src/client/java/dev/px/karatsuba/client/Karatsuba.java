@@ -8,7 +8,7 @@ import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.config.BindsSection;
 import dev.px.karatsuba.client.config.ConfigLayout;
 import dev.px.karatsuba.client.social.FriendRecords;
-import dev.px.karatsuba.client.gui.shell.section.home.RecentModules;
+import dev.px.karatsuba.client.gui.stable.shell.section.home.RecentModules;
 import dev.px.karatsuba.client.debug.DebugMonitor;
 import dev.px.karatsuba.client.debug.PerformanceMonitor;
 import dev.px.karatsuba.client.hud.HudElements;
@@ -188,6 +188,10 @@ public final class Karatsuba {
 
         // What was switched on or off lately, for the GUI's Home.
         RecentModules.install();
+        dev.px.karatsuba.client.gui.apple.shell.section.home.RecentModules.install();
+
+        // The Apple UI's own look settings, apart from Client Settings.
+        dev.px.karatsuba.client.gui.apple.shell.style.Appearance.install(core);
 
         // Before start(), which is the first load: one file per section.
         ConfigLayout.install();

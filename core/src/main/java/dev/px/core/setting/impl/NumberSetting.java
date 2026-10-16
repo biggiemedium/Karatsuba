@@ -56,6 +56,21 @@ public final class NumberSetting<N extends Number & Comparable<N>> extends Setti
         return get().doubleValue();
     }
 
+    /** @return the least the value may be. (Karatsuba local edit: for steppers.) */
+    public N getMin() {
+        return min;
+    }
+
+    /** @return the most the value may be. (Karatsuba local edit.) */
+    public N getMax() {
+        return max;
+    }
+
+    /** @return the step the value snaps to, 0 for none. (Karatsuba local edit.) */
+    public double getStep() {
+        return step;
+    }
+
     /** @return where the value sits between min and max, 0..1. What a slider needs. */
     public float progress() {
         double low = min.doubleValue();

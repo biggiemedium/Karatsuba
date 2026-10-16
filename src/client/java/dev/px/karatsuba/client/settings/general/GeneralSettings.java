@@ -52,7 +52,7 @@ public final class GeneralSettings extends ClientSection {
     private void onToggled(ModuleToggleEvent event) {
         // Only in game, and only when no GUI is open: config loads and the GUI's own
         // switches are not news.
-        if (!toggleAlerts.isOn() || !Core.platform().isInGame() || Overlays.gui().isCapturing()) {
+        if (!toggleAlerts.isOn() || !Core.platform().isInGame() || Overlays.anyInterfaceOpen()) {
             return;
         }
         String name = event.getModule().getName();

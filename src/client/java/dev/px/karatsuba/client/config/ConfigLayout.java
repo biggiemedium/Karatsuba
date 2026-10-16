@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.config;
 import dev.px.core.Core;
 import dev.px.core.config.ConfigLocation;
 import dev.px.karatsuba.adapter.integration.SpotifySettings;
+import dev.px.karatsuba.client.gui.apple.shell.style.Appearance;
 import dev.px.karatsuba.client.hud.stack.HudStacks;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.social.FriendRecords;
@@ -19,6 +20,7 @@ import dev.px.core.config.ConfigService;
  *       hud.json                HUD element positions, scale, z-order and settings
  *       hud-style.json          the HUD Style every element inherits
  *       hud-stacks.json         which HUD elements are docked together
+ *       apple-appearance.json   the Apple UI's own look: light/dark, glass, reduce transparency/motion
  *       gui.json                click GUI window positions and state
  *       theme.json              the accent colours
  *       binds.json              the action keybinds: Click GUI, HUD Editor, Profiles
@@ -68,6 +70,7 @@ public final class ConfigLayout {
         config.place("hud", ConfigLocation.profile("hud"));
         config.place(HudStyle.ID, ConfigLocation.profile(HudStyle.ID));
         config.place(HudStacks.ID, ConfigLocation.profile(HudStacks.ID));
+        config.place(Appearance.ID, ConfigLocation.profile(Appearance.ID));
         config.place("gui", ConfigLocation.profile("gui"));
         config.place("theme", ConfigLocation.profile("theme"));
         config.place(BindsSection.ID, ConfigLocation.profile("binds"));

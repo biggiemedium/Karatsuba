@@ -7,12 +7,11 @@ import dev.px.core.input.MouseButton;
 import dev.px.core.layout.Bounds;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.adapter.screen.CoreScreen;
-import dev.px.karatsuba.adapter.screen.Overlay;
 import dev.px.karatsuba.client.config.AutoSave;
-import dev.px.karatsuba.client.gui.shell.ClientGui;
-import dev.px.karatsuba.client.gui.shell.style.Animations;
-import dev.px.karatsuba.client.gui.shell.style.Easing;
-import dev.px.karatsuba.client.gui.shell.style.Palette;
+import dev.px.karatsuba.client.gui.stable.shell.ClientGui;
+import dev.px.karatsuba.client.gui.stable.shell.style.Animations;
+import dev.px.karatsuba.client.gui.stable.shell.style.Easing;
+import dev.px.karatsuba.client.gui.stable.shell.style.Palette;
 
 import java.util.Set;
 
@@ -26,7 +25,7 @@ import java.util.Set;
  * input meanwhile. When the game takes the screen away instead it closes at
  * once, since there is nothing left to draw on.
  */
-public final class ClientGuiOverlay implements Overlay {
+public final class ClientGuiOverlay implements InterfaceOverlay {
 
     private ClientGui gui;
     private long openedAt;

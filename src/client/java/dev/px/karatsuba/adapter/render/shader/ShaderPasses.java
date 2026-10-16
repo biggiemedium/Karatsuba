@@ -162,6 +162,11 @@ public final class ShaderPasses {
         return SceneTexture.capture();
     }
 
+    /** {@link #scene()} with its mip levels built, for blurring by {@code textureLod}. */
+    public static Texture sceneMipmapped() {
+        return SceneTexture.captureMipmapped();
+    }
+
     // --------------------------------------------------------------- 3D
 
     /**

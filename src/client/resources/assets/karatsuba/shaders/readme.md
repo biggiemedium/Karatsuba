@@ -25,6 +25,10 @@ ShaderPasses.rect("frosted", x, y, width, height,
   are stored. The sky pass runs (0, 0) bottom left (clip space * 0.5 + 0.5).
 - **The screen behind** (`ShaderPasses.scene()`) is a whole-window copy with GL's
   bottom-left origin: sample it with `gl_FragCoord.xy / uViewport`.
+  `ShaderPasses.sceneMipmapped()` is the same copy with its mip levels built, for
+  blurring cheaply with `textureLod`. `effect/glass.fsh` (Liquid Glass and the
+  standard material, see `gui/apple/DESIGN.md` §6) samples it; draw it through
+  `client/render/Glass`, whose layers share one capture between shapes.
 
 ## Uniforms you get
 
