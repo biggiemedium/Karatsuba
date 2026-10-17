@@ -1,40 +1,39 @@
 package dev.px.karatsuba.client.gui.apple.shell.section.friends;
 
-import dev.px.core.input.MouseButton;
-import dev.px.gui.Widget;
-import dev.px.karatsuba.client.gui.apple.shell.style.Motion;
+import dev.px.karatsuba.client.gui.apple.shell.setting.ControlRow;
 
 import java.util.function.Consumer;
 
 /**
- * A player on this server who is not a friend, with a button to add them: the
- * quickest way to add someone, without typing their name.
+ * A player who is not a friend yet, with an Add button: someone on this server, or
+ * the name typed into the search. The quickest way to add someone; the whole row
+ * adds, as its button does.
  */
-public final class SuggestionRow extends Widget {
+public final class SuggestionRow extends ControlRow {
 
     private final String name;
+    private final String caption;
     private final Consumer<String> add;
-    private final Motion hover = Motion.hover();
 
-    SuggestionRow(String name, Consumer<String> add) {
+    /** @param caption a few words beside the name ("Not a friend yet"); empty for none */
+    SuggestionRow(String name, String caption, Consumer<String> add) {
         this.name = name;
+        this.caption = caption;
         this.add = add;
         tooltip("Add " + name + " as a friend");
     }
 
+    @Override
     public String name() {
         return name;
     }
 
-    public float hover() {
-        return hover.toward(isHovered());
+    public String caption() {
+        return caption;
     }
 
     @Override
-    protected boolean mousePressed(float x, float y, MouseButton button) {
-        if (button != MouseButton.LEFT) {
-            return false;
-        }
+    protected boolean pressed(float x, float y) {
         add.accept(name);
         return true;
     }
@@ -43,6 +42,10 @@ public final class SuggestionRow extends Widget {
     protected boolean activated() {
         add.accept(name);
         return true;
+    }
+
+    @Override
+    protected void reset() {
     }
 
     @Override

@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 /**
@@ -43,6 +45,9 @@ public final class Assets {
 
     private static final Map<String, Texture> TEXTURES = new HashMap<>();
 
+    /** Backdrops still being decoded on a worker; see {@link #backdrop}. */
+    private static final Map<String, Future<NanoVGTexture.Decoded>> DECODING = new HashMap<>();
+
     private Assets() {
     }
 
@@ -57,6 +62,59 @@ public final class Assets {
         Texture loaded = decode(path);
         TEXTURES.put(path, loaded);
         return loaded;
+    }
+
+    /**
+     * A large image, decoded on a worker so asking for it never stalls a frame.
+     *
+     * <p>For backdrops: a 4K PNG takes stb a few hundred milliseconds, which on the
+     * render thread is a visible freeze. The first call starts the decode and
+     * returns null; each later call returns null until the pixels are ready, then
+     * uploads them (with mipmaps, since a backdrop is drawn smaller than it is) and
+     * returns the texture from then on. Call it every frame and draw a fallback
+     * while it is null. Render thread only, like {@link #texture}.
+     *
+     * @param path absolute classpath path to a PNG, JPEG, TGA or BMP
+     * @return the texture once decoded and uploaded; null while decoding, or for
+     *         good if it is missing or unreadable
+     */
+    public static Texture backdrop(String path) {
+        if (TEXTURES.containsKey(path)) {
+            return TEXTURES.get(path);
+        }
+        Future<NanoVGTexture.Decoded> pending = DECODING.computeIfAbsent(path,
+                ignored -> Core.threads().submit(() -> decodeOffThread(path)));
+        if (!pending.isDone()) {
+            return null;
+        }
+        DECODING.remove(path);
+        Texture loaded = upload(path, pending);
+        TEXTURES.put(path, loaded);
+        return loaded;
+    }
+
+    private static NanoVGTexture.Decoded decodeOffThread(String path) throws IOException {
+        try (InputStream stream = Assets.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                Core.log().warn("No asset at " + path);
+                return null;
+            }
+            return NanoVGTexture.decode(stream);
+        }
+    }
+
+    private static Texture upload(String path, Future<NanoVGTexture.Decoded> pending) {
+        try {
+            NanoVGTexture.Decoded decoded = pending.get();
+            return decoded == null ? null : NanoVGTexture.upload(MinecraftAdapter.render2D(), decoded, true);
+        } catch (ExecutionException failure) {
+            Core.log().error("Could not decode texture " + path, failure.getCause());
+        } catch (IOException | RuntimeException failure) {
+            Core.log().error("Could not load texture " + path, failure);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+        return null;
     }
 
     private static Texture decode(String path) {
@@ -97,8 +155,9 @@ public final class Assets {
     private static List<String> fontFiles;
 
     /**
-     * @return the file names of every font bundled in {@code assets/karatsuba/font},
-     *         TrueType and OpenType, sorted; empty when there are none
+     * @return every font bundled in {@code assets/karatsuba/font}, TrueType and
+     *         OpenType, by its path under that folder ({@code sf-pro/sf-pro.ttf}: one
+     *         folder per family), sorted; empty when there are none
      *
      * <p>Listed through Fabric's view of the mod, which is a folder in a dev run and
      * the jar's own file system in a built one: a classpath folder cannot be listed
@@ -114,6 +173,7 @@ public final class Assets {
     /**
      * A bundled font file at {@code size}, loaded the first time and kept after.
      *
+     * @param fileName its path under {@code assets/karatsuba/font}: {@code sf-pro/sf-pro.ttf}
      * @return the font, or Core's default if the file is missing or unreadable
      */
     public static Font fontFile(String fileName, float size) {
@@ -141,12 +201,16 @@ public final class Assets {
             return List.of();
         }
         List<String> names = new ArrayList<>();
-        try (Stream<Path> files = Files.list(folder.get())) {
-            files.map(path -> path.getFileName().toString())
-                    .filter(file -> {
-                        String lower = file.toLowerCase(Locale.ROOT);
+        Path root = folder.get();
+        // Each family sits in a folder of its own (font/sf-pro/sf-pro.ttf), so walk them,
+        // naming each file by its path under font/, always with forward slashes.
+        try (Stream<Path> files = Files.walk(root, 2)) {
+            files.filter(Files::isRegularFile)
+                    .filter(path -> {
+                        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
                         return lower.endsWith(".ttf") || lower.endsWith(".otf");
                     })
+                    .map(path -> root.relativize(path).toString().replace('\\', '/'))
                     .forEach(names::add);
         } catch (IOException failure) {
             Core.log().error("Could not list the bundled fonts", failure);
@@ -193,5 +257,22 @@ public final class Assets {
                 .filter(texture -> texture != null)
                 .forEach(Texture::dispose);
         TEXTURES.clear();
+        // A decode still running when the game closes: its pixels are off-heap,
+        // so free them if they arrived, and let the rest die with the worker.
+        DECODING.values().forEach(pending -> {
+            if (pending.isDone()) {
+                try {
+                    NanoVGTexture.Decoded decoded = pending.get();
+                    if (decoded != null) {
+                        decoded.free();
+                    }
+                } catch (ExecutionException | InterruptedException | RuntimeException ignored) {
+                    // Nothing was decoded, so there is nothing to free.
+                }
+            } else {
+                pending.cancel(true);
+            }
+        });
+        DECODING.clear();
     }
 }

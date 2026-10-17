@@ -18,7 +18,7 @@ import static dev.px.karatsuba.client.gui.apple.shell.style.Palette.*;
 /**
  * The sidebar ({@code gui/apple/DESIGN.md} §2.2). The pane names where its glass
  * goes and draws nothing itself, since the host draws the glass. Entries are a
- * coloured icon square and a name, filled with the accent while chosen and tinted
+ * Tahoe icon tile ({@link IconTile}) and a name, filled with the accent while chosen and tinted
  * grey while hovered; the search is a pill. Text sits on glass, so it is vibrant.
  */
 final class SidebarLook {
@@ -59,13 +59,9 @@ final class SidebarLook {
             // 3:1) with white text in the regular weight (step 8d). Never dark text here.
             Color accent = accentControl();
             Color ink = selected ? Color.WHITE : VIBRANT_LABEL.get();
-            Color square = entry.iconColor().get();
+            Color tile = entry.iconColor();
             Glyph glyph = entry.glyph();
-            dev.px.core.layout.Draw icon = (x, y, w, h) -> {
-                Render.roundRect(x, y, w, h, R_ICON, square);
-                Glyphs.draw(glyph, x + (w - ICON_GLYPH_SIZE) / 2f, y + (h - ICON_GLYPH_SIZE) / 2f,
-                        ICON_GLYPH_SIZE, ICON_GLYPH);
-            };
+            dev.px.core.layout.Draw icon = (x, y, w, h) -> IconTile.draw(glyph, tile, x, y, Math.min(w, h));
             if (collapsed) {
                 // Icons alone: the icon centred in whatever width the row has (the list
                 // keeps a little for its scroll bar), and the selection a pill centred on it.

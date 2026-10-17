@@ -37,7 +37,9 @@ final class FieldLook {
                 r.custom(8f, 8f, (x, y, w, h) -> magnifier(x, y, w, h, LABEL_SECONDARY.get()));
             }
             r.column(text -> text.name("text").grow().min(0f, body().getHeight()).backdrop((x, y, w, h) -> {
-                Render.pushClip(x, y, w, h);
+                // Clipped across, for scrolling, but not to the font's height: that would
+                // cut the descenders off "y" and "p". The room stays inside the field.
+                Render.pushClip(x, y - 3f, w, h + 6f);
                 boolean empty = field.getText().isEmpty();
                 float left = x - field.getScrollX();
                 if (field.hasSelection()) {

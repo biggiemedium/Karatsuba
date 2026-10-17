@@ -229,8 +229,8 @@ final class SettingLook {
                 .height(CELL_HEIGHT).padding(CELL_INSET, 0f).gap(GAP_CONTROL).align(Align.CENTER)
                 .backdrop(own(row.isCarded(), row.isHovered() ? 1f : 0f))
                 .text(text(), row.name(), LABEL.get())
-                .fill()
-                .column(field -> field.width(FIELD_WIDTH + 20f).slot()))));
+                // The row places its own field, at a set width on the right (FieldRow).
+                .column(field -> field.slot()))));
 
         // A fact: its value in the secondary colour, since it is read, not set; an action beside it if it has one.
         look.register(WidgetRenderer.of(InfoRow.class, (row, c) -> {

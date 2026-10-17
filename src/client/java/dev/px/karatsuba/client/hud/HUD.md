@@ -2,7 +2,7 @@
 
 A working document for Karatsuba's HUD elements, like `module/MODULES.md`: what
 exists, what is worth keeping, and what to build. How elements should look and
-behave (style, alignment, stacks, context) is in `PLAN.md`.
+behave is in `DESIGN.md`; the history and research of the 2026-10-09 rework are in `PLAN.md`.
 
 ## The bar for an element
 

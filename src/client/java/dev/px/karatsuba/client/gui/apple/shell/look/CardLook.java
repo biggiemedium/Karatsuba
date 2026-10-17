@@ -83,7 +83,7 @@ final class CardLook {
 
         // Right-aligned under their card, with a little room above.
         look.register(WidgetRenderer.of(CardActions.class, (actions, c) -> c.align(Align.STRETCH)
-                .row(r -> r.padding(0f, GAP_ACTIONS - GAP_CARD_HEADER, 0f, 0f).fill().slot())));
+                .row(r -> r.padding(0f, GAP_ACTIONS - GAP_CARD_HEADER, 0f, 0f).slot())));
 
         // The page: cards across the content column, a thin overlay bar at its right edge.
         look.register(WidgetRenderer.of(CardPage.class, (page, c) -> {

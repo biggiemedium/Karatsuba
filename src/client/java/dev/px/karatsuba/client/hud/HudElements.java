@@ -12,7 +12,6 @@ import dev.px.karatsuba.client.hud.element.ServerElement;
 import dev.px.karatsuba.client.hud.element.TaskElement;
 import dev.px.karatsuba.client.hud.element.TpsElement;
 import dev.px.karatsuba.client.hud.element.WatermarkElement;
-import dev.px.karatsuba.client.hud.stack.HudStacks;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.VanillaAvoidance;
 
@@ -31,8 +30,6 @@ public final class HudElements {
     public static void registerAll(Core core) {
         // The style first: every element reads it on its first frame.
         HudStyle.install(core);
-        // Which elements are docked together; read by every element as it draws.
-        HudStacks.install(core);
         // Moves elements off the game's own HUD while it shows.
         VanillaAvoidance.install(core);
         core.getHudService().registerAll(all());

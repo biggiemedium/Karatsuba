@@ -7,7 +7,7 @@ import dev.px.karatsuba.client.gui.apple.shell.style.Animations;
 import java.util.function.Supplier;
 
 /**
- * "Removed Steve · Undo", at the foot of the list for a few seconds after a
+ * "Removed Steve · Undo", at the top of the list for a few seconds after a
  * removal, and held while the cursor rests on it. One at a time: a second
  * removal replaces the first. Ctrl+Z does the same.
  */

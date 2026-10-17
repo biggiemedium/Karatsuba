@@ -174,7 +174,7 @@ that same step.
   - Right = the chosen module's detail.
   - *Done when:* there is one list of categories and one search field on screen.
 
-- [~] **9. Modules.** *(built 2026-10-16 as pushed pages, option B; Split (option A) also available from Appearance → Modules Layout; in-game check pending)*
+- [x] **9. Modules.** *(2026-10-16 as pushed pages, option B; Split (option A) also available from Appearance → Modules Layout; checked in game 2026-10-17)*
   - Category pages as cards of module rows (switch, plus ›); the row opens the
     module's page, pushed in from the right (`PageStack`, 240ms, sharp ease-out).
   - The module page as grouped cards, its switch and description in the first.
@@ -182,7 +182,7 @@ that same step.
   - The old two-column Modules section goes.
   - *Done when:* every module in every category can be toggled and configured.
 
-- [~] **10. Appearance page.** *(built 2026-10-16; in-game check pending. Also holds Modules Layout: Pages or Split)*
+- [x] **10. Appearance page.** *(2026-10-16, checked in game 2026-10-17. Also holds Modules Layout: Pages or Split)*
   - Light/Dark segmented control.
   - Theme circles split diagonally, the selected one ringed.
   - The Glass slider.
@@ -190,13 +190,13 @@ that same step.
   - All live.
   - *Done when:* each control visibly changes the UI at once.
 
-- [~] **11. Settings page.** *(built 2026-10-16 as pushed pages like Modules; in-game check pending)*
+- [x] **11. Settings page.** *(2026-10-16 as pushed pages like Modules; checked in game 2026-10-17)*
   Client Settings as grouped cards, including keybinds with their clash warnings:
   a list page (a card of pages with their changed counts, and About), each page
   pushed in with its sentence, its cards and a two-press Reset below; the sidebar
   search shows matches from every page. The old Settings section goes.
 
-- [ ] **12. Friends page.** Search/add, grouped list, detail page, undo. The old
+- [~] **12. Friends page.** *(built 2026-10-17 as pushed pages like Modules (DESIGN.md §2.6b); checked in a harness without the game; in-game check pending, with friends online and players on a server)* Search/add, grouped list, detail page, undo. The old
   Friends section goes.
 
 - [ ] **13. Search.** The sidebar search shows matching modules and settings in

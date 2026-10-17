@@ -5,7 +5,6 @@ import dev.px.karatsuba.adapter.render.shader.GlTexture;
 import org.lwjgl.nanovg.NanoVG;
 import org.lwjgl.nanovg.NanoVGGL3;
 import org.lwjgl.stb.STBImage;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.IOException;
@@ -41,35 +40,85 @@ public final class NanoVGTexture implements Texture, GlTexture {
      * @throws IOException if the stream cannot be read or the bytes are not an image
      */
     public static NanoVGTexture load(NanoVGRender2D backend, InputStream source) throws IOException {
+        return upload(backend, decode(source), false);
+    }
+
+    /**
+     * Decodes an image without touching GL, so it may run on any thread.
+     *
+     * <p>The first half of {@link #load}, split out for images big enough that
+     * decoding them on the render thread would stall a frame: a 4K backdrop takes
+     * a few hundred milliseconds in stb. Decode on a worker, then
+     * {@link #upload} on the render thread.
+     *
+     * @return the pixels, which belong to the caller until {@link #upload} or
+     *         {@link Decoded#free()} releases them
+     * @throws IOException if the stream cannot be read or the bytes are not an image
+     */
+    public static Decoded decode(InputStream source) throws IOException {
         byte[] bytes = readAll(source);
 
         ByteBuffer encoded = MemoryUtil.memAlloc(bytes.length);
         try {
             encoded.put(bytes).flip();
 
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                int[] width = new int[1];
-                int[] height = new int[1];
-                int[] channels = new int[1];
+            int[] width = new int[1];
+            int[] height = new int[1];
+            int[] channels = new int[1];
 
-                ByteBuffer pixels = STBImage.stbi_load_from_memory(encoded, width, height, channels, 4);
-                if (pixels == null) {
-                    throw new IOException("stb could not decode the image: " + STBImage.stbi_failure_reason());
-                }
-                try {
-                    int image = NanoVG.nvgCreateImageRGBA(backend.handle(), width[0], height[0], 0, pixels);
-                    if (image == 0) {
-                        throw new IOException("NanoVG rejected the decoded image");
-                    }
-                    return new NanoVGTexture(backend.handle(), image, width[0], height[0]);
-                } finally {
-                    // nvgCreateImageRGBA copies into its own GL texture, so the
-                    // decoded pixels are ours to release immediately.
-                    STBImage.stbi_image_free(pixels);
-                }
+            ByteBuffer pixels = STBImage.stbi_load_from_memory(encoded, width, height, channels, 4);
+            if (pixels == null) {
+                throw new IOException("stb could not decode the image: " + STBImage.stbi_failure_reason());
             }
+            return new Decoded(pixels, width[0], height[0]);
         } finally {
             MemoryUtil.memFree(encoded);
+        }
+    }
+
+    /**
+     * Uploads decoded pixels into the context and releases them, whether or not
+     * the upload worked. Render thread only.
+     *
+     * @param mipmaps whether to build mipmaps, for an image drawn much smaller
+     *                than it is (a 4K backdrop on a 1080p screen), which otherwise
+     *                shimmers where fine detail is skipped over
+     * @throws IOException if NanoVG rejects the image
+     */
+    public static NanoVGTexture upload(NanoVGRender2D backend, Decoded decoded, boolean mipmaps) throws IOException {
+        try {
+            int flags = mipmaps ? NanoVG.NVG_IMAGE_GENERATE_MIPMAPS : 0;
+            int image = NanoVG.nvgCreateImageRGBA(backend.handle(), decoded.width, decoded.height, flags, decoded.pixels);
+            if (image == 0) {
+                throw new IOException("NanoVG rejected the decoded image");
+            }
+            return new NanoVGTexture(backend.handle(), image, decoded.width, decoded.height);
+        } finally {
+            // nvgCreateImageRGBA copies into its own GL texture, so the decoded
+            // pixels are ours to release immediately.
+            decoded.free();
+        }
+    }
+
+    /** Decoded RGBA pixels, off-heap, waiting to be {@linkplain #upload uploaded}. */
+    public static final class Decoded {
+
+        private ByteBuffer pixels;
+        private final int width;
+        private final int height;
+
+        private Decoded(ByteBuffer pixels, int width, int height) {
+            this.pixels = pixels;
+            this.width = width;
+            this.height = height;
+        }
+
+        /** Releases the pixels. Safe to call twice. */
+        public void free() {
+            if (pixels != null) {
+                STBImage.stbi_image_free(pixels);
+                pixels = null;
+            }
         }
     }
 

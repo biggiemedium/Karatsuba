@@ -8,7 +8,6 @@ import dev.px.core.setting.SettingHolder;
 import dev.px.gui.Widget;
 import dev.px.gui.container.Row;
 import dev.px.karatsuba.client.config.AutoSave;
-import dev.px.karatsuba.client.hud.stack.HudStacks;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.gui.stable.shell.Section;
@@ -22,7 +21,6 @@ import dev.px.karatsuba.client.gui.stable.shell.rail.Glyph;
 import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.stable.shell.setting.ActionRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.AnchorRow;
-import dev.px.karatsuba.client.gui.stable.shell.setting.ChoiceRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.SettingList;
 import dev.px.karatsuba.client.gui.stable.shell.setting.SwitchRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.ValueRow;
@@ -35,7 +33,6 @@ import dev.px.karatsuba.client.gui.stable.shell.widget.PillButton;
 import dev.px.karatsuba.client.gui.stable.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.stable.shell.widget.SectionTitle;
 import dev.px.karatsuba.client.gui.stable.shell.widget.TextButton;
-import dev.px.karatsuba.client.setting.ChoiceSetting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +52,6 @@ public final class HudSection implements Section {
 
     /** What {@link #lastSelected} holds while the HUD Style is chosen rather than an element. */
     private static final String STYLE = "#style";
-
-    /** The "Stacked With" option for no stack at all. */
-    private static final String NO_STACK = "#none";
 
     /** The element last chosen, across openings, and for the editor to start on. */
     private static String lastSelected;
@@ -248,16 +242,6 @@ public final class HudSection implements Section {
             rows.add(new Spacer(Palette.GAP_SECTION));
         }
 
-        stackRows(element, rows);
-        HudStacks stacks = HudStacks.get();
-        if (stacks != null && stacks.isFollower(id)) {
-            // Placed by its stack: its own anchor and offset do nothing until it leaves.
-            String host = stacks.stackOf(id).host();
-            rows.add(new Caption("It moves with " + Core.hud().find(host).map(HudElement::getDisplayName).orElse(host)
-                    + ", the top of its stack. Choose Nothing above to place it on its own again."));
-            return;
-        }
-
         HudLayout defaults = element.defaultLayout();
         rows.add(new SectionHeader("Layout", null));
         rows.add(new AnchorRow("Anchor", "Which part of the screen it holds to as the window changes size",
@@ -290,72 +274,6 @@ public final class HudSection implements Section {
                     AutoSave.markDirty();
                 }),
                 new ActionRow.Action("Edit on screen", () -> shell.show(LayoutSection.ID)))));
-    }
-
-    /**
-     * The Stack section: what the element is docked to, its place in the stack, and
-     * whether lines divide the stack. Docking is also done in the editor, by holding
-     * Shift while dropping one element on another.
-     */
-    private void stackRows(HudElement element, SmoothScroll rows) {
-        HudStacks stacks = HudStacks.get();
-        if (stacks == null || !(element instanceof StyledElement styled) || !styled.dockable()) {
-            return;
-        }
-        String id = element.getId();
-        rows.add(new SectionHeader("Stack", null));
-        rows.add(ChoiceRow.of(stackWith(stacks, element)));
-
-        HudStacks.Stack stack = stacks.stackOf(id);
-        if (stack != null) {
-            rows.add(new ActionRow("Order", "Where it sits in the stack; the top one holds the stack's place",
-                    List.of(new ActionRow.Action("Up", () -> {
-                        stacks.move(id, -1);
-                        built = null;
-                    }), new ActionRow.Action("Down", () -> {
-                        stacks.move(id, 1);
-                        built = null;
-                    }))));
-            rows.add(new SwitchRow("Dividers", "A thin line between the elements in the stack", false,
-                    () -> stacks.stackOf(id) != null && stacks.stackOf(id).dividers(),
-                    on -> stacks.setDividers(id, on)));
-        }
-        rows.add(new Caption("In the layout editor, hold Shift while dropping one element on another to stack them."));
-        rows.add(new Spacer(Palette.GAP_SECTION));
-    }
-
-    /**
-     * A setting made for the row and thrown away with it: which element this one
-     * is stacked with, or nothing. Choosing one docks it there; choosing Nothing
-     * takes it out and sets it down beside the stack.
-     */
-    private ChoiceSetting stackWith(HudStacks stacks, HudElement element) {
-        String id = element.getId();
-        List<String> options = new ArrayList<>();
-        options.add(NO_STACK);
-        for (HudElement other : Core.hud().getElements().all()) {
-            if (other != element && other instanceof StyledElement candidate && candidate.dockable()) {
-                options.add(other.getId());
-            }
-        }
-        ChoiceSetting setting = new ChoiceSetting("Stacked With", () -> options)
-                .labelledBy(option -> NO_STACK.equals(option) ? "Nothing"
-                        : Core.hud().find(option).map(HudElement::getDisplayName).orElse(option))
-                .describe("Dock it to another element: they share one panel and move as one");
-        HudStacks.Stack stack = stacks.stackOf(id);
-        if (stack != null) {
-            // A host is stacked with whatever sits under it; a follower, with its host.
-            setting.setSilently(stack.host().equals(id) ? stack.members().get(1) : stack.host());
-        }
-        setting.onChange(target -> {
-            if (NO_STACK.equals(target)) {
-                stacks.undock(id);
-            } else {
-                stacks.dock(id, target);
-            }
-            built = null;
-        });
-        return setting;
     }
 
     /** Fills the inspector with the HUD Style: what every element looks like unless it has its own. */

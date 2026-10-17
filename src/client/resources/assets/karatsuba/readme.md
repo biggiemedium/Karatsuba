@@ -7,7 +7,7 @@ never goes through the game's resource manager.
 
 | Folder | Holds | Loaded with |
 |---|---|---|
-| `font/` | `.ttf` typefaces | `Core.fonts().load(name, path, size)` |
+| `font/<family>/` | `.ttf` and `.otf` typefaces, one folder per family | `Assets.fontFile(path, size)`, or `Core.fonts().load(name, path, size)` |
 | `texture/icon/` | small UI images: category icons, badges | `Assets.texture(path)` |
 | `texture/background/` | larger images: GUI backdrops, banners | `Assets.texture(path)` |
 | `sound/` | `.ogg` clips | the game's sound system, not Core |
@@ -18,10 +18,10 @@ never goes through the game's resource manager.
 ## Fonts
 
 NanoVG rasterises TrueType outlines itself, so a `.ttf` is all it needs — drop one
-in `font/` and load it once at boot:
+in its family's folder under `font/` and load it once at boot:
 
 ```java
-Core.fonts().load("ui", "/assets/karatsuba/font/Inter-Regular.ttf", 9f);
+Core.fonts().load("ui", "/assets/karatsuba/font/inter/inter-regular.ttf", 9f);
 Render.setDefaultFont(Core.fonts().get("ui"));
 ```
 

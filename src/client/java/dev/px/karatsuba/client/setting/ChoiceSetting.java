@@ -25,6 +25,7 @@ public final class ChoiceSetting extends Setting<String> {
 
     private final Supplier<List<String>> options;
     private Function<String, String> labels = option -> option;
+    private Function<String, String> migration = saved -> saved;
 
     /**
      * @param options       read every time they are asked for; the first is the default
@@ -56,6 +57,12 @@ public final class ChoiceSetting extends Setting<String> {
         return this;
     }
 
+    /** Reads a saved value through {@code function} first, for an option that was renamed: a font that moved folder. */
+    public ChoiceSetting migratedBy(Function<String, String> function) {
+        this.migration = function;
+        return this;
+    }
+
     @Override
     public String getTypeId() {
         return "choice";
@@ -69,7 +76,7 @@ public final class ChoiceSetting extends Setting<String> {
     @Override
     public void fromJson(JsonElement json) {
         if (json != null && json.isJsonPrimitive()) {
-            setSilently(json.getAsString());
+            setSilently(migration.apply(json.getAsString()));
         }
     }
 

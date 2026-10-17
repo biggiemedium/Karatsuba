@@ -3,7 +3,6 @@ package dev.px.karatsuba.client.hud.style;
 import dev.px.core.Core;
 import dev.px.core.hud.AbstractHudElement;
 import dev.px.core.hud.Anchor;
-import dev.px.core.hud.HudElement;
 import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;
@@ -19,7 +18,6 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.karatsuba.adapter.game.GameHud;
-import dev.px.karatsuba.client.hud.stack.HudStacks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +40,6 @@ import java.util.Objects;
  *   <li><b>Size eased.</b> The box eases to its new size when what it shows
  *       changes, clipped only while moving. Values that change every tick go
  *       through {@link #fixed}, whose width never moves.</li>
- *   <li><b>Stacks.</b> An element hosting a {@link HudStacks stack} draws its
- *       followers under itself on one plate; a follower draws nothing of its
- *       own.</li>
  *   <li><b>Context.</b> Dims or hides while a game screen or F3 is open, fades
  *       when idle (with Fade When Idle on), and briefly highlights a change that
  *       matters. An element says what counts as either through {@link #watch}.</li>
@@ -115,12 +110,6 @@ public abstract class StyledElement extends AbstractHudElement {
 
     @Override
     public final void content(Content content) {
-        HudStacks stacks = HudStacks.get();
-        if (stacks != null && stacks.isFollower(getId())) {
-            // Drawn by its host, inside the stack.
-            sized = false;
-            return;
-        }
         prepare(resolveAlignment());
         if (style.font() == null) {
             return;
@@ -131,9 +120,6 @@ public abstract class StyledElement extends AbstractHudElement {
         describe(body);
         float fade = opacity() * contextOpacity();
         body.opacity(fade);
-        if (stacks != null) {
-            body = stacked(body, stacks.stackOf(getId()));
-        }
         if (body.isEmpty()) {
             sized = false;
             return;
@@ -171,11 +157,6 @@ public abstract class StyledElement extends AbstractHudElement {
      */
     protected boolean platesItself() {
         return false;
-    }
-
-    /** @return whether the element can join a stack; one that draws its own plates cannot */
-    public boolean dockable() {
-        return !platesItself();
     }
 
     /** @return Fade When Idle's default: off, unless the element is mostly worth glancing at once */
@@ -310,68 +291,10 @@ public abstract class StyledElement extends AbstractHudElement {
 
     // ------------------------------------------------------------- internals
 
-    /** Sets this frame's style and alignment: its own, or a host's alignment when drawn in a stack. */
+    /** Sets this frame's style and alignment. */
     private void prepare(Align alignment) {
         this.style = customStyle.isOn() ? own.resolve() : HudStyle.get().resolve();
         this.alignment = alignment;
-    }
-
-    /** @return this element described for a host's stack: on the host's plate, in its alignment */
-    private Content describeFor(Align hostAlignment) {
-        prepare(hostAlignment);
-        Content body = Content.column();
-        if (style.font() == null) {
-            return body;
-        }
-        body.align(alignment).gap(style.gap());
-        describe(body);
-        body.opacity(opacity() * contextOpacity());
-        return body;
-    }
-
-    /**
-     * @return {@code own} with every follower of this element's stack under it,
-     *         separated by the stack's spacing or a divider; {@code own} unchanged
-     *         when it hosts nothing
-     */
-    private Content stacked(Content own, HudStacks.Stack stack) {
-        if (stack == null || !stack.host().equals(getId())) {
-            return own;
-        }
-        List<Content> sections = new ArrayList<>();
-        if (!own.isEmpty()) {
-            sections.add(own);
-        }
-        for (String id : stack.members().subList(1, stack.members().size())) {
-            HudElement member = Core.hud().find(id).orElse(null);
-            HudLayout layout = Core.hud().layoutOf(id);
-            if (!(member instanceof StyledElement styled) || layout == null || layout.isHidden()) {
-                continue;
-            }
-            Content section = styled.describeFor(alignment);
-            if (!section.isEmpty()) {
-                sections.add(section);
-            }
-        }
-        if (sections.size() < 2) {
-            return sections.isEmpty() ? Content.column() : sections.get(0);
-        }
-
-        float widest = 0f;
-        for (Content section : sections) {
-            widest = Math.max(widest, section.measure().getWidth());
-        }
-        float rule = widest;
-        Color line = style.muted().fade(0.3f * contextOpacity());
-        Content column = Content.column();
-        column.align(alignment).gap(style.padding());
-        for (int i = 0; i < sections.size(); i++) {
-            if (i > 0 && stack.dividers()) {
-                column.custom(rule, 1f, (x, y, w, h) -> Render.rect(x, y, w, 0.5f, line));
-            }
-            column.include(sections.get(i));
-        }
-        return column;
     }
 
     /** @return how visible the element should be for what the player is doing, eased: screens, F3, idling */

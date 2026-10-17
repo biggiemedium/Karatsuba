@@ -16,6 +16,7 @@ import dev.px.karatsuba.client.gui.apple.shell.frame.ResizeGrip;
 import dev.px.karatsuba.client.gui.apple.shell.frame.SettingsColumn;
 import dev.px.karatsuba.client.gui.apple.shell.frame.Sidebar;
 import dev.px.karatsuba.client.gui.apple.shell.frame.SmoothScroll;
+import dev.px.karatsuba.client.gui.apple.shell.frame.FixedColumn;
 import dev.px.karatsuba.client.gui.apple.shell.frame.Spacer;
 import dev.px.karatsuba.client.gui.apple.shell.frame.Gutter;
 import dev.px.karatsuba.client.gui.apple.shell.frame.Veil;
@@ -65,6 +66,8 @@ final class FrameLook {
                 .slot()));
 
         look.register(WidgetRenderer.of(Spacer.class, (spacer, c) -> c.min(0f, spacer.height()).slot()));
+        look.register(WidgetRenderer.of(FixedColumn.class,
+                (column, c) -> c.min(column.width(), 0f).slot()));
         look.register(WidgetRenderer.of(Gutter.class, (gutter, c) -> c.min(gutter.width(), 0f).slot()));
 
         // A list with a thin bar beside it, shown only when there is more than fits.

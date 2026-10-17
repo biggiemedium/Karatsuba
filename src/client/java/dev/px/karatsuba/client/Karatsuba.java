@@ -8,6 +8,7 @@ import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.config.BindsSection;
 import dev.px.karatsuba.client.config.ConfigLayout;
 import dev.px.karatsuba.client.social.FriendRecords;
+import dev.px.karatsuba.client.gui.overlay.GameOverlays;
 import dev.px.karatsuba.client.gui.stable.shell.section.home.RecentModules;
 import dev.px.karatsuba.client.debug.DebugMonitor;
 import dev.px.karatsuba.client.debug.PerformanceMonitor;
@@ -165,6 +166,9 @@ public final class Karatsuba {
         // Not Core's: an overlay registers with the adapter, because being drawn
         // into the game is a seam Core does not have. Order-independent.
         Overlays.install();
+        // The client's pictures in place of the game's own: the loading screen.
+        // Also the adapter's, also order-independent.
+        GameOverlays.install();
 
         // What Core's network services can recognise: server software from a
         // brand, and anticheats from the evidence. Core ships neither list.

@@ -78,7 +78,7 @@ sidebar. Client Settings never shows them.
 - A gap, then HUD and Friends.
 - A gap, then Appearance and Settings.
 
-Each row is a coloured rounded-square icon (`ICON_SIZE`, white glyph) plus a
+Each row is a coloured icon tile (`ICON_SIZE`, white filled glyph, §4.7) plus a
 label. No divider lines: groups are separated by space alone. The selected row
 is a capsule in the control accent (§4.4) with white text in the regular weight;
 never dark text here. Hover is a neutral tint, never the accent.
@@ -148,6 +148,26 @@ the rest, the first listed module open until another is chosen, the open row a
 neutral highlight and no ›. Nothing slides in Split. Pages is the default and the
 System Settings way.
 
+2.6b **Friends is pages too**, like Modules.
+- **The list page:** a card of friends online, then a card of those offline. Each
+  row has the player's monogram (`AVATAR`), the name the list shows (with their
+  real name beside it when they have an alias), where they are, and a ›. The whole
+  row opens their page. "Add Player…" sits below the last card. With no friends,
+  an empty state takes the page ("No friends yet" / "Add Player…").
+- **A friend's page:** a first card with a large monogram, their name, and where
+  they are. Then Profile (Alias, Note, Username with Copy) and Activity (Now, Last
+  seen, Added). "Remove Friend" sits below the last card.
+- **Remove asks nothing.** It pops back to the list, which shows "Removed Steve ·
+  Undo" at its top for a few seconds; Ctrl+Z also undoes it (9.4).
+- **The Add Player page:** a sentence saying names are checked here and never
+  looked up, a card with the Username field, the problem under it on Enter (never
+  per keystroke), and "Add Friend" below. Under that is a card of players on this
+  server who are not friends, each with an Add button, folding with "Show All
+  (n)". Adding opens the new friend's page.
+- **The sidebar search searches friends**, by name, alias or note. It also lists
+  matching players on this server, and offers a name that could be a player but
+  is not a friend yet ("Add"). Enter opens the friend it names, or adds that name.
+
 2.7 **The window must work at its minimum size.** Below `SIDEBAR_COLLAPSE_WIDTH`
 the sidebar shows icons only, with labels as tooltips. Secondary text stays
 readable there.
@@ -196,11 +216,14 @@ them.
 ## 4. Colour
 
 4.1 **Two appearances, Light and Dark,** chosen on the Appearance page. Every
-colour token has both values. No code picks a colour by appearance itself; it
-asks the Palette.
+colour token has both values (the sidebar icon colours, 4.7, are the one set
+that keeps the same value in both). No code picks a colour by appearance itself;
+it asks the Palette.
 
-4.2 **Neutral greys for everything** except the accent and the sidebar icons. The
-neutral set, per appearance (Dark Mode follows the HIG: elevated surfaces get
+4.2 **Neutral greys for everything** except the accent, the sidebar icons and the
+presence dot (`PRESENCE`, green, on a monogram while that player is online, and
+never without the words saying where they are). Monograms (`AVATAR`) are neutral.
+The neutral set, per appearance (Dark Mode follows the HIG: elevated surfaces get
 lighter, never translucent):
 
 | Token | Dark | Light |
@@ -239,7 +262,7 @@ A segmented control's selected segment is a neutral raised thumb, not the
 accent. The row open in a detail pane is a neutral highlight, not the accent.
 
 4.5 **No gradients** anywhere in the UI, apart from the theme picker's split
-circles.
+circles and the sidebar icon tiles' faint top-to-bottom shade (4.7).
 
 4.6 **The theme picker** (Appearance) is a row of circles, like macOS Appearance
 → Color. Each circle is split diagonally, primary top-left and secondary
@@ -247,9 +270,35 @@ bottom-right. The selected one has a ring, in `LABEL`, offset 2px from the circl
 Choosing a theme sets Core's active theme, which the HUD and render modules
 follow too.
 
-4.7 **Sidebar icons** use a fixed set of named colours (red, orange, yellow,
-green, mint, teal, blue, indigo, purple, pink, gray), one per entry, assigned in
-one table. The glyph on an icon is white. These colours appear nowhere else.
+4.7 **Sidebar icons are macOS Tahoe tiles.**
+- **Colours:** Apple's Light-mode system colours, the same in both appearances
+  (never the brighter Dark variants), one `ICON_*` token each, assigned in one
+  table (`Palette.iconColor`). No two categories share a hue.
+
+  | Entry | Token | Colour |
+  |---|---|---|
+  | Combat | `ICON_RED` | #FF3B30 |
+  | Movement | `ICON_BLUE` | #007AFF |
+  | Building | `ICON_ORANGE` | #FF9500 |
+  | Mining | `ICON_BROWN` | #A2845E |
+  | Inventory | `ICON_TEAL` | #30B0C7 |
+  | Render | `ICON_PURPLE` | #AF52DE |
+  | Utility | `ICON_GRAY` | #8E8E93 |
+  | Automation | `ICON_INDIGO` | #5856D6 |
+  | HUD | `ICON_PINK` | #FF2D55 |
+  | Friends | `ICON_GREEN` | #34C759 |
+  | Appearance | `ICON_GRAPHITE` | #1C1C1E |
+  | Settings | `ICON_GRAY` | #8E8E93 |
+
+- **Tile:** `ICON_SIZE` square, corners `R_ICON` (22.5% of the side); a
+  vertical shade from the colour lightened `ICON_SHADE` (8%) at the top to
+  darkened 8% at the bottom; a 1px inner highlight along the top edge
+  (`ICON_HIGHLIGHT`, white at 25%); in Dark, a 1px outline (`ICON_EDGE`, white
+  at 10%) so dark tiles stay visible.
+- **Glyph:** solid opaque white, filled shapes, one stroke weight
+  (`ICON_STROKE`), centred, at `ICON_GLYPH_SIZE` (62% of the tile), matched in
+  visual size across icons (`look/IconTile`). Never an outline glyph on a tile.
+- These colours appear nowhere else.
 
 4.8 **Text on glass uses vibrant colours** (`VIBRANT_LABEL`,
 `VIBRANT_SECONDARY`), which have more contrast than the content colours, because
@@ -395,7 +444,8 @@ solid plates.
 ## 11. Copy and font
 
 11.1 **Font: SF Pro, as one token** (`Palette.FONT`, a `Typeface` naming
-`sf-pro.ttf`, `sf-pro-semibold.otf` and `sf-pro-italic.ttf`), so it
+`sf-pro/sf-pro.ttf`, `sf-pro/sf-pro-semibold.otf` and `sf-pro/sf-pro-italic.ttf`
+under `assets/karatsuba/font`), so it
 can be swapped in one line. Nothing else names a font file.
 - Two weights only: **regular** for body text and **semibold** for titles and
   section headers. No light or thin weights anywhere; the sidebar selection stays

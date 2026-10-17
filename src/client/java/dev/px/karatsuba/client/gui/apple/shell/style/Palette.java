@@ -96,6 +96,12 @@ public final class Palette {
     public static final Tone VIBRANT_LABEL = Tone.of(Color.of(255, 255, 255, 255), Color.of(0, 0, 0, 235));
     public static final Tone VIBRANT_SECONDARY = Tone.of(Color.of(255, 255, 255, 184), Color.of(0, 0, 0, 168));
 
+    /** A player's monogram circle (Friends): neutral, the same for everyone, with a white initial. */
+    public static final Tone AVATAR = Tone.of(Color.of(99, 99, 104, 255), Color.of(160, 160, 166, 255));
+
+    /** The dot on a monogram while that player is online; always beside words saying where they are (§4.2). */
+    public static final Color PRESENCE = rgb(0x30D158);
+
     /** Glass's tint colour; its strength comes from the Glass setting. */
     public static final Tone GLASS_TONE = Tone.of(Color.of(42, 42, 44, 255), Color.of(255, 255, 255, 255));
 
@@ -107,48 +113,47 @@ public final class Palette {
     public static final Tone CARD_SOLID = CARD;
     public static final Tone GLASS_SOLID = Tone.of(Color.of(42, 42, 44, 255), Color.of(246, 246, 248, 255));
 
-    /** The sidebar's icon squares: macOS's system colours, and used nowhere else. */
-    public enum IconColor {
-        RED(0xFF453A, 0xFF3B30),
-        ORANGE(0xFF9F0A, 0xFF9500),
-        YELLOW(0xFFD60A, 0xFFCC00),
-        GREEN(0x32D74B, 0x34C759),
-        MINT(0x63E6E2, 0x00C7BE),
-        TEAL(0x40C8E0, 0x30B0C7),
-        BLUE(0x0A84FF, 0x007AFF),
-        INDIGO(0x5E5CE6, 0x5856D6),
-        PURPLE(0xBF5AF2, 0xAF52DE),
-        PINK(0xFF375F, 0xFF2D55),
-        GRAY(0x98989D, 0x8E8E93);
+    // The sidebar's icon tiles (§4.7): Apple's Light-mode system colours, kept in
+    // both appearances as Tahoe's System Settings does, and used nowhere else.
+    public static final Color ICON_RED = rgb(0xFF3B30);
+    public static final Color ICON_BLUE = rgb(0x007AFF);
+    public static final Color ICON_ORANGE = rgb(0xFF9500);
+    public static final Color ICON_BROWN = rgb(0xA2845E);
+    public static final Color ICON_TEAL = rgb(0x30B0C7);
+    public static final Color ICON_PURPLE = rgb(0xAF52DE);
+    public static final Color ICON_GRAY = rgb(0x8E8E93);
+    public static final Color ICON_INDIGO = rgb(0x5856D6);
+    public static final Color ICON_PINK = rgb(0xFF2D55);
+    public static final Color ICON_GREEN = rgb(0x34C759);
+    /** Appearance's tile: near-black, so it needs {@link #ICON_EDGE} to show in Dark. */
+    public static final Color ICON_GRAPHITE = rgb(0x1C1C1E);
 
-        private final Tone tone;
-
-        IconColor(int dark, int light) {
-            this.tone = Tone.of(rgb(dark), rgb(light));
-        }
-
-        public Color get() {
-            return tone.get();
-        }
-    }
-
-    /** The glyph on an icon square. */
+    /** The glyph on an icon tile: solid white, never translucent. */
     public static final Color ICON_GLYPH = Color.of(255, 255, 255, 255);
 
-    /** @return the icon colour for a sidebar entry, by its id or category name (any case) */
-    public static IconColor iconColor(String entry) {
+    /** How far a tile's colour is lightened at its top and darkened at its bottom: a faint shade, 0 to 1. */
+    public static final float ICON_SHADE = 0.08f;
+
+    /** The 1px inner highlight along a tile's top edge. */
+    public static final Color ICON_HIGHLIGHT = Color.of(255, 255, 255, 64);
+
+    /** A tile's 1px outline: white at 10% in Dark, so a dark tile stays visible; none in Light. */
+    public static final Tone ICON_EDGE = Tone.of(Color.of(255, 255, 255, 26), Color.of(255, 255, 255, 0));
+
+    /** @return the tile colour for a sidebar entry, by its id or category name (any case) */
+    public static Color iconColor(String entry) {
         return switch (entry == null ? "" : entry.toLowerCase(java.util.Locale.ROOT)) {
-            case "combat" -> IconColor.RED;
-            case "movement" -> IconColor.BLUE;
-            case "building" -> IconColor.ORANGE;
-            case "mining" -> IconColor.YELLOW;
-            case "inventory" -> IconColor.TEAL;
-            case "render" -> IconColor.PURPLE;
-            case "automation" -> IconColor.MINT;
-            case "hud" -> IconColor.PINK;
-            case "friends" -> IconColor.GREEN;
-            case "appearance" -> IconColor.INDIGO;
-            default -> IconColor.GRAY;
+            case "combat" -> ICON_RED;
+            case "movement" -> ICON_BLUE;
+            case "building" -> ICON_ORANGE;
+            case "mining" -> ICON_BROWN;
+            case "inventory" -> ICON_TEAL;
+            case "render" -> ICON_PURPLE;
+            case "automation" -> ICON_INDIGO;
+            case "hud" -> ICON_PINK;
+            case "friends" -> ICON_GREEN;
+            case "appearance" -> ICON_GRAPHITE;
+            default -> ICON_GRAY;
         };
     }
 
@@ -185,9 +190,9 @@ public final class Palette {
     public static final float R_HUD_TILE = 14f;
     public static final float R_HUD_INNER = derive(R_HUD_TILE, PAD_HUD_TILE);
 
-    /** An icon square's corners: macOS's ratio, about a quarter of its side. */
-    public static final float ICON_SIZE = 16f;
-    public static final float R_ICON = ICON_SIZE * 0.25f;
+    /** A sidebar icon tile, and its corners: macOS's ratio, 22.5% of its side. */
+    public static final float ICON_SIZE = 20f;
+    public static final float R_ICON = ICON_SIZE * 0.225f;
 
     // ====================================================== Apple: spacing
 
@@ -229,7 +234,8 @@ public final class Palette {
     public static final float FIELD_WIDTH = 130f;
 
     public static final float SIDEBAR_PANE_WIDTH = 168f;
-    public static final float SIDEBAR_ROW_HEIGHT = 22f;
+    /** A sidebar entry: its icon tile and 2 either side, the most that lets every entry show at the default window height. */
+    public static final float SIDEBAR_ROW_HEIGHT = 24f;
 
     /** Inside the sidebar pane: above the search field, and either side and below (INSET_SIDEBAR). */
     public static final float SIDEBAR_PAD_TOP = 8f;
@@ -243,8 +249,11 @@ public final class Palette {
     /** The search field: a pill one row tall. */
     public static final float SEARCH_HEIGHT = 20f;
 
-    /** The glyph on an icon square, and the gap from the square to its label. */
-    public static final float ICON_GLYPH_SIZE = 10f;
+    /** The glyph on an icon tile (62% of it), and the gap from the tile to its label. */
+    public static final float ICON_GLYPH_SIZE = ICON_SIZE * 0.62f;
+
+    /** The one stroke weight of a tile's glyphs, as a share of the glyph's size. */
+    public static final float ICON_STROKE = 0.16f;
     public static final float GAP_ICON_LABEL = 7f;
 
     /** The sidebar with icons alone: the icon, its row's inset, the pane's, and the scroll bar's room balanced either side. */
@@ -265,6 +274,13 @@ public final class Palette {
     /** Modules in its Split layout: the list's width, and the room between it and the module. */
     public static final float SPLIT_LIST_WIDTH = 210f;
     public static final float GAP_SPLIT = 14f;
+
+    /** A player's monogram in a list row, and on the first card of their page. */
+    public static final float AVATAR_SIZE = 18f;
+    public static final float AVATAR_LARGE = 36f;
+
+    /** Players on this server listed on the Add Player page before "Show All (n)". */
+    public static final int SUGGESTIONS_SHOWN = 6;
 
     /** An empty state's text column, centred in the content. */
     public static final float EMPTY_WIDTH = 260f;
@@ -292,12 +308,12 @@ public final class Palette {
 
     // ======================================================== Apple: fonts
 
-    /** A font family's files in {@code assets/karatsuba/font}, one per style the UI uses. */
+    /** A font family's files, by path under {@code assets/karatsuba/font} (one folder per family), one per style the UI uses. */
     public record Typeface(String regular, String semibold, String italic) {
     }
 
     /** The one font token. Swapping fonts is changing this line. */
-    public static final Typeface FONT = new Typeface("sf-pro.ttf", "sf-pro-semibold.otf", "sf-pro-italic.ttf");
+    public static final Typeface FONT = new Typeface("sf-pro/sf-pro.ttf", "sf-pro/sf-pro-semibold.otf", "sf-pro/sf-pro-italic.ttf");
 
     /** Rows, values, the sidebar. */
     public static Font text() {

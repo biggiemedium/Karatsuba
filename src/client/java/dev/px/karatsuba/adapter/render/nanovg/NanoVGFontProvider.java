@@ -29,11 +29,11 @@ import java.util.Locale;
  * Core already expects from a backend with no font, so the client still boots and
  * every layout still resolves.
  *
- * <p>Bundle a TTF under {@code src/client/resources/assets/karatsuba/font/} and load
+ * <p>Bundle a TTF in its family's folder under {@code src/client/resources/assets/karatsuba/font/} and load
  * it explicitly for a font you actually control:
  *
  * <pre>{@code
- * Core.fonts().load("ui", "/assets/karatsuba/font/Inter-Regular.ttf", 9f);
+ * Core.fonts().load("ui", "/assets/karatsuba/font/inter/inter-regular.ttf", 9f);
  * }</pre>
  */
 public final class NanoVGFontProvider implements FontProvider {

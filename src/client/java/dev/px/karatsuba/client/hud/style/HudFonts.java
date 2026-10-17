@@ -11,9 +11,9 @@ import java.util.Locale;
 
 /**
  * The faces HUD text can be set in: the client's own, then every font bundled in
- * {@code assets/karatsuba/font}.
+ * {@code assets/karatsuba/font}, one folder per family.
  *
- * <p>Dropping a {@code .ttf} or {@code .otf} into that folder is all it takes to
+ * <p>Dropping a {@code .ttf} or {@code .otf} into a family's folder there is all it takes to
  * offer one; nothing lists fonts by hand. Each is loaded the first time something
  * draws in it, at the client font's size, so it lines up with everything else.
  */
@@ -38,13 +38,32 @@ public final class HudFonts {
         return options;
     }
 
-    /** @return the option as a person reads it: "mona-sans-italic.ttf" is "Mona Sans Italic" */
+    /**
+     * @return the option a saved value means now: a bare file name saved before the
+     *         fonts moved into a folder per family ("inter-italic.ttf") is the bundled
+     *         font of that name ("inter/inter-italic.ttf"); anything else as it was
+     */
+    public static String current(String saved) {
+        if (saved == null || saved.indexOf('/') >= 0) {
+            return saved;
+        }
+        for (String option : Assets.fontFiles()) {
+            if (option.endsWith("/" + saved)) {
+                return option;
+            }
+        }
+        return saved;
+    }
+
+    /** @return the option as a person reads it: "mona-sans/mona-sans-italic.ttf" is "Mona Sans Italic" */
     public static String label(String option) {
         if (DEFAULT.equals(option)) {
             return DEFAULT;
         }
-        int dot = option.lastIndexOf('.');
-        String stem = dot > 0 ? option.substring(0, dot) : option;
+        // The file's own name: the family's folder only repeats it.
+        String file = option.substring(option.lastIndexOf('/') + 1);
+        int dot = file.lastIndexOf('.');
+        String stem = dot > 0 ? file.substring(0, dot) : file;
         StringBuilder label = new StringBuilder();
         for (String word : stem.split("[-_ ]+")) {
             if (word.isEmpty()) {

@@ -1,13 +1,15 @@
 package dev.px.karatsuba.client.gui.apple.shell.section.friends;
 
 import dev.px.core.social.Friend;
-import dev.px.gui.Widget;
+import dev.px.karatsuba.client.gui.apple.shell.setting.ControlRow;
 
 /**
- * The inspector's heading for a friend: a large initial, the name the list
- * shows, their real name under it when that differs, and where they are now.
+ * The first card on a friend's page, as an account card leads a System Settings
+ * page: a large initial, the name the list shows, and under it their real name
+ * when that differs and where they are now. A heading, not a control: it never
+ * highlights.
  */
-public final class FriendHeader extends Widget {
+public final class FriendHeader extends ControlRow {
 
     private final Friend friend;
     private final Presence presence;
@@ -17,16 +19,17 @@ public final class FriendHeader extends Widget {
         this.presence = presence;
     }
 
-    public String display() {
+    @Override
+    public String name() {
         return friend.getDisplayName();
     }
 
-    public String name() {
+    public String username() {
         return friend.getName();
     }
 
     public boolean hasAlias() {
-        return friend.getAlias() != null && !friend.getAlias().isEmpty();
+        return Aliases.differs(friend);
     }
 
     public boolean isOnline() {
@@ -35,5 +38,19 @@ public final class FriendHeader extends Widget {
 
     public String status() {
         return presence.full(friend.getName());
+    }
+
+    @Override
+    public float hover() {
+        return 0f;
+    }
+
+    @Override
+    protected boolean pressed(float x, float y) {
+        return false;
+    }
+
+    @Override
+    protected void reset() {
     }
 }

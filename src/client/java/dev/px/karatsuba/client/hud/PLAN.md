@@ -1,4 +1,136 @@
-# HUD rework plan
+# HUD plan
+
+The order for building HUD presets, as `DESIGN.md` (beside this file) describes
+them. **One step at a time.** Each step builds and is checked before the next
+starts, and **Legacy keeps working at the end of every step**: a player on Legacy
+never sees the HUD break or change unasked. Tick a step off here when it is done
+and verified.
+
+The research behind the HUD's rules, and how the 2026-10-09 rework was built, are
+kept at the bottom under **History: 2026-10-09 rework**.
+
+**Verifying in game is the developer's.** Steps are checked in a harness where one
+can show the change; anything that needs a world (backgrounds, cues, avoidance,
+the in-game matrix of `DESIGN.md` §8.5) is checked in game by the developer, and
+each step says which.
+
+**Before a step starts**, the `DESIGN.md` §9 questions it depends on are settled
+(listed per step under *Needs*). The four answers pending sign-off (Switching,
+Apple appearance, Reduce Transparency, Custom Style) are treated as settled unless
+the developer says otherwise.
+
+---
+
+## 1. Roles and preset plumbing, Legacy only
+
+Nothing visible changes. The HUD is drawn through a preset, and the only preset
+is Legacy, drawing exactly what it draws today.
+
+- **Preset seam:** a preset type (tokens plus a way of drawing every role,
+  `DESIGN.md` §1.2, §3), a registry of presets, and Legacy as the first, built
+  from today's `HudStyle` and `StyledElement` drawing.
+- **Roles:** `StyledElement`'s helpers produce the roles of §3.2 (`label` →
+  label, `fixed` → value, `bars` → meterFill and meterTrack, and so on), and the
+  preset draws them. New helpers for roles no element uses yet (icon, iconWell,
+  toggleOn, track, titleBlock), each with Legacy's simplified drawing (§3.3).
+- **Settings untouched:** `hud-style.json`, `hud.json` and every element's
+  settings load as before. No settings page changes.
+- *Done when:* every element looks the same as before in a harness screenshot
+  taken before and after, in the default and a light theme, and the client starts
+  with no errors.
+- *Needs:* nothing.
+
+## 2. Health colours and ArrayList Tint into Legacy
+
+Still nothing visible changes.
+
+- **Health:** `element/Health`'s good, fair and bad become the good, fair and bad
+  colour roles, mapped by Legacy to today's values (§3.4). No element names a
+  colour.
+- **ArrayList Tint:** the setting moves from the ArrayList element to Legacy's
+  settings (§1.7, §5). A saved Tint in `hud.json` carries over to its new place.
+- *Done when:* Ping, TPS, Server and ArrayList look as before; a profile saved
+  before the move keeps its Tint; no element source contains a literal colour.
+- *Needs:* nothing.
+
+## 3. The new settings pages
+
+The settings take their new shape (`DESIGN.md` §1.4, §1.8), in both GUIs' HUD
+pages. Legacy still looks the same with every setting at its default.
+
+- **Appearance card:** Preset (Match GUI, Apple, Legacy; §1.5) and Accent (the
+  theme picker). With Apple not built yet, the Apple choice is not offered.
+  **Legacy Settings…** opens a page of Plate, Text, ArrayList (Tint) and a Reset.
+- **Accessibility card:** Reduce Transparency (following the Apple UI's until set),
+  Increase Contrast, Text Size, Motion (§1.6, §2.9–§2.11), each working in Legacy:
+  - Reduce Transparency: Legacy's plates fully opaque.
+  - Increase Contrast: a 1px border, and every colour lifted to 7:1.
+  - Text Size: Large and Larger scale the chosen font.
+  - Motion: Reduced keeps fades only; Off is instant.
+- **Behaviour card:** today's Context settings, Idle Opacity included (§2.8), and
+  Hide with F3.
+- **Element pages:** the element's own settings, then **Display** (Align, Fade When
+  Idle, Custom Style), then Layout.
+- **Migration:** saved values keep their meaning. Animate off becomes Motion: Off;
+  the Context values move with their settings; nothing resets.
+- *Done when:* every setting changes Legacy as `DESIGN.md` says, in a harness; old
+  profiles load unchanged; the client starts with no errors.
+- *Needs:* the Text Size fourth-step question; the no-italics proposal (whether
+  Legacy's Font menu keeps the italic fonts).
+
+## 4. The Apple preset
+
+Built in parts, each one usable before the next. Legacy is untouched throughout;
+Match GUI starts choosing Apple once part 4a is done.
+
+- **4a. Glass plates:** Regular glass behind each element over the game (§4.1),
+  drawn by the host at the element's scaled bounds, never inside its transform
+  (§4.2), from one shared capture (§4.3), thicker for larger plates (§4.4), solid
+  with Reduce Transparency (§4.5). Includes finding how the HUD overlay orders its
+  passes against NanoVG's frame (Apple rules §1.4).
+- **4b. Text and shapes:** SF Pro, primary semibold, the vibrancy levels, labels
+  secondary and values primary (§4.8); fixed, capsule and concentric shapes
+  (§4.9); no glass on glass (§4.10); every role drawn (§3.3).
+- **4c. Glass and Appearance settings:** Clear and Tinted (§4.1); Auto, Light and
+  Dark, with Auto's capsule hysteresis (§4.14); adaptive shadow and tint from the
+  shared capture (§4.6).
+- **4d. Emphasis and icons:** the accent only where §4.7 allows, an original glyph
+  set (§4.11), and the accent variants of §5b.2.
+- **4e. Motion and focus:** springs from the source, the rim cue (§4.12), glass
+  receding in screens (§4.13), and each Motion setting.
+- *Done when:* every element draws in Apple in every Glass, Appearance and
+  Accessibility combination (§8.4), in a harness; the capture budget holds with
+  every element showing (§8.2); in game, the developer has seen it over a bright
+  and a dark world.
+- *Needs:* Apple sizing, Apple alignment, Debug's exemption, the screen-edge inset,
+  SF Pro's licence (before any public build), and whether Connection exists as an
+  element (§4.9 names it).
+
+## 5. The Apple editor
+
+Apple plan step 15, with the Apple preset's editor chrome (`DESIGN.md` §4.15,
+§7): the Edit HUD pill, elements at full quality with an accent glow on the
+selected one, a circular minus badge to hide, snap guides and undo. The Classic
+editor is untouched.
+
+- *Done when:* editing works in the Apple UI, in either preset, and the Classic
+  editor behaves as before.
+- *Needs:* the grouping mechanism, if grouping is to be edited here.
+
+## 6. Verify
+
+The whole of `DESIGN.md` §8: every combination (§8.4) in a harness, and the
+in-game matrix (§8.5) in game by the developer.
+
+- *Done when:* every combination passes, or each failure has a fix planned here.
+
+---
+
+## History: 2026-10-09 rework
+
+The plan the HUD was reworked to on 2026-10-09, kept as it was then (apart from notes
+marking what has since changed). Where it disagrees with `DESIGN.md`, `DESIGN.md` wins.
+
 
 The HUD elements in `element/` were proofs of concept. This is the plan for giving
 them a real design: what the research says, what was decided, the rules every
@@ -11,7 +143,7 @@ content and eases between sizes.
 
 ---
 
-## What the research says
+### What the research says
 
 **Legibility comes first, and the background is the enemy.** A HUD sits over a world
 the client does not control: white text that reads in a forest disappears against
@@ -53,13 +185,13 @@ by default. That floating-text look is what players of those clients are used to
 
 ---
 
-## Decisions
+### Decisions
 
 | Topic | Decision |
 |---|---|
 | Overall look | **Every element on a plate** (changed 2026-10-09 from hybrid). Not a setting: one look reads as one HUD, and a plate protects text over any scene. Plate Opacity cannot go below 30% |
 | Style control | **One global HUD Style** that every element inherits, with per-element overrides |
-| Grouping | **Docking stacks.** Drop elements onto each other in the editor to form a stack sharing one panel and spacing |
+| Grouping | ~~Docking stacks~~ **Removed 2026-10-17** to be redesigned; see `DESIGN.md` |
 | Font | **A list setting** fed by the fonts in `assets/karatsuba/font` |
 | Text protection | **Removed** with floating text: nothing draws without a plate. `Render2D.textOutlined` stays in Core for anything that needs it |
 | Colour | **Accent labels, white values:** `Ping` in the accent, `42ms` in white |
@@ -68,7 +200,7 @@ by default. That floating-text look is what players of those clients are used to
 
 ---
 
-## Design rules
+### Design rules
 
 Every element follows these, through the shared base class (build step 1).
 
@@ -100,7 +232,7 @@ Every element follows these, through the shared base class (build step 1).
 
 ---
 
-## Edge cases to handle
+### Edge cases to handle
 
 | Case | Problem | Answer |
 |---|---|---|
@@ -116,9 +248,9 @@ Every element follows these, through the shared base class (build step 1).
 
 ---
 
-## Build order
+### Build order
 
-### 1. Foundation (done)
+#### 1. Foundation (done)
 - **HUD Style** (`style/HudStyle`, config `hud-style.json`, per profile): Plate,
   Text and Motion groups, edited from the Style entry at the top of the HUD
   section's list.
@@ -137,13 +269,13 @@ Every element follows these, through the shared base class (build step 1).
   `Content.isEmpty`.
 - **First migrated:** Ping and TPS.
 
-### 2. Font list (done)
+#### 2. Font list (done)
 - **`client/setting/ChoiceSetting`:** one of a list of options read at runtime;
   the value is kept even when its option disappears, and falls back to the
   first option until it returns. `ChoiceRow` now serves both it and Core's
   `EnumSetting` through one small interface, so it gets the segmented control
   and the menu for free.
-- **`Assets.fontFiles()`** lists `assets/karatsuba/font` through Fabric's mod
+- **`Assets.fontFiles()`** lists `assets/karatsuba/font` (one folder per family since 2026-10-17, so options are paths like `inter/inter-italic.ttf`; old bare names in saved configs are mapped by `HudFonts.current`) through Fabric's mod
   container (a folder in dev, the jar's file system when built), `.ttf` and
   `.otf`. `HudFonts` puts "Default" (the client's own font) first and labels
   files readably ("Inter-SemiBold.ttf" is "Inter SemiBold"). Fonts load lazily
@@ -152,7 +284,7 @@ Every element follows these, through the shared base class (build step 1).
 - Untested with a real font file: the folder is still empty. Drop one in and it
   appears on the next launch.
 
-### 3. Migrate the elements (done)
+#### 3. Migrate the elements (done)
 Every element is on `StyledElement`:
 
 | Kind | Elements |
@@ -170,7 +302,8 @@ Every element is on `StyledElement`:
 - Future elements from `HUD.md` (Target, Armour, Combat Info) start on the base
   class.
 
-### 4. Docking stacks (done)
+#### 4. Docking stacks (built 2026-10-09, removed 2026-10-17)
+Deleted so grouping can be redesigned (`DESIGN.md`). What follows is how it worked, for reference.
 - **`stack/HudStacks`** (config `hud-stacks.json`, per profile): each stack is a
   list of element ids, the first the **host**. A client idea laid over Core's
   elements, so Core's layout model and editor are unchanged.
@@ -189,7 +322,7 @@ Every element is on `StyledElement`:
 - Notifications cannot stack: it draws a card per toast (`dockable()` is false).
 - Docking is not undone by the editor's Ctrl+Z, which snapshots layouts only.
 
-### 5. Context (done)
+#### 5. Context (done)
 All in the HUD Style's new **Context** group, and the base class:
 - **In Screens** (Show / Dim / Hide, default Dim): chat and every game screen; the
   client's own GUI does not count, so the HUD section previews live.
@@ -213,7 +346,7 @@ All in the HUD Style's new **Context** group, and the base class:
 
 ---
 
-## Open questions
+### Open questions
 
 Asked when each step is reached.
 
@@ -227,7 +360,7 @@ Asked when each step is reached.
 
 ---
 
-## Sources
+### Sources
 
 - [Xbox Accessibility Guideline 102: Contrast](https://devdocs.xbox.com/build/game-principles/accessibility/xag-deep-dives/xag-102-contrast.md)
 - [Xbox Accessibility Guideline 101: Text display](https://devdocs.xbox.com/build/game-principles/accessibility/xag-deep-dives/xag-101-text-display.md)

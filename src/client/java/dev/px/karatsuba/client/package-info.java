@@ -33,6 +33,8 @@
  *       <td>nothing &mdash; screens are opened, not registered</td></tr>
  *   <tr><td>something drawn over the game</td><td>{@code screen/}</td>
  *       <td>{@link dev.px.karatsuba.client.screen.Overlays}</td></tr>
+ *   <tr><td>a picture in place of the game's own (loading screen, menu panorama)</td><td>{@code gui/overlay/}</td>
+ *       <td>{@link dev.px.karatsuba.client.gui.overlay.GameOverlays}</td></tr>
  *   <tr><td>an arbiter for something two modules want</td><td>{@code service/}</td>
  *       <td>{@link dev.px.karatsuba.client.service.Services}</td></tr>
  *   <tr><td>a task (something to carry out, then stop)</td><td>{@code automation/task/},

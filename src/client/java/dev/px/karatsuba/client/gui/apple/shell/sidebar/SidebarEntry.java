@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.gui.apple.shell.sidebar;
 
 import dev.px.core.input.MouseButton;
+import dev.px.core.render.Color;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.client.gui.apple.shell.rail.Glyph;
 import dev.px.karatsuba.client.gui.apple.shell.style.Motion;
@@ -10,7 +11,7 @@ import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /**
- * One place in the sidebar: a coloured icon square and a name, filled with the
+ * One place in the sidebar: a coloured icon tile and a name, filled with the
  * accent while it is the one showing ({@code gui/apple/DESIGN.md} §2.2). With the
  * sidebar collapsed it is the icon alone, its name a tooltip.
  */
@@ -48,7 +49,7 @@ public final class SidebarEntry extends Widget {
         return glyph;
     }
 
-    public Palette.IconColor iconColor() {
+    public Color iconColor() {
         return Palette.iconColor(id);
     }
 

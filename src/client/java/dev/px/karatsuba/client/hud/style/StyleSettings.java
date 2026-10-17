@@ -49,7 +49,7 @@ public final class StyleSettings {
         gap = Settings.integer("Row Gap", 2, 0, 8);
         gap.visibleWhen(shown);
 
-        font = new ChoiceSetting("Font", HudFonts::options).labelledBy(HudFonts::label)
+        font = new ChoiceSetting("Font", HudFonts::options).labelledBy(HudFonts::label).migratedBy(HudFonts::current)
                 .describe("Default is the client's own. Fonts added to the mod's font folder appear here");
         font.visibleWhen(shown);
         labelColor = Settings.color("Label Colour", Color.of(120, 170, 255)).syncToTheme(true)

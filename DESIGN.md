@@ -15,6 +15,7 @@ Where things are:
 | All drawing | `shell/look/*Look` (one file per area), `Shapes`, `Glyphs` |
 | Hosting in game | `client/screen/ClientGuiOverlay`, `Overlays` |
 | HUD style | `client/hud/style/` (`HudStyle`, `Style`, `StyledElement`) |
+| Game overlays (the loading screen, the menu panorama) | `client/gui/overlay/`, tokens in `OverlayStyle`; laid out against the window's height, not the GUI scale |
 
 ---
 
