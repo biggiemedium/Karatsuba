@@ -167,6 +167,11 @@ public final class ShaderPasses {
         return SceneTexture.captureMipmapped();
     }
 
+    /** The last {@link #sceneMipmapped()} read back small; see {@link SceneTexture#sampleMipmapped}. */
+    public static SceneTexture.Sample sampleScene(int minWidth) {
+        return SceneTexture.sampleMipmapped(minWidth);
+    }
+
     // --------------------------------------------------------------- 3D
 
     /**

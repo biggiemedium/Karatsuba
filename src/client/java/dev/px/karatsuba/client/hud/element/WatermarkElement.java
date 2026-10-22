@@ -6,6 +6,7 @@ import dev.px.core.hud.HudLayout;
 import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -24,13 +25,12 @@ public final class WatermarkElement extends StyledElement {
 
     @Override
     protected void describe(Content body) {
-        watch("", null);
         body.row(row -> {
             row.align(Align.CENTER);
             label(row, Core.get().getClientName());
             if (showVersion.isOn()) {
                 row.space(LABEL_GAP, 0f);
-                text(row, Core.get().getClientVersion(), style().muted());
+                text(row, Core.get().getClientVersion(), TextRole.SECONDARY);
             }
         });
     }

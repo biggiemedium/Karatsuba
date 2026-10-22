@@ -25,6 +25,8 @@ import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.Action;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * Keeps a totem of undying in your offhand &mdash; or, in Smart mode, your fighting
@@ -253,7 +255,7 @@ public final class AutoTotemModule extends ClientModule {
 
     private void flipMode() {
         mode.set(mode.get() == Mode.TOTEM ? Mode.SMART : Mode.TOTEM);
-        Core.notifications().info("Auto Totem", mode.get() == Mode.TOTEM ? "Totem" : "Smart");
+        Notices.info(Source.MODULE_MESSAGES, "Auto Totem", mode.get() == Mode.TOTEM ? "Totem" : "Smart");
     }
 
     public enum Mode {

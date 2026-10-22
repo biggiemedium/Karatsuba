@@ -18,6 +18,14 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.karatsuba.adapter.game.GameHud;
+import dev.px.karatsuba.client.hud.preset.ColorRole;
+import dev.px.karatsuba.client.hud.preset.HudIcon;
+import dev.px.karatsuba.client.hud.preset.HudPlate;
+import dev.px.karatsuba.client.hud.preset.HudPreset;
+import dev.px.karatsuba.client.hud.preset.HudPresets;
+import dev.px.karatsuba.client.hud.preset.HudTokens;
+import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.setting.SettingLabels;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,36 +34,37 @@ import java.util.Objects;
 /**
  * The parent of every HUD element: what makes them look and behave like one HUD.
  *
- * <p>An element describes only what it shows, in {@link #describe}. This class
- * does the rest, the same way for all of them (see {@code hud/PLAN.md}):
+ * <p>An element describes only what it shows, in {@link #describe}, as roles
+ * ({@code hud/DESIGN.md} §3): text in a {@link TextRole}, values, meters, tracks,
+ * icons. The active {@link HudPreset} draws every role; this class does the rest,
+ * the same way for all of them:
  *
  * <ul>
- *   <li><b>A panel behind everything.</b> Every element sits on the style's plate,
- *       with its padding. Not a choice: text on a plate reads over any scene, and
- *       one look for every element is what makes the HUD read as one HUD.</li>
- *   <li><b>Style.</b> The global {@link HudStyle}, or the element's own with
- *       Custom Style on. Resolved every frame.</li>
+ *   <li><b>A plate behind everything,</b> as the preset draws it, with its
+ *       padding.</li>
+ *   <li><b>Tokens.</b> The preset's fonts and colours for each role, resolved
+ *       every frame ({@link #tokens()}). In Legacy they come from the HUD Style,
+ *       or the element's own with Custom Style on.</li>
  *   <li><b>Alignment by anchor.</b> Anchored right, rows right-align and the box
  *       grows leftwards; anchored centre, they centre. Align overrides it.</li>
  *   <li><b>Size eased.</b> The box eases to its new size when what it shows
  *       changes, clipped only while moving. Values that change every tick go
  *       through {@link #fixed}, whose width never moves.</li>
- *   <li><b>Context.</b> Dims or hides while a game screen or F3 is open, fades
- *       when idle (with Fade When Idle on), and briefly highlights a change that
- *       matters. An element says what counts as either through {@link #watch}.</li>
+ *   <li><b>Context.</b> Dims or hides while a game screen or F3 is open, and
+ *       briefly highlights a change that matters, which an element names through
+ *       {@link #watch}. Nothing fades for being idle ({@code hud/DESIGN.md} §2.8b).</li>
  *   <li><b>Nothing to show, nothing drawn.</b> An element that describes nothing
  *       takes no space.</li>
  * </ul>
  *
- * <p>Every element gets one Style group in its settings: Align, Fade When Idle and
- * Custom Style with its overrides. The HUD section shows it after
+ * <p>Every element gets one Style group in its settings (shown as Display): Align,
+ * and Custom Style with its overrides. The HUD section shows it after
  * the element's own.
  */
 public abstract class StyledElement extends AbstractHudElement {
 
     public enum TextAlign { AUTO, LEFT, CENTER, RIGHT }
 
-    private static final long RESIZE_MILLIS = 220L;
     private static final long FADE_MILLIS = 300L;
     private static final long CUE_MILLIS = 700L;
 
@@ -70,36 +79,42 @@ public abstract class StyledElement extends AbstractHudElement {
 
     private final EnumSetting<TextAlign> align = Settings.enumOf("Align", TextAlign.AUTO)
             .describe("Auto follows the side of the screen it is anchored to");
-    private final BooleanSetting fadeWhenIdle = Settings.bool("Fade When Idle", fadesWhenIdleByDefault())
-            .describe("Fade after nothing has changed for a while, and come back when something does. "
-                    + "How long and how far is in the HUD Style");
     private final BooleanSetting customStyle = Settings.bool("Custom Style", false)
             .describe("Its own panel, colours and font instead of the HUD Style");
-    private final StyleSettings own = new StyleSettings(customStyle::isOn);
+    // Legacy's per-element style: hidden while another preset draws (§1.8).
+    private final StyleSettings own = new StyleSettings(() -> customStyle.isOn() && legacy());
 
     private final GroupSetting styleGroup = Settings.group("Style", false)
-            .containing(join(new Setting<?>[]{align, fadeWhenIdle, customStyle}, own.plate(), own.text()));
+            .containing(join(new Setting<?>[]{align, customStyle}, own.plate(), own.text()));
 
-    private final Animation width = Animation.of(0f, RESIZE_MILLIS, Easing.CUBIC_OUT);
-    private final Animation height = Animation.of(0f, RESIZE_MILLIS, Easing.CUBIC_OUT);
+    // The plate's size, along the preset's curve: Legacy's ease, Apple's spring (§4.12).
+    private final Tween width = new Tween(0f);
+    private final Tween height = new Tween(0f);
     private final Animation visibility = Animation.of(1f, FADE_MILLIS, Easing.QUAD_OUT);
     private final Animation cue = Animation.of(0f, CUE_MILLIS, Easing.CUBIC_OUT);
 
     /** Whether there was something on screen last frame, so this one eases from it rather than snapping. */
     private boolean sized;
 
-    // What watch() was last told, and when it last changed.
-    private Object idleKey;
+    // What watch() was last told.
     private Object cueKey;
     private boolean watchedOnce;
-    private long changedAt = System.currentTimeMillis();
+    /** When the last cue began, for Motion: Off's steady highlight. */
+    private long steadyCueAt;
+    /** Last frame's fade of the whole element, for the plates behind it: glass fades with it. */
+    private float lastFade = 1f;
 
     // This frame's, set before describe() for the helpers below.
-    private Style style;
+    private HudPreset preset;
+    private HudTokens tokens;
     private Align alignment = Align.START;
 
     protected StyledElement(String id, String displayName, HudLayout defaultLayout) {
         super(id, displayName, defaultLayout);
+        customStyle.visibleWhen(StyledElement::legacy);
+        align.visibleWhen(() -> HudPresets.active().alignsByAnchor() || keepsAnchorAlignment());
+        // Saved as "Style", shown as "Display" (§1.8): renaming it would lose what players set.
+        SettingLabels.relabel(styleGroup, "Display");
     }
 
     /**
@@ -110,15 +125,16 @@ public abstract class StyledElement extends AbstractHudElement {
 
     @Override
     public final void content(Content content) {
-        prepare(resolveAlignment());
-        if (style.font() == null) {
+        prepare();
+        if (tokens.font(TextRole.PRIMARY) == null) {
             return;
         }
 
         Content body = Content.column();
-        body.align(alignment).gap(style.gap());
+        body.align(alignment).gap(tokens.gap());
         describe(body);
         float fade = opacity() * contextOpacity();
+        lastFade = fade;
         body.opacity(fade);
         if (body.isEmpty()) {
             sized = false;
@@ -128,15 +144,15 @@ public abstract class StyledElement extends AbstractHudElement {
         Size natural = body.measure();
         // Not while the layout editor is open: an element being scaled or dragged there
         // must sit exactly under the cursor, not ease after it.
-        boolean ease = sized && HudStyle.get().animates() && !Core.hud().getEditor().isActive();
-        float w = ease(width, natural.getWidth(), ease);
-        float h = ease(height, natural.getHeight(), ease);
+        // Only at Motion: Full; Reduced keeps fades but no movement or scaling (§2.10).
+        boolean ease = sized && HudStyle.get().motion() == HudStyle.Motion.FULL && !Core.hud().getEditor().isActive();
+        float w = resize(width, natural.getWidth(), ease);
+        float h = resize(height, natural.getHeight(), ease);
         sized = true;
         boolean moving = Math.abs(w - natural.getWidth()) > 0.5f || Math.abs(h - natural.getHeight()) > 0.5f;
 
         if (!platesItself()) {
-            content.background(style.plate().fade(opacity() * contextOpacity()), style.radius())
-                    .padding(style.padding());
+            preset.plate(content, tokens, fade);
         }
         content.align(alignment);
         Align inner = alignment;
@@ -159,31 +175,59 @@ public abstract class StyledElement extends AbstractHudElement {
         return false;
     }
 
-    /** @return Fade When Idle's default: off, unless the element is mostly worth glancing at once */
-    protected boolean fadesWhenIdleByDefault() {
+    /** @return whether the element draws as Legacy does whatever the preset: Debug, a dev readout (§3.6) */
+    protected boolean exemptFromPresets() {
         return false;
     }
 
+    /** @return whether the element keeps anchor alignment in a preset that left-aligns (ArrayList, §4.16) */
+    protected boolean keepsAnchorAlignment() {
+        return false;
+    }
+
+    /** @return the preset that drew this element last frame */
+    public final HudPreset drawingPreset() {
+        return preset == null ? HudPresets.active() : preset;
+    }
+
     /**
-     * Tells the HUD what this element is showing, once a frame from {@link #describe}.
-     *
-     * @param idle what counts as a change for Fade When Idle: when it has not
-     *             changed for the HUD Style's Idle After, the element fades. Null
-     *             never idles
-     * @param cue  what counts as a change worth pointing out: when it changes, the
-     *             element's text briefly lights up. Null never cues. Keep it coarse
-     *             (a ping's health, not its value), or it cues every second
+     * @return the plates behind this element, in screen space, for a preset that draws
+     *         them behind (glass): one across the whole element, at {@code x, y} and
+     *         {@code naturalW} by {@code naturalH} scaled by {@code scale}. An element that
+     *         plates each item itself (a toast) gives one per item
      */
-    protected final void watch(Object idle, Object cue) {
-        long now = System.currentTimeMillis();
-        if (!watchedOnce || !Objects.equals(idle, idleKey)) {
-            changedAt = now;
+    public List<HudPlate> plates(float x, float y, float scale, float naturalW, float naturalH) {
+        if (platesItself() || tokens == null || lastFade <= 0f) {
+            return List.of();
         }
-        if (watchedOnce && !Objects.equals(cue, cueKey) && cue != null && HudStyle.get().changeCues()
-                && HudStyle.get().animates()) {
+        return List.of(new HudPlate(getId(), x, y, naturalW * scale, naturalH * scale,
+                preset.capsule(tokens, naturalH), lastFade, cueAmount()));
+    }
+
+    /** @return how faded the element was last frame, 0 to 1: its plates form and melt with it */
+    protected final float lastFade() {
+        return lastFade;
+    }
+
+    /** @return how strongly a change cue lights the element now, 0 to 1: eased, or steady at Motion: Off */
+    protected final float cueAmount() {
+        return HudStyle.get().motion() == HudStyle.Motion.OFF
+                ? (System.currentTimeMillis() - steadyCueAt < CUE_MILLIS ? 1f : 0f)
+                : cue.get();
+    }
+
+    /**
+     * Tells the HUD what change in this element is worth pointing out, once a frame
+     * from {@link #describe}: when {@code cue} changes, the element's text briefly
+     * lights up. Null never cues. Keep it coarse (a ping's health, not its value),
+     * or it cues every second.
+     */
+    protected final void watch(Object cue) {
+        if (watchedOnce && !Objects.equals(cue, cueKey) && cue != null && HudStyle.get().changeCues()) {
+            // A fade is still allowed at Reduced; at Off the cue holds steady, then goes (§2.10).
             this.cue.snapTo(1f).target(0f);
+            steadyCueAt = System.currentTimeMillis();
         }
-        idleKey = idle;
         cueKey = cue;
         watchedOnce = true;
     }
@@ -199,7 +243,12 @@ public abstract class StyledElement extends AbstractHudElement {
      *         used when the part draws.
      */
     protected final TextPainter painter() {
-        Font font = style.font();
+        return painter(TextRole.PRIMARY);
+    }
+
+    /** A painter in {@code role}'s font this frame, for text in a custom part. */
+    protected final TextPainter painter(TextRole role) {
+        Font font = tokens.font(role);
         return (value, x, y, color) -> Render.text(font, value, x, y, color);
     }
 
@@ -218,9 +267,22 @@ public abstract class StyledElement extends AbstractHudElement {
 
     // --------------------------------------------------------------- helpers
 
-    /** @return this frame's style */
-    protected final Style style() {
-        return style;
+    /** @return this frame's tokens from the active preset: each role's font and colour, the plate's measurements */
+    protected final HudTokens tokens() {
+        return tokens;
+    }
+
+    /** @return the preset drawing this frame, for an element that draws a plate in a custom part */
+    protected final HudPreset preset() {
+        return preset;
+    }
+
+    /**
+     * @return the element's own style settings while Custom Style is on, else null:
+     *         for the Legacy preset, which reads them in place of the HUD Style
+     */
+    public final StyleSettings customStyle() {
+        return customStyle.isOn() ? own : null;
     }
 
     /** @return how rows line up this frame: start, centre or end */
@@ -228,14 +290,35 @@ public abstract class StyledElement extends AbstractHudElement {
         return alignment;
     }
 
-    /** Text in the style's font, lit by a cue. */
-    protected final void text(Content into, String value, Color color) {
-        into.text(style.font(), value, cued(color));
+    /** Text in {@code role}'s font and colour, lit by a cue. */
+    protected final void text(Content into, String value, TextRole role) {
+        into.text(tokens.font(role), value, cued(tokens.text(role)));
     }
 
-    /** A label in the style's label colour: "Ping". */
+    /**
+     * Primary text in a colour the preset gave (a health colour, a list item), lit by
+     * a cue. Never a colour the element picked itself ({@code hud/DESIGN.md} §3.4).
+     */
+    protected final void text(Content into, String value, Color color) {
+        into.text(tokens.font(TextRole.PRIMARY), value, cued(color));
+    }
+
+    /** What a value is: "Ping". The label role; how it looks is the preset's (Legacy: the accent). */
     protected final void label(Content into, String value) {
-        text(into, value, style.label());
+        text(into, value, TextRole.LABEL);
+    }
+
+    /**
+     * @return the good, fair or bad colour role for {@code level} (3 good, 2 fair, 1
+     *         bad). Never the only cue: show the level by shape or words too (§2.3)
+     */
+    protected final Color health(int level) {
+        return tokens.color(level >= 3 ? ColorRole.GOOD : level == 2 ? ColorRole.FAIR : ColorRole.BAD);
+    }
+
+    /** A {@link #fixed fixed-width} value in {@code role}'s colour. */
+    protected final void fixed(Content into, String value, String widest, TextRole role) {
+        fixed(into, value, widest, tokens.text(role));
     }
 
     /**
@@ -244,7 +327,7 @@ public abstract class StyledElement extends AbstractHudElement {
      * anything that ticks over every second, so the box does not twitch with it.
      */
     protected final void fixed(Content into, String value, String widest, Color color) {
-        Font font = style.font();
+        Font font = tokens.font(TextRole.VALUE);
         float textWidth = font.widthOf(value);
         float slot = Math.max(textWidth, font.widthOf(widest));
         float offset = switch (alignment) {
@@ -272,66 +355,92 @@ public abstract class StyledElement extends AbstractHudElement {
      * (never red against green alone).
      */
     protected final void bars(Content into, int level, int max, Color lit) {
-        Font font = style.font();
-        float barWidth = 2f;
-        float spacing = 1f;
-        float height = font.getHeight() * 0.7f;
-        Color on = cued(lit);
-        Color unlit = style.muted().fade(0.35f);
-        into.custom(max * barWidth + (max - 1) * spacing, font.getHeight(), (x, y, w, h) -> {
-            float bottom = y + (h + height) / 2f;
-            for (int i = 0; i < max; i++) {
-                float barHeight = height * (i + 1) / max;
-                float bx = x + i * (barWidth + spacing);
-                float by = bottom - barHeight;
-                Render.rect(bx, by, barWidth, barHeight, i < level ? on : unlit);
-            }
+        preset.meter(into, tokens, level, max, cued(lit));
+    }
+
+    /** A thick rounded progress bar, {@code progress} 0 to 1, {@code width} wide, faded by {@code alpha}: the track role. */
+    protected final void track(Content into, float width, float progress, float alpha) {
+        preset.track(into, tokens, width, progress, alpha);
+    }
+
+    /** An icon the size of a line of text, in {@code role}'s colour. */
+    protected final void icon(Content into, HudIcon icon, TextRole role) {
+        preset.icon(into, tokens, icon, cued(tokens.text(role)));
+    }
+
+    /** An icon in a well of its own, as the preset draws one (Legacy: the bare icon). */
+    protected final void iconWell(Content into, HudIcon icon, TextRole role) {
+        preset.iconWell(into, tokens, icon, cued(tokens.text(role)));
+    }
+
+    /** Whether something is switched on, as the preset's small indicator. */
+    protected final void toggleOn(Content into, boolean on) {
+        preset.toggleOn(into, tokens, on);
+    }
+
+    /** A title over a subtitle ({@code subtitle} empty for none), lined up as the element is. */
+    protected final void titleBlock(Content into, String title, String subtitle) {
+        Color titleColour = cued(tokens.text(TextRole.TITLE));
+        Color subtitleColour = cued(tokens.text(TextRole.SUBTITLE));
+        Align inner = alignment;
+        into.column(block -> {
+            block.align(inner).gap(tokens.gap());
+            preset.titleBlock(block, tokens, title, titleColour, subtitle, subtitleColour);
         });
     }
 
     // ------------------------------------------------------------- internals
 
-    /** Sets this frame's style and alignment. */
-    private void prepare(Align alignment) {
-        this.style = customStyle.isOn() ? own.resolve() : HudStyle.get().resolve();
-        this.alignment = alignment;
+    /** Sets this frame's preset, tokens and alignment. */
+    private void prepare() {
+        this.preset = exemptFromPresets() ? HudPresets.LEGACY : HudPresets.active();
+        this.tokens = preset.tokens(this);
+        this.alignment = resolveAlignment();
     }
 
-    /** @return how visible the element should be for what the player is doing, eased: screens, F3, idling */
+    /** @return how visible the element should be for what the player is doing, eased: screens and F3 */
     private float contextOpacity() {
         float target = 1f;
         if (!isEditing()) {
             HudStyle global = HudStyle.get();
-            GameHud.ScreenKind screen = GameHud.screen();
-            if (screen == GameHud.ScreenKind.CHAT || screen == GameHud.ScreenKind.OTHER) {
+            if (inScreen()) {
                 target = switch (global.inScreens()) {
                     case SHOW -> 1f;
                     case DIM -> DIMMED;
                     case HIDE -> 0f;
                 };
             }
-            if (global.withDebug() == HudStyle.WithDebug.HIDE && GameHud.debugShown()) {
+            if (global.hideWithF3() && GameHud.debugShown()) {
                 target = 0f;
             }
-            if (fadeWhenIdle.isOn() && watchedOnce && System.currentTimeMillis() - changedAt > global.idleAfterMillis()) {
-                target = Math.min(target, global.idleOpacity());
-            }
         }
-        visibility.duration(HudStyle.get().animates() ? FADE_MILLIS : 0L).target(target);
+        visibility.duration(HudStyle.get().motion() == HudStyle.Motion.OFF ? 0L : FADE_MILLIS).target(target);
         return visibility.get();
+    }
+
+    /** @return whether chat or another game screen is open; the client's own GUI does not count */
+    private static boolean inScreen() {
+        GameHud.ScreenKind screen = GameHud.screen();
+        return screen == GameHud.ScreenKind.CHAT || screen == GameHud.ScreenKind.OTHER;
     }
 
     /** @return {@code color} lit by the current cue: pulled towards white for labels, towards the label colour for the rest */
     private Color cued(Color color) {
-        float amount = cue.get();
+        // A preset with a rim to brighten cues there instead (Apple, §4.12).
+        float amount = preset.cuesText(tokens) ? cueAmount() : 0f;
         if (amount <= 0.01f) {
             return color;
         }
-        Color towards = color.equals(style.label()) ? Color.WHITE : style.label();
+        Color label = tokens.text(TextRole.LABEL);
+        Color towards = color.equals(label) ? Color.WHITE : label;
         return color.lerp(towards.withAlpha(color.getAlpha()), amount * CUE_STRENGTH);
     }
 
     private Align resolveAlignment() {
+        // Apple left-aligns inside a plate whatever the anchor; ArrayList keeps its own (§4.16).
+        if (!preset.alignsByAnchor() && !keepsAnchorAlignment()) {
+            return Align.START;
+        }
         return switch (align.get()) {
             case LEFT -> Align.START;
             case CENTER -> Align.CENTER;
@@ -344,13 +453,19 @@ public abstract class StyledElement extends AbstractHudElement {
         };
     }
 
-    private static float ease(Animation animation, float target, boolean ease) {
+    /** @return whether Legacy is drawing, the one preset with per-element styling */
+    private static boolean legacy() {
+        return HudPresets.active() == HudPresets.LEGACY;
+    }
+
+    /** Moves a plate dimension to {@code target}, along the preset's curve when easing, at once otherwise. */
+    private float resize(Tween tween, float target, boolean ease) {
         if (ease) {
-            animation.target(target);
+            tween.target(target, preset.resizeMillis(), preset.resizeCurve());
         } else {
-            animation.snapTo(target);
+            tween.snapTo(target);
         }
-        return animation.get();
+        return tween.get();
     }
 
     private static Setting<?>[] join(Setting<?>[]... parts) {

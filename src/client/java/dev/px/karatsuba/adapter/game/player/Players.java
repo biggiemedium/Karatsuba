@@ -188,6 +188,18 @@ public final class Players {
         return self != null && self.isTouchingWater();
     }
 
+    /** @return whether the player is in lava */
+    public static boolean inLava() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isInLava();
+    }
+
+    /** @return whether the player is on a ladder, vine, scaffolding or anything else they climb */
+    public static boolean climbing() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isClimbing();
+    }
+
     public static boolean onGround() {
         ClientPlayerEntity self = player();
         return self != null && self.isOnGround();

@@ -64,6 +64,11 @@ public final class Glass {
         private Layer() {
         }
 
+        /** @return whether a shape in this layer has captured the screen yet: what anything read back now shows */
+        public boolean captured() {
+            return backdrop != null && backdrop.isValid();
+        }
+
         /**
          * @param radius   the corner radius, in screen units
          * @param tint     its colour, mixed in by its alpha

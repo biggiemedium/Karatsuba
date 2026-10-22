@@ -107,6 +107,25 @@ probably accepted. Not built; see **Unverified**.
 
 ---
 
+## Strafe extras: where Grim widens instead of simulating
+
+Read from the jar on 2026-10-17. All four are settings on
+`client.module.movement.strafe.GrimStrafe`, off by default, and **untested in
+game** until this line says otherwise.
+
+| Trick | What Grim does (bytecode) | Karatsuba methods |
+|---|---|---|
+| **Entity Collide** | No entity-push simulation. `MovementTicker.handleEntityCollisions` (before the travel, same tick) counts pushable entities touching the player's box at the old and new positions grown by 0.2, into `UncertaintyHandler.collidingEntities`. `PredictionEngine.handleStartingVelocityUncertainty` then widens the starting velocity by `0.08 × max(collidingEntities)` on X and on Z, and keeps whichever vector in that box fitted, so the client's velocity carries on from it | `adapter.movement.EntityPush`: `afterTravel()` (from `LivingEntityMixin.karatsuba$travelled`, `travel` RETURN) records the velocity the move left; `serverVelocity()` (velocity, explosion and teleport hooks in `ClientPlayNetworkHandlerMixin`) voids it; `sinceTravel()` is the push since. `GrimStrafe.collide()` at `PlayerMoveEvent` PRE swaps that push for `0.95 × 0.08 × pushers(0.1)` along the heading through `Services.motion().setHorizontal()`. Counted with a smaller box than Grim's, this tick only |
+| **Boat Burst** | `UncertaintyHandler.checkForHardCollision()` resets `lastHardCollidingLerpingEntity` when a boat or shulker (not ridden) is within 1.0 of the box at the **start** of the move. `reduceOffset()` takes 1.2 off the offset while `hasOccurredSince(3)`: that tick and the three after. Position only; Grim's velocity is still its own prediction | `GrimStrafe.onMove()` times the burst from `EntityPush.nearHardCollider(0.8)` and asks `adapter.movement.Displacement.next()` for `Burst Distance` (default 1.0, max 1.15) along the heading for 3 ticks. `Displacement.apply()` (from `EntityMixin`, `Entity.move` HEAD, own moves only) adds it to the move, never to the velocity, and refuses it if a block is in the way. Unused bursts are cancelled at `PlayerMoveEvent` POST |
+| **Tap Jump** | Vanilla, nothing to read: `LivingEntity.tickMovement` zeroes `jumpingCooldown` on any tick jump is not held, and only counts it down while held | `Inputs.letGoOfJump()` → `Inputs.applyJumpLetGo()` in `ClientPlayerEntityMixin.karatsuba$afterInput`, after hold-still: the move and the input packet both see jump released. `GrimStrafe.tapsJump()` only does it in the air, out of water, lava and climbables, and not with an elytra on |
+| **Keep Sprint** | `PacketPlayerAttack`: for a 1.21+ client on a 1.9+ server with no knockback enchant it only raises `maxAttackSlow`; `minAttackSlow` stays 0, so `PredictionEngine.addAttackSlowToPossibilities` keeps the unslowed velocity as a candidate | `adapter.movement.AttackSlowdown.skipWhen()`, registered by `GrimStrafe`'s constructor; `PlayerEntityMixin` skips the `setVelocity(×0.6)` and `setSprinting(false)` in `PlayerEntity.attack` for the local player |
+
+These are the only velocity or position edits meant to pass Grim. Each must
+stay inside an allowance Grim grants itself; a new one needs the same bytecode
+evidence before it goes in.
+
+---
+
 ## Placing blocks
 
 | Flag | What it flags | Karatsuba methods |
@@ -140,7 +159,58 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 | Not checked in 2.3.73 | Clicks in the same tick as an attack, place or use; clicks with the inventory screen closed; how fast clicks come. `Post` counts clicks only for clients older than 1.13. `PacketOrderK` only reads the old "opened inventory" status packet, which 1.21 never sends | Still one click a tick, `Inventory Delay` ticks apart (Client Settings → Interaction), and **Open Inventory Only** for anticheats that do want the screen open |
 | **PacketOrderG** | A swap-hands packet in the same tick as an attack, dig or right-click | `ActionService.run()` runs `executeOffhand()` first; if it sent (`swapped`), the tick's attack and click are reported `WAITING` and go next tick |
 | **TickTimer** (1.21.2+) | A movement packet before a `CLIENT_TICK_END` has arrived since the last one, or more than one movement packet per tick end. Flags **with a setback** | Never send a movement packet of our own. Rotations ride in vanilla's own packet (`Rotations.swapInSilent()` before `sendMovementPackets`), so there is exactly one per tick |
-| **AirLiquidBreak** | A start or finish digging packet on air or liquid | Never send digging packets by hand; no module digs a block that isn't there |
+| **AirLiquidBreak** | See **Breaking** | |
+
+---
+
+## Breaking
+
+Read from the 2.3.73 bytecode on 2026-10-18. Grim gets every `PLAYER_DIGGING`
+packet (START, FINISHED, CANCELLED = ABORT). Some checks run on the packet. The
+others are queued and run on the **next flying packet**, before its prediction
+("post-flying"). Post-flying uses:
+- the position of the flying packet **before** the dig (`lastClaimedPosition`);
+- `lastYaw/lastPitch` = the rotation of the previous look packet;
+- `yaw/pitch` = the new packet's rotation, but only if it arrives under 15 ms after the dig packet; otherwise the old one.
+
+Eye heights for 1.14+ are always {0.4, 1.27, 1.62}. The movement threshold is 0.0002 (1.18.2+).
+
+All breaking goes through `adapter.game.player.Digging`. It calls vanilla
+`updateBlockBreakingProgress` from `BlockBreakingMixin` at the head of
+`MinecraftClient.handleBlockBreaking`, the game's own place in the tick, and then
+swings. So the packets, the speed, the 5-tick pause after a block, and the
+abort/restart on a held-item change are all the game's.
+
+| Flag | What it flags | Karatsuba methods |
+|---|---|---|
+| **AirLiquidBreak** | START/FINISHED on air, water, lava, bubble column or moving piston; on a light block unless one is held; FINISHED on hardness -1 | `Digging.onHandleBlockBreaking()` refuses any block whose outline is empty (as the crosshair does). `Digging.breakable()` also refuses hardness < 0 |
+| **FarBreak** | START/FINISHED where the nearest eye height is more than `BLOCK_INTERACTION_RANGE` from the **full cube**. Measured from the position before the next movement packet. No buffer | `DigService` / `Sightline.meets()` require the aim point itself within `Players.blockReach()` of the current eyes. That is stricter |
+| **FastBreak** | Milliseconds. FINISHED earlier than `ceil(1/damage)·50` ms after START, over a balance of 1000 ms (−10% per on-time dig, only digs ≥25 ms early count). START less than 275 ms after the last FINISHED adds `300 − d` to a second balance (limit 1000). Damage is taken from the item held at START, raised (never lowered) by the item held at each swing. Air /5 and water /5 as vanilla | The game's own progress. The tool is in hand before START (`SmartMineModule.holdTool()` waits for the selection). The game's 5-tick `blockBreakingCooldown` gives 300 ms between blocks |
+| **MultiBreak** | A second START/FINISHED in one tick with a different position **or face**. CANCELLED is ignored | One `updateBlockBreakingProgress` call a tick. The face is the one the server's look enters, kept for the dig |
+| **NoSwingBreak** | A tick with a START or FINISHED and no arm-swing packet | `Digging` swings after every call that returns true, as the game does. `DigService` raises Interaction's Swing NONE to PACKET |
+| **PositionBreakA** | Eye segment (y+0.4 to y+1.62) strictly behind the dug face's plane | The face is the one a ray from the eyes enters, so the eyes are in front of it |
+| **PositionBreakB** | After an ABORT with a face other than DOWN, any dig packet other than a START with that face | The game's `cancelBlockBreaking` sends DOWN. Its switch sends ABORT(old, new face) then START(new, new face) |
+| **RotationBreak** | Post-flying: no ray from the eye heights along (lastYaw, pitch), (yaw, pitch) or (lastYaw, lastPitch) meets the full cube, within reach. No occlusion. After one failure it also checks pre-flying, and cancels | Dig only while `Players.serverRotation()` (the last sent) already lands on the block from the current eyes (`Sightline.faceLookedAt`). Keep requesting the same aim through the dig, so the packet straight after it looks there too |
+| **WrongBreak** | FINISHED on a block other than the last STARTed one. Also cancelling the same block twice with no START between | The game's own state machine |
+| **InvalidBreak** | Face id outside 0–5 | Only `Direction` values reach the game |
+| Not read | BadPackets, MultiActions, PacketOrder (B/E/F/I/L), Post checks that touch digging | The game never digs in a tick in which an attack, click, use or swap went out: `ActionService.actedThisTick()`. `DigService` then calls `Digging.pause()`, which neither digs nor cancels. No digging with a screen open or an item in use |
+
+**FastBreak in full** (re-read 2026-10-22). On FINISHED: `early = ceil(1/maxDamage)·50 − (now − startBreak)`, in
+server wall-clock ms between the START and FINISHED packets arriving. If `early < 25` the balance is ×0.9;
+otherwise `early` is added. Over 1000 → flag, and the break is **cancelled** (`shouldModifyPackets`). Both
+balances are clamped to ±max(1000, transaction ping) before each update. `startBreak` is START's arrival
+time, less 50 ms if there was no earlier target. `maxDamage` is the best damage seen on any flying packet
+since START (the held item and ground state at each), never lowered. The position of FINISHED is not compared.
+So finishing early is a **budget**: just under 1000 ms of total earliness, which each on-time finish shrinks
+by 10%. Vanilla's server accepts a finish at ≥ 70% progress; Grim is the only limit.
+
+**Only START and FINISHED are checked.** NoSwingBreak and RotationBreak look only at those two dig packets
+(CANCELLED is skipped), and the game sends no dig packet on the ticks in between. So the swing and the look
+matter only on the start tick and the finish tick. Between them the head can be anywhere, and no swing is
+needed, as far as the breaking checks go. (BadPackets and PacketOrder are still unread.)
+
+None of the breaking checks reads held-slot changes. A slot change mid-dig makes
+the game restart the dig itself.
 
 ---
 
@@ -155,10 +225,15 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 4. **Look before you click.** Turn this tick, click next tick, and make sure the
    look hits from where the eyes will be after the next move.
 5. **Never repeat a turn size before consecutive placements.**
-6. **Don't touch velocity**, not even knockback, explosions or currents.
+6. **Don't touch velocity**, not even knockback, explosions or currents. The one
+   exception is staying inside an allowance Grim grants itself, with bytecode
+   to show it: see **Strafe extras**.
 7. **No fabricated packets**: no extra flying packets, no fake slot or use
    packets, no cancelling server packets to hide state.
-8. **Inventory clicks only through `Services.inventory().click()`**: standing
+8. **Break only through `adapter.game.player.Digging`**, looking at the block
+   with the rotation the server already has, tool in hand before the start.
+   Never send digging packets by hand.
+9. **Inventory clicks only through `Services.inventory().click()`**: standing
    still by what was *reported* (no movement keys or jump, no sprint), one a tick,
    whole stacks only. Never repeat a slot packet.
 
@@ -175,11 +250,17 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 | MeteorPlus Grim Cancel v2 | Same packets on every movement packet. Its `canCancel` flag can never become true, so as written it does nothing at all |
 | MeteorPlus Grim Skip | Drops the velocity and the next 6 movement packets: Grim then sees 7 ticks of movement in one packet without the knockback (Simulation, KnockbackHandler) |
 | Silent eating | Item use tracked from packets |
+| Shoreline V2 SpeedMine "Speed" < 1 (finish at that share of progress, every block) | FastBreak: each finish adds `(1 − Speed) · dig time` to the balance. Obsidian with netherite Efficiency V (43 ticks) at 0.7 is about 650 ms early, so the second one is cancelled |
+| Shoreline V2 SpeedMine "GRIM" packets (a second START at `pos.below(2000)`) | Points FastBreak at a void block that breaks at once, but MultiBreak (a second START in the tick, other position) and FarBreak (no world-bounds exemption) flag it |
+| Shoreline V2 SpeedMine "Rotate" off (its default) | RotationBreak on START and FINISHED |
 | End-of-tick clicks | Post |
 
 ## Unverified
 
-- Entity pushing (No Push Entities): no handling found in the bytecode either way.
+- Entity pushing (No Push Entities): not simulated; Grim widens by 0.08 per
+  entity (see **Strafe extras**). Ignoring a push is inside that box, untested.
+- Strafe extras (Entity Collide, Boat Burst, Tap Jump, Keep Sprint): read from
+  the jar, not yet tested in game.
 - Fishing-rod pull ignoring: looks accepted, untested in game.
 - Anything not listed above has not been read from the jar yet; check the class
   in `checks/impl/` before relying on it.

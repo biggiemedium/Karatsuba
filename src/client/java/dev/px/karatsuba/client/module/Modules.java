@@ -17,6 +17,8 @@ import dev.px.karatsuba.client.module.inventory.InventoryManagerModule;
 import dev.px.karatsuba.client.module.inventory.XCarryModule;
 import dev.px.karatsuba.client.module.inventory.ElytraSwapModule;
 import dev.px.karatsuba.client.module.mining.AutoToolModule;
+import dev.px.karatsuba.client.module.mining.EnderChestFarmerModule;
+import dev.px.karatsuba.client.module.mining.SmartMineModule;
 import dev.px.karatsuba.client.module.movement.ElytraFlyModule;
 import dev.px.karatsuba.client.module.movement.ParkourModule;
 import dev.px.karatsuba.client.module.movement.SafeWalkModule;
@@ -96,6 +98,8 @@ public final class Modules {
 
                 // Mining
                 new AutoToolModule(),
+                new EnderChestFarmerModule(),
+                new SmartMineModule(),
 
                 // Inventory
                 new ElytraSwapModule(),

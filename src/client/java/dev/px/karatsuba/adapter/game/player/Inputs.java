@@ -80,6 +80,11 @@ public final class Inputs {
         return binding != null && binding.isPressed();
     }
 
+    /** @return whether the player themselves holds the control: down, and not forced by {@link #hold} */
+    public static boolean playerHolds(Control control) {
+        return !FORCED.contains(control) && pressed(control);
+    }
+
     /** @return whether any of the four movement keys is down */
     public static boolean anyMovement() {
         for (Control control : MOVEMENT) {
@@ -244,6 +249,37 @@ public final class Inputs {
         input.playerInput = new PlayerInput(false, false, false, false, false, keys.sneak(), false);
         input.movementForward = 0f;
         input.movementSideways = 0f;
+    }
+
+    /** Whether the next movement tick reports jump let go; see {@link #letGoOfJump()}. */
+    private static boolean jumpLetGo;
+
+    /**
+     * Reports jump as let go for the next movement tick, even while the player
+     * holds it, as if they had tapped it rather than held it.
+     *
+     * <p>Vanilla only counts down its 10-tick jump cooldown while jump is held,
+     * and zeroes it the first tick it is not. A tick of letting go mid-air means
+     * the next landing jumps at once, where a held key could wait out the rest of
+     * the cooldown. The move and the input packet both read the released key, so
+     * the server is told exactly what the game did.
+     */
+    public static void letGoOfJump() {
+        jumpLetGo = true;
+    }
+
+    /**
+     * Applies {@link #letGoOfJump()} to the keys the game has just read. Called by
+     * the player mixin straight after {@code Input.tick()}, with the hold-still.
+     */
+    public static void applyJumpLetGo(Input input) {
+        if (!jumpLetGo || input == null) {
+            return;
+        }
+        jumpLetGo = false;
+        PlayerInput keys = input.playerInput;
+        input.playerInput = new PlayerInput(keys.forward(), keys.backward(), keys.left(), keys.right(),
+                false, keys.sneak(), keys.sprint());
     }
 
     // ------------------------------------------------------------- internal

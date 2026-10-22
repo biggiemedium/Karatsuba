@@ -6,6 +6,8 @@ import dev.px.core.setting.Setting;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.adapter.integration.Spotify;
 import dev.px.karatsuba.client.gui.apple.shell.setting.InfoRow;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.List;
 import java.util.function.Function;
@@ -111,7 +113,7 @@ final class SpotifyPage {
         } else {
             String refused = Spotify.connect();
             if (refused != null) {
-                Core.notifications().warn("Spotify", refused);
+                Notices.warn(Source.CLIENT, "Spotify", refused);
             }
         }
     }

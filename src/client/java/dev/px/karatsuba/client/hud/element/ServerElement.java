@@ -11,6 +11,8 @@ import dev.px.core.network.server.ServerInfo;
 import dev.px.core.network.server.ServerSoftware;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.karatsuba.client.hud.preset.ColorRole;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.Locale;
@@ -43,31 +45,31 @@ public final class ServerElement extends StyledElement {
             return;
         }
         ServerInfo server = Core.server().getInfo();
-        watch(server.getAddress(), Core.anticheat().getPrimary().map(detection -> detection.getName()).orElse(null));
+        watch(Core.anticheat().getPrimary().map(detection -> detection.getName()).orElse(null));
         if (address.isOn()) {
-            row(body, "Server", server.isSingleplayer() ? "Singleplayer" : server.getAddress(), style().value());
+            row(body, "Server", server.isSingleplayer() ? "Singleplayer" : server.getAddress(), tokens().text(TextRole.VALUE));
         }
         if (software.isOn() && server.isMultiplayer()) {
-            row(body, "Software", software(server.getBrand()), style().value());
+            row(body, "Software", software(server.getBrand()), tokens().text(TextRole.VALUE));
         }
         if (anticheat.isOn() && server.isMultiplayer()) {
             Optional<Detection> primary = Core.anticheat().getPrimary();
             row(body, "Anticheat",
                     primary.map(d -> d.getName() + " (" + d.getConfidence().name().toLowerCase(Locale.ROOT) + ")")
                             .orElse("None detected"),
-                    primary.isPresent() ? Health.FAIR : style().muted());
+                    primary.isPresent() ? tokens().color(ColorRole.FAIR) : tokens().text(TextRole.SECONDARY));
         }
     }
 
     private void sample(Content body) {
         if (address.isOn()) {
-            row(body, "Server", "play.example.net", style().value());
+            row(body, "Server", "play.example.net", tokens().text(TextRole.VALUE));
         }
         if (software.isOn()) {
-            row(body, "Software", "Paper via Velocity", style().value());
+            row(body, "Software", "Paper via Velocity", tokens().text(TextRole.VALUE));
         }
         if (anticheat.isOn()) {
-            row(body, "Anticheat", "None detected", style().muted());
+            row(body, "Anticheat", "None detected", tokens().text(TextRole.SECONDARY));
         }
     }
 

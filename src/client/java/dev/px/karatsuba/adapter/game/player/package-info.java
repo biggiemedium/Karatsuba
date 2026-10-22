@@ -14,6 +14,8 @@
  *       swap-and-restore that makes a silent rotation reach the server without
  *       moving the camera.</li>
  *   <li>{@code Interactions} &mdash; attacking and using.</li>
+ *   <li>{@code Digging} &mdash; the game's own block breaking, pointed at a
+ *       block other than the crosshair's.</li>
  * </ul>
  *
  * <p>Everything here reads and writes live game state, so it is <b>game thread

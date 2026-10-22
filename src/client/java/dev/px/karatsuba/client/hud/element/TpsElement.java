@@ -8,6 +8,7 @@ import dev.px.core.layout.Content;
 import dev.px.core.network.tps.TpsService;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -48,8 +49,8 @@ public final class TpsElement extends StyledElement {
         boolean measured = isEditing() || tps.hasEstimate();
         double value = isEditing() ? SAMPLE : tps.getTps();
         int level = measured ? level(value, isEditing() ? 20d : tps.getTargetTps()) : 0;
-        Color colour = !measured ? style().muted() : colourByHealth.isOn() ? Health.of(level) : style().value();
-        watch(level, level);
+        Color colour = !measured ? tokens().text(TextRole.SECONDARY) : colourByHealth.isOn() ? health(level) : tokens().text(TextRole.VALUE);
+        watch(level);
 
         body.row(row -> {
             row.align(Align.CENTER);

@@ -3,11 +3,14 @@ package dev.px.karatsuba.client.hud.style;
 import dev.px.core.render.Render;
 import dev.px.core.render.font.Font;
 import dev.px.karatsuba.adapter.asset.Assets;
+import dev.px.karatsuba.adapter.render.nanovg.NanoVGFont;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * The faces HUD text can be set in: the client's own, then every font bundled in
@@ -15,7 +18,11 @@ import java.util.Locale;
  *
  * <p>Dropping a {@code .ttf} or {@code .otf} into a family's folder there is all it takes to
  * offer one; nothing lists fonts by hand. Each is loaded the first time something
- * draws in it, at the client font's size, so it lines up with everything else.
+ * draws in it, at the client font's size times Text Size, so it lines up with
+ * everything else.
+ *
+ * <p>No italic-only fonts are offered ({@code hud/DESIGN.md} §2.14). A profile set
+ * to one keeps its choice saved but draws in Default, as for any font not there.
  */
 public final class HudFonts {
 
@@ -24,15 +31,22 @@ public final class HudFonts {
 
     private static List<String> options;
 
+    /** The client font at each Text Size it has been asked for: the same face, resized. */
+    private static final Map<String, Font> SIZED_DEFAULT = new HashMap<>();
+
     private HudFonts() {
     }
 
-    /** @return {@link #DEFAULT}, then each bundled font file */
+    /** @return {@link #DEFAULT}, then each bundled font file that is not italic */
     public static List<String> options() {
         if (options == null) {
             List<String> all = new ArrayList<>();
             all.add(DEFAULT);
-            all.addAll(Assets.fontFiles());
+            for (String file : Assets.fontFiles()) {
+                if (!file.toLowerCase(Locale.ROOT).contains("italic")) {
+                    all.add(file);
+                }
+            }
             options = Collections.unmodifiableList(all);
         }
         return options;
@@ -77,13 +91,29 @@ public final class HudFonts {
         return label.toString();
     }
 
-    /** @return the font for an option; the client font for {@link #DEFAULT} or anything unknown */
+    /**
+     * @return the font for an option at the HUD's Text Size; the client font for
+     *         {@link #DEFAULT} or anything unknown
+     */
     public static Font resolve(String option) {
         Font base = Render.getDefaultFont();
-        if (base == null || DEFAULT.equals(option) || !isFontFile(option)) {
+        if (base == null) {
+            return null;
+        }
+        HudStyle style = HudStyle.get();
+        float size = base.getSize() * (style == null ? 1f : style.textSize().scale());
+        if (DEFAULT.equals(option) || !isFontFile(option)) {
+            return sized(base, size);
+        }
+        return Assets.fontFile(option, size);
+    }
+
+    /** @return the client font at {@code size}: itself at its own size, else the same face resized */
+    private static Font sized(Font base, float size) {
+        if (size == base.getSize() || !(base instanceof NanoVGFont face)) {
             return base;
         }
-        return Assets.fontFile(option, base.getSize());
+        return SIZED_DEFAULT.computeIfAbsent(base.getName() + "@" + size, key -> face.resized(size));
     }
 
     private static boolean isFontFile(String option) {

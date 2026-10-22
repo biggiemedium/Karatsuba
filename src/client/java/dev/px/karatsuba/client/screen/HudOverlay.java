@@ -1,8 +1,12 @@
 package dev.px.karatsuba.client.screen;
 
 import dev.px.core.Core;
+import dev.px.core.hud.Placement;
 import dev.px.karatsuba.adapter.screen.Overlay;
 import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
+import dev.px.karatsuba.client.hud.preset.HudGlass;
+
+import java.util.List;
 
 /**
  * The HUD on screen.
@@ -31,7 +35,10 @@ public final class HudOverlay implements Overlay {
     @Override
     public void render(float screenWidth, float screenHeight) {
         if (!Core.hud().getEditor().isActive()) {
-            Core.hud().drawAll();
+            // Glass behind the plates first (a glass preset), outside any element's transform.
+            List<Placement> placements = Core.hud().resolve(false);
+            HudGlass.behind(placements);
+            Core.hud().drawAll(placements);
         }
     }
 }

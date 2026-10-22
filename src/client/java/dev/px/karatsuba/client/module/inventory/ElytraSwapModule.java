@@ -31,6 +31,8 @@ import dev.px.karatsuba.client.module.movement.TickKey;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.service.inventory.InventoryClick;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * One key between chestplate and elytra, a fresh elytra before the worn one gives
@@ -224,7 +226,7 @@ public final class ElytraSwapModule extends ClientModule {
                 : chest != null && !chest.isElytra();
         if (done) {
             if (announce) {
-                Core.notifications().info("Elytra Swap", target == Target.ELYTRA ? "Elytra on" : "Chestplate on");
+                Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", target == Target.ELYTRA ? "Elytra on" : "Chestplate on");
             }
             target = Target.NONE;
             guarding = false;
@@ -235,7 +237,7 @@ public final class ElytraSwapModule extends ClientModule {
                 ? bestElytra(chest != null && chest.isElytra() ? chest.getDurability() : -1f)
                 : bestChestplate();
         if (source < 0) {
-            Core.notifications().info("Elytra Swap", target == Target.ELYTRA ? "No elytra" : "No chestplate");
+            Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", target == Target.ELYTRA ? "No elytra" : "No chestplate");
             target = Target.NONE;
             guarding = false;
             openAfter = false;
@@ -370,7 +372,7 @@ public final class ElytraSwapModule extends ClientModule {
                 guardedOff = true;
                 openAfter = false;
                 safeTicks = 0;
-                Core.notifications().info("Elytra Swap", "Crystal: chestplate on");
+                Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", "Crystal: chestplate on");
             }
             return;
         }

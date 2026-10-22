@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.combat.render;
+package dev.px.karatsuba.client.render;
 
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3i;
@@ -9,9 +9,10 @@ import dev.px.core.render.animation.PresenceTracker;
 import java.util.Collection;
 
 /**
- * The block cells a placing module is working on: each popped in when it is
- * chosen and faded out once filled or given up. Shared by Surround, Hole Fill and
- * Web Aura so they move alike, and like Hole ESP.
+ * The block cells a module is working on: each popped in when it is chosen and
+ * faded out once filled, mined or given up. Shared across categories (Surround,
+ * Hole Fill and Web Aura in Combat, Smart Mine in Mining) so they all move alike,
+ * and like Hole ESP.
  *
  * <p>{@link #update} on the tick with the cells to show; {@link #draw} every frame.
  * Game thread only.

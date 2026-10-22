@@ -16,7 +16,7 @@ import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.render.Color;
-import dev.px.karatsuba.client.module.combat.render.CellBoxes;
+import dev.px.karatsuba.client.render.CellBoxes;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.ColorSetting;
 import dev.px.core.setting.impl.EnumSetting;

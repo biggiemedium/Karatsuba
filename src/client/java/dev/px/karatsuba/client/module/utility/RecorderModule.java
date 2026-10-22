@@ -12,6 +12,8 @@ import dev.px.core.movement.timeline.TimelineJson;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.adapter.network.MinecraftPacketKind;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.io.File;
 import java.io.IOException;
@@ -90,7 +92,7 @@ public final class RecorderModule extends ClientModule {
         // Also what stops a recording resuming by itself: a module saved enabled
         // is switched on at boot, on the title screen, and lands here.
         if (!Players.present()) {
-            Core.notifications().warn("Recorder", "Join a world to record");
+            Notices.warn(Source.MODULE_MESSAGES, "Recorder", "Join a world to record");
             disable();
             return;
         }
@@ -98,7 +100,7 @@ public final class RecorderModule extends ClientModule {
         Core.timeline().setFilter(description -> keeps(description.getKind()));
         Core.timeline().begin(nextLabel);
         startedNanos = System.nanoTime();
-        Core.notifications().info("Recorder", "Recording \"" + nextLabel + "\"");
+        Notices.info(Source.MODULE_MESSAGES, "Recorder", "Recording \"" + nextLabel + "\"");
     }
 
     @Override
@@ -149,7 +151,7 @@ public final class RecorderModule extends ClientModule {
             }
         } catch (IOException failed) {
             Core.log().error("Could not write recording to " + file, failed);
-            Core.threads().sync(() -> Core.notifications().error("Recorder", "Could not save: " + failed.getMessage()));
+            Core.threads().sync(() -> Notices.error(Source.MODULE_MESSAGES, "Recorder", "Could not save: " + failed.getMessage()));
             return;
         }
 
@@ -157,7 +159,7 @@ public final class RecorderModule extends ClientModule {
                 + timeline.ofType(EntryType.CORRECTION).size() + " corrections"
                 + (timeline.getDropped() > 0 ? ", " + timeline.getDropped() + " dropped" : "");
         Core.log().info("Saved recording " + file + " (" + summary + "; " + drift + ")");
-        Core.threads().sync(() -> Core.notifications().success("Recorder", "Saved " + file.getName() + " - " + summary));
+        Core.threads().sync(() -> Notices.success(Source.MODULE_MESSAGES, "Recorder", "Saved " + file.getName() + " - " + summary));
     }
 
     private static File fileFor(String label) {

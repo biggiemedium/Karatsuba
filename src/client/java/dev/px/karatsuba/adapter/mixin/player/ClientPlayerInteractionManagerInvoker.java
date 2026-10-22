@@ -13,6 +13,8 @@ import org.spongepowered.asm.mixin.gen.Invoker;
  * hotbar item to the offhand needs the selection sent first &mdash; through this,
  * so the game's own record of what it last sent stays true and it does not send
  * a stale one later.
+ *
+ * <p>Also which block the game is partway through breaking, for {@code Digging}.
  */
 @Mixin(ClientPlayerInteractionManager.class)
 public interface ClientPlayerInteractionManagerInvoker {
@@ -27,4 +29,27 @@ public interface ClientPlayerInteractionManagerInvoker {
      */
     @Accessor("lastSelectedSlot")
     int karatsuba$getLastSelectedSlot();
+
+    /** The block being broken, while {@code isBreakingBlock()}; stale otherwise. */
+    @Accessor("currentBreakingPos")
+    net.minecraft.util.math.BlockPos karatsuba$getCurrentBreakingPos();
+
+    /** How far through the block the game is, exactly: 0 to 1, finished at 1. */
+    @Accessor("currentBreakingProgress")
+    float karatsuba$getCurrentBreakingProgress();
+
+    @Accessor("currentBreakingProgress")
+    void karatsuba$setCurrentBreakingProgress(float progress);
+
+    /**
+     * Whether the next update carries on with this block: the same position and the
+     * same main-hand stack, components (damage) and all. False means the update
+     * starts it again, START packet included.
+     */
+    @Invoker("isCurrentlyBreaking")
+    boolean karatsuba$isCurrentlyBreaking(net.minecraft.util.math.BlockPos pos);
+
+    /** Ticks left of the game's pause after each block, during which nothing is dug. */
+    @Accessor("blockBreakingCooldown")
+    int karatsuba$getBlockBreakingCooldown();
 }

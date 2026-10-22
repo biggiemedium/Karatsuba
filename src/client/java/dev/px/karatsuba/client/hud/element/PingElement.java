@@ -9,6 +9,8 @@ import dev.px.core.network.lag.LagService;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
+import dev.px.karatsuba.client.hud.preset.ColorRole;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -50,16 +52,16 @@ public final class PingElement extends StyledElement {
     protected void describe(Content body) {
         LagService lag = Core.lag();
         if (!isEditing() && showLag.isOn() && lag.isLagging()) {
-            // A lag spike is the change most worth seeing; it cues, and it is never idle.
-            watch("lag", "lag");
-            Color colour = colourByHealth.isOn() ? Health.BAD : style().value();
+            // A lag spike is the change most worth seeing, so it cues.
+            watch("lag");
+            Color colour = colourByHealth.isOn() ? tokens().color(ColorRole.BAD) : tokens().text(TextRole.VALUE);
             line(body, "Lag", String.format("%.1fs", lag.getLagMillis() / 1000d), "99.9s", 0, colour);
             return;
         }
         int ping = isEditing() ? SAMPLE : lag.getPing();
         int level = ping < 0 ? 0 : ping <= goodPing.getInt() ? 3 : ping <= badPing.getInt() ? 2 : 1;
         // By health, not by millisecond: a ping moving within "good" is not news.
-        watch(level, level);
+        watch(level);
         line(body, "Ping", ping < 0 ? "--" : ping + "ms", "999ms", level, colour(ping, level));
     }
 
@@ -78,8 +80,8 @@ public final class PingElement extends StyledElement {
 
     private Color colour(int ping, int level) {
         if (ping < 0) {
-            return style().muted();
+            return tokens().text(TextRole.SECONDARY);
         }
-        return colourByHealth.isOn() ? Health.of(level) : style().value();
+        return colourByHealth.isOn() ? health(level) : tokens().text(TextRole.VALUE);
     }
 }

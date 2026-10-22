@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.hud.HudEditor;
 import dev.px.core.hud.HudEditorView;
 import dev.px.core.hud.Placement;
+import dev.px.karatsuba.client.hud.preset.HudGlass;
 import dev.px.core.hud.SnapGuide;
 import dev.px.core.layout.Bounds;
 import dev.px.core.render.Color;
@@ -36,6 +37,8 @@ final class EditorLook {
     }
 
     static void draw(HudEditorView view, float width, float height, float readout) {
+        // A glass preset's plates, behind the elements (a solid stand-in where no pass can run).
+        HudGlass.behind(view.getPlacements());
         for (Placement placement : view.getPlacements()) {
             boolean hidden = placement.getLayout().isHidden();
             if (hidden) {

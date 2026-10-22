@@ -65,14 +65,14 @@ combination must work**):
 |---|---|---|---|
 | **Appearance** | Preset | Match GUI (default), Apple, Legacy (§1.5) | all |
 | | Accent | the theme picker, unchanged (§5b) | all |
-| | Glass | Clear, Tinted (§4.1) | Apple only |
+| | Glass | Clear, Tinted (§4.1); follows the Apple UI's Glass slider until set here | Apple only |
 | | Appearance | Auto, Light, Dark (§4.14) | Apple only |
 | | Legacy Settings… | a page of Legacy's settings (§5) | Legacy only |
 | **Accessibility** | Reduce Transparency | on, off; follows the Apple UI's by default (§1.6) | all |
 | | Increase Contrast | on, off (§2.11) | all |
 | | Text Size | Default, Large, Larger (§2.9) | all |
 | | Motion | Full, Reduced, Off (§2.10) | all |
-| **Behaviour** | In Screens, Hide with F3, Fade When Idle After, Idle Opacity, Change Cues, Avoid Vanilla HUD | §2.8 | all |
+| **Behaviour** | In Screens, Hide with F3, Change Cues, Avoid Vanilla HUD | §2.8 | all |
 
 A setting a preset does not use is hidden, not greyed.
 
@@ -83,14 +83,15 @@ and it stops following the GUI until the player chooses Match GUI again. The who
 HUD changes at once.
 
 1.6 **Accessibility settings combine freely, in every preset:**
-- **Reduce Transparency:** solid plates, and no glass passes run. It follows the
-  Apple UI's own Reduce Transparency (Apple rules §7.4) until the player sets it
-  here.
+- **Reduce Transparency:** solid plates, and no glass passes run; in Legacy,
+  which has no glass, its plates draw fully opaque. It follows the Apple UI's own
+  Reduce Transparency (Apple rules §7.4) until the player sets it here.
 - **Increase Contrast:** a visible 1px border on every plate, and everything at
   7:1 (§2.11).
-- **Text Size:** Default, Large or Larger (§2.9). In Legacy it scales the font
-  chosen in Legacy Settings.
-- **Motion:** Full, Reduced or Off (§2.10).
+- **Text Size:** Default, Large or Larger (§2.9); three steps, none below the
+  minimum. In Legacy it scales the font chosen in Legacy Settings.
+- **Motion:** Full, Reduced or Off (§2.10). It follows the Apple UI's Reduce
+  Motion (Apple rules §7.5: on means Reduced) until the player sets it here.
 
 1.7 **Settings belong to a preset or to the HUD, never to an element's drawing.**
 An element's own settings say what it shows (Ping's Quality Bars, Coordinates'
@@ -102,7 +103,7 @@ Precision). How it is drawn comes from the preset.
 1.8 **The settings pages.** Each GUI's HUD page shows, top to bottom: the
 **Appearance** card, the **Accessibility** card, the **Behaviour** card, then the
 elements. Each element's page holds its own settings, then a **Display** card
-(Align, Fade When Idle, and Custom Style in Legacy only), then Layout. Legacy
+(Align, and Custom Style in Legacy only), then Layout. Legacy
 Settings… is a page of its own, reached from Appearance.
 
 ## 2. What stays the same whatever the preset
@@ -112,8 +113,8 @@ honours them all.
 
 2.1 **Core owns geometry.** No element or preset computes a screen position.
 Anchors, offsets, scale, clamping, z-order, hit-testing and saving stay in
-`HudService`. Element ids never change: they are the config keys. (A proposed
-preset screen-edge inset is in §9.)
+`HudService`. Element ids never change: they are the config keys. No preset adds a
+screen-edge inset of its own.
 
 2.2 **Legible over any world.** Text reaches 4.5:1 against the brightest
 background its plate can show through (3:1 for large text). A see-through preset
@@ -129,16 +130,20 @@ value (`fixed`), so no box jitters.
 content changes kind, never because a number ticked over.
 
 2.6 **Alignment follows the anchor.** Right-anchored elements right-align and
-grow leftwards; centre-anchored ones centre. Per element, Align overrides it. (A
-proposed exception for Apple is in §9.)
+grow leftwards; centre-anchored ones centre. Per element, Align overrides it. (Apple's
+exception is §4.16.)
 
 2.7 **Nothing to show, nothing drawn**, and a sample in the editor so there is
 always something to grab (`isEditing()`).
 
 2.8 **Behaviour is the HUD's, not the preset's.** Dim or hide in screens, hide
-with F3, fade when idle (after Fade When Idle After, down to Idle Opacity),
-change cues, and avoiding the vanilla HUD happen the same in every preset, from
-the Behaviour card. A preset only chooses how they are drawn (Apple's in §4).
+with F3, change cues, and avoiding the vanilla HUD happen the same in every
+preset, from the Behaviour card. A preset only chooses how they are drawn
+(Apple's in §4).
+
+2.8b **Nothing fades for being idle.** An element shows until the player hides it;
+the HUD never decides on its own that something has been on screen long enough.
+An element with nothing to show draws nothing (§2.7), which is not the same.
 
 2.9 **Readable size.** Text Size **Default** already meets the minimum: body text
 at least 18px tall at 1080p at the default scale, and still whole at 200%. Large
@@ -147,9 +152,14 @@ and Larger only go up from there. Text Size applies in every preset.
 2.10 **Motion follows the Motion setting:**
 - **Full:** the preset's own motion.
 - **Reduced:** fades only; no springs, no scaling, no movement.
-- **Off:** no animation at all; every change is instant.
+- **Off:** no animation at all; every change is instant. A change cue is a steady
+  highlight that holds for the cue's time, then switches off with no fade.
 
 It replaces the old Animate switch and a separate Reduce Motion switch.
+
+**Notifications always animate.** A toast slides and fades in and out at every
+Motion setting, so one that arrives or goes is never missed; the rest of the HUD
+follows Motion.
 
 2.11 **Increase Contrast means 7:1** for every part of the HUD (text, meters,
 borders and icons), and a visible 1px border on every plate.
@@ -164,6 +174,18 @@ stay still.
 - **Open-ended text** (packet names, server strings) only appears in elements
   meant to be read deliberately, such as Debug; never in glanceable ones.
 
+2.13b **The player chooses which notifications show.** Every notification comes
+from a source (`client/notify/Notices`): **Module Toggles** (a module switched on
+or off), **Module Messages** (what a module reports: Auto Totem, Elytra Swap,
+Recorder...), **Tasks** (automation finishing, failing, stopping), **Server**
+(lag, server software, anticheat) and **Client** (profiles, config, accounts,
+updates, the interface switch). The Notifications element's **Show** group has a
+switch for each; a source switched off posts nothing. Prompts the player must act
+on (signing in, a browser that would not open) always show.
+
+2.14 **No italics in any preset.** No element draws italic text, and the Font
+  menu offers no italic-only fonts.
+
 ## 3. Roles: what elements describe
 
 3.1 Every element extends `StyledElement` and writes `describe(body)` with its
@@ -176,8 +198,8 @@ draw them.
 | Kind | Roles |
 |---|---|
 | **Text** | primary, secondary, tertiary (inactive things only), value (fixed-width), title, subtitle |
-| **Colour** | accent, meterFill, meterTrack, good, fair, bad, separator |
-| **Structure** | icon, iconWell, toggleOn, track (a thick rounded progress bar), titleBlock |
+| **Colour** | accent, meterFill, meterTrack, good, fair, bad, separator; listItem (the colour of the n-th entry in a ranked list, such as ArrayList's) |
+| **Structure** | icon, iconWell, toggleOn, track (a thick rounded progress bar), titleBlock; categoryMarker (which of a small fixed set something is: a notification's info, success, warning or error, §2.13); listMarker (the enabled-module indicator beside a list item) |
 
 The `label` helper produces a label. "Label in the accent" is **Legacy's mapping**
 of that role, not the role itself: Apple draws labels as secondary text (§4.8).
@@ -194,6 +216,9 @@ mapped by each preset, before the second preset ships.
 radar) asks the preset for its roles inside its custom part, so it still changes
 with the preset.
 
+3.6 **Debug is exempt.** It stays a plain dev readout, drawn as Legacy draws, in
+every preset.
+
 ## 4. The Apple preset
 
 The HUD as the Apple UI draws it, after Apple's WWDC25 sessions "Meet Liquid
@@ -207,6 +232,8 @@ specular rim, light tint (Apple rules §6).
 - The **Glass** setting picks between two opacity levels of that Regular glass,
   in Apple's own words: **Clear** (the lighter level) and **Tinted**, which raises
   the opacity floor and mutes the rim. Neither is the Clear variant.
+- Until the player sets it here, Glass follows the Apple UI's own Glass slider
+  (Apple rules §7.3): Tinted from halfway up, Clear below.
 
 4.2 **Glass follows the element's scale.** The host draws each plate's glass at the
 element's scaled screen bounds, and scales the radius, rim and highlight by the
@@ -237,13 +264,13 @@ colour.
 - Vibrancy levels: primary, secondary, tertiary. Tertiary is only for inactive
   things, and there is never a fourth, lower level on glass.
 - **Labels are secondary** (muted white); **values are primary.**
-- Sizes are scaled by Text Size (§1.6).
-- SF Pro's licence must be checked before it ships in a public client (§9).
+- The Apple preset has its own padding and type sizes, not Legacy's, scaled by
+  Text Size (§1.6).
 
 4.9 **Three kinds of shape:**
 - **Fixed radius** (`R_HUD_TILE`) for tiles with several rows.
-- **Capsule** (radius half the height) for single-row standout elements: the
-  Watermark, Connection, notification toasts.
+- **Capsule** (radius half the height) for every single-row element: the
+  Watermark, TPS, Ping, a notification toast.
 - **Concentric** (the parent's radius less the padding) for anything nested, with
   a fallback radius when it stands alone.
 
@@ -254,17 +281,28 @@ and separators. The material goes on the plate, never on its inner parts.
 
 4.11 **Icons** only where they are clear at once; otherwise a text label. One icon
 per concept, never tweaked variants of it. An original glyph set, not SF Symbols
-assets.
+assets (`preset/HudGlyphs`). Today that is the categoryMarker's four: info (an i),
+success (a tick), warning (an exclamation mark), error (a cross), each in a rounded
+well tinted by its category's colour, the glyph in that colour.
+
+4.11b **Notifications** are a capsule each: the category marker, the title in
+primary text, semibold, and the message under it in primary text, regular. No
+countdown line. The list items of ArrayList each carry the listMarker, a small
+dot in the accent.
 
 4.12 **Motion** (at Motion: Full; §2.10 for Reduced and Off): a soft, gel-like
-spring.
+spring, damped to overshoot by about 2% (the Apple rules' limit, §8.1 there).
 - Elements arrive from their source: a notification springs in from its anchor
-  edge, and a new row expands from where it sits.
-- The change cue (§2.8) is a brief brightening of the rim.
+  edge, and a new row expands from where it sits (the plate springs to its new
+  size).
+- The change cue (§2.8) is a brief brightening of the rim, not of the text. With
+  solid plates (Reduce Transparency, Increase Contrast) there is no rim, so the
+  text lights as Legacy's does.
 - Values never animate (§2.5).
 
-4.13 **Focus:** when a game screen opens, HUD glass recedes and turns more opaque.
-This is how the Apple preset draws §2.8's "dim in screens".
+4.13 **In screens:** when a game screen opens (In Screens: Dim), the whole element,
+glass and text alike, dims as Legacy's does (§2.8). (A receding glass, more opaque
+and flatter, was tried on 2026-10-17 and dropped at the developer's request.)
 
 4.14 **Appearance** (Auto, Light, Dark). **Auto:** single-row capsules switch
 light or dark by themselves from what is behind them, with hysteresis so they
@@ -273,6 +311,11 @@ never flicker; tiles with several rows follow the Apple UI's appearance setting
 
 4.15 **Editor chrome** (§7; Apple plan step 15): elements at full quality, an
 accent glow on the selected element, and a circular minus badge to hide one.
+
+4.16 **Text is left-aligned inside a plate**, whatever the anchor, as Control
+Center's tiles are; the anchor still decides which way the plate grows. ArrayList
+keeps anchor alignment. Each element's Align setting is hidden in Apple, except
+ArrayList's.
 
 ## 5. The Legacy preset
 
@@ -285,12 +328,17 @@ Today's drawing, kept as it is, as a preset:
   Legacy's only**; other presets map the label role their own way (§3.2);
 - its good, fair and bad colour roles are today's `element/Health` colours
   (§3.4);
-- ArrayList's Tint (§1.7).
+- ArrayList's Tint (§1.7): Legacy's answer to the listItem role, a gradient
+  through the theme's accents or one of its text colours. Presets without a Tint
+  draw list items as primary text;
+- notifications as they are: the categoryMarker is a coloured edge bar (colour
+  plus shape), the title in the category's colour, the message in white, and a
+  countdown line along the bottom. Category colours are Core's notification
+  colours. No listMarker.
 
 Its settings live on the **Legacy Settings…** page (Plate, Text, ArrayList, and a
 Reset), shown from Appearance only while Legacy is the preset, and in each
-element's Custom Style (§9). Whether its Font menu keeps the italic-only fonts
-depends on the no-italics proposal (§9).
+element's Custom Style (§9). Its Font menu offers no italic-only fonts (§2.14).
 
 ## 5b. Accent themes
 
@@ -299,9 +347,17 @@ depends on the no-italics proposal (§9).
 
 5b.2 **Every theme gets checked variants, adjusted automatically until they pass**,
 never rejected:
-- the accent on glass: 3:1 at the glass's brightest;
-- the accent on the white toggleOn well: 3:1;
-- the accent on a Legacy plate: 3:1.
+- the accent on glass: 3:1 at the glass's brightest, which is Clear glass over a
+  white world;
+- the accent on the white toggleOn well: 3:1 (the same pair as a white knob on an
+  accent fill, since contrast is symmetric);
+- the accent on a Legacy plate: 3:1 against the plate made opaque. Only while
+  Label Colour follows the theme: a colour the player picked is theirs.
+
+Each variant is the theme's first colour moved toward black or white until it
+passes (`preset/Accents`); a theme that already passes is unchanged. Where the
+accent is text (Legacy's labels, ArrayList's names) it reaches §2.2's 4.5:1
+instead, since text needs more than a fill does.
 
 5b.3 **The accent is never the only signal of state** (§2.3), so near-white and
 low-saturation accents still work.
@@ -320,9 +376,27 @@ alone unless this file says otherwise.
 
 ## 7. Editing
 
-7.1 Each GUI keeps its own HUD page and Layout editor. The Apple UI gets its own
-editor (Apple plan step 15: the Edit HUD pill, glass tiles, snap guides and undo),
-with the Apple preset's editor chrome (§4.15). The Classic editor stays as it is.
+7.1 Each GUI keeps its own HUD page and editor. The Classic editor stays as it is.
+
+7.1b **The Apple UI's HUD page** is rebuilt as Tahoe pages, like Settings and
+Friends: a list page (a card of HUD Settings and Legacy Settings…, then a card of
+the elements, each with its Shown switch and a ›), and each pushed in: HUD Settings
+as its Appearance, Accessibility and Behaviour cards; Legacy Settings as its Plate,
+Text and ArrayList cards with a two-press Reset below; an element as its own
+settings, its Display card and a Layout card, with "Edit on Screen…" below. The
+Edit HUD pill (Apple rules §10.1) sits below the list.
+
+7.1c **The Apple editor replaces the Layout section** in the Apple UI (Apple plan
+step 15), opened by the Edit HUD pill, an element's "Edit on Screen…" or Ctrl+E:
+- elements drawn at full quality in the active preset, glass and all;
+- the selected element ringed by an accent glow;
+- a circular minus badge at a shown element's corner hides it; a hidden element
+  stays on screen faint, with a circular plus badge that shows it again;
+- dragged by the element itself, with snap guides to the screen's edges and
+  centre and to other elements (hold Alt to skip), the corner to scale, and the
+  Classic editor's keys (arrows nudge, Ctrl+Z and Ctrl+Y undo and redo, Escape
+  steps back);
+- a glass toolbar pill at the bottom centre: Undo, Redo, Snap, Reset All, Done.
 
 7.2 An element looks the same in the editor as over the game, in the active
 preset, plus the editor's own outlines and guides.
@@ -378,31 +452,31 @@ settled.
 - **Custom Style:** survives for Legacy only, and is hidden in Apple, whose
   thickness follows size (§1.8, §4.4).
 
+**Settled 2026-10-17:**
+- **Text Size:** three steps (Default, Large, Larger); none below §2.9's minimum.
+  A compact HUD comes from each element's Scale instead.
+- **No italics** in any preset (§2.14); Legacy's Font menu drops Inter Italic and
+  Roboto Italic, and a profile set to one falls back to Default.
+- **Reduce Transparency in Legacy:** fully opaque plates (§1.6).
+- **Motion and the Apple UI:** Motion follows the Apple UI's Reduce Motion until
+  set here; under Off a cue is a steady highlight (§1.6, §2.10).
+- **HUD Glass:** the HUD's own Clear/Tinted, following the Apple UI's Glass slider
+  until set here (§1.4, §4.1).
+- **Apple sizing:** its own padding and type sizes, scaled by Text Size (§4.8).
+- **Apple alignment:** left-aligned text inside a plate, ArrayList excepted (§4.16).
+- **Debug:** exempt from presets (§3.6).
+- **Capsules:** every single-row element, not a Connection element (§4.9).
+- **No screen-edge inset:** Core's clamping stays as it is (§2.1).
+- **No idle fade:** Fade When Idle, Fade When Idle After and Idle Opacity are gone;
+  an element shows until the player hides it (§2.8b).
+
 **Open:**
-- **Text Size:** whether there is a fourth, smaller step for a compact HUD, given
-  that Default is already the §2.9 minimum.
 - **Grouping mechanism:** what replaces stacks: snapping elements into shared
   plates, layout groups that move together, a few fixed panels, or nothing?
 - **Other presets:** is a third wanted now, or just room for one?
-- **SF Pro's licence** must be checked before it ships in a public client.
-- **Legacy's italic fonts:** depends on the no-italics proposal below.
 
 **Proposed:**
 - **Per element:** the preset is HUD-wide. There is no per-element preset.
-- **Apple sizing:** the Apple preset uses its own padding and type sizes, not
-  Legacy's, scaled by Text Size.
-- **Debug:** stays a plain dev readout, exempt from presets.
-- **Screen-edge inset:** a preset may define a distance from the screen's edges
-  that Core's clamping respects. This touches §2.1 (Core owns geometry), so it
-  needs a Core change and is not yet a rule.
-- **No italics in any preset.** No element draws italics today, but Legacy's Font
-  list offers italic-only bundled families (Inter Italic, Roboto Italic), so a
-  Legacy player can choose one. Settling this means Legacy Settings' Font menu
-  stops offering them, which §5's "kept as it is" would have to allow.
-- **Apple alignment** (changes §2.6 for Apple only): text inside a plate is
-  left-aligned whatever the anchor, as Control Center's tiles are. The anchor still
-  decides which way the plate grows. If settled, Align is hidden in Apple except on
-  ArrayList, which may keep anchor alignment.
 - **Grouping drawing:** whatever replaces stacks draws one plate per group. In
   Apple, the items inside are divided by separators or flat translucent fills,
   never nested glass. The mechanism stays open (above).

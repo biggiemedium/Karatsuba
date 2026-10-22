@@ -7,6 +7,8 @@ import dev.px.core.account.AuthResult;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.concurrent.GameThread;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -160,11 +162,11 @@ public final class Accounts {
             return;
         }
         if (signingIn) {
-            Core.notifications().warn("Accounts", "A sign-in is already running");
+            Notices.warn(Source.CLIENT, "Accounts", "A sign-in is already running");
             return;
         }
         signingIn = true;
-        Core.notifications().info("Accounts", announce(account));
+        Notices.info(Source.CLIENT, "Accounts", announce(account));
 
         Core.accounts().login(account, GameThread.marshal(result -> complete(account, result)));
     }
@@ -180,11 +182,11 @@ public final class Accounts {
         signingIn = false;
 
         if (!result.isSuccessful()) {
-            Core.notifications().error("Accounts", result.getMessage());
+            Notices.error(Source.CLIENT, "Accounts", result.getMessage());
             return;
         }
         Core.accounts().applySession(result.getSession());
-        Core.notifications().success("Accounts", "Signed in as " + result.getSession().getUsername());
+        Notices.success(Source.CLIENT, "Accounts", "Signed in as " + result.getSession().getUsername());
 
         // Two things worth keeping changed during that call and neither posts a
         // setting change: the last-used timestamp Core stamps on success, and the

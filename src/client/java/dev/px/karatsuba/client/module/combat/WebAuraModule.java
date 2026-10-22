@@ -29,7 +29,7 @@ import dev.px.karatsuba.adapter.combat.Combat;
 import dev.px.karatsuba.adapter.combat.CombatKit;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Players;
-import dev.px.karatsuba.client.module.combat.render.CellBoxes;
+import dev.px.karatsuba.client.render.CellBoxes;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.Action;
 import dev.px.karatsuba.client.service.action.Outcome;

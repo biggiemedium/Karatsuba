@@ -11,6 +11,7 @@ import dev.px.core.render.Render;
 import dev.px.gui.render.WidgetRenderer;
 import dev.px.gui.render.WidgetRendererRegistry;
 import dev.px.karatsuba.client.gui.apple.shell.rail.Glyph;
+import dev.px.karatsuba.client.gui.apple.shell.section.hud.ElementRow;
 import dev.px.karatsuba.client.gui.apple.shell.section.modules.ModuleRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.ActionRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.AnchorRow;
@@ -74,6 +75,16 @@ final class SettingLook {
                     r.space(2f, 0f).custom(6f, 9f, (x, y, w, h) -> Glyphs.draw(Glyph.FORWARD, x - 1.5f, y, h,
                             LABEL_TERTIARY.get()));
                 }
+            });
+        }));
+
+        // A HUD element in its card: its name, its Shown switch, and a › for its page (hud/DESIGN.md §7.1b).
+        look.register(WidgetRenderer.of(ElementRow.class, (row, c) -> {
+            float knob = row.knob();
+            line(row, c, r -> {
+                r.custom("switch", SWITCH_WIDTH, SWITCH_HEIGHT, (x, y, w, h) -> toggle(x, y, w, h, knob));
+                r.space(2f, 0f).custom(6f, 9f, (x, y, w, h) -> Glyphs.draw(Glyph.FORWARD, x - 1.5f, y, h,
+                        LABEL_TERTIARY.get()));
             });
         }));
 

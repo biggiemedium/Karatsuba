@@ -46,6 +46,14 @@ public final class NanoVGFont implements Font {
         this.retainedData = retainedData;
     }
 
+    /**
+     * @return the same face at {@code newSize}: the loaded typeface is size-free in
+     *         NanoVG, so this shares its handle and its data rather than loading again
+     */
+    public NanoVGFont resized(float newSize) {
+        return new NanoVGFont(context, name + "@" + newSize, newSize, handle, retainedData);
+    }
+
     /** @return whether a typeface actually loaded; false means every draw is dropped. */
     public boolean isValid() {
         return handle != NO_HANDLE;

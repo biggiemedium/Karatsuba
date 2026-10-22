@@ -21,6 +21,7 @@ import dev.px.karatsuba.client.gui.stable.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.stable.shell.style.Palette;
 import dev.px.karatsuba.client.setting.ChoiceSetting;
 import dev.px.karatsuba.client.setting.ItemSetting;
+import dev.px.karatsuba.client.setting.SettingLabels;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,7 +127,7 @@ public final class SettingList {
         if (!first) {
             into.add(new Spacer(Palette.GAP_SECTION)).visibleWhen(group::isVisible);
         }
-        into.add(new SectionHeader(group.getName(), group));
+        into.add(new SectionHeader(SettingLabels.of(group), group));
         Fold fold = into.add(new Fold(group::isExpanded));
         fold.gap(Palette.GAP_ROW);
         fold.visibleWhen(() -> group.isVisible() && fold.showing());

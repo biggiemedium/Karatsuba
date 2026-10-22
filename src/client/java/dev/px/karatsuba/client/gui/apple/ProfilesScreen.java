@@ -7,6 +7,8 @@ import dev.px.gui.legacy.Panel;
 import dev.px.gui.legacy.Screen;
 import dev.px.core.render.Render;
 import dev.px.karatsuba.client.gui.apple.component.Button;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * Switches between saved config profiles.
@@ -38,13 +40,13 @@ public final class ProfilesScreen extends Screen {
         for (String profile : Core.config().listProfiles()) {
             body.add(new Button(profile, () -> {
                 Core.config().load(profile);
-                Core.notifications().success("Profiles", "Loaded " + profile);
+                Notices.success(Source.CLIENT, "Profiles", "Loaded " + profile);
             }).tooltip("Load " + profile));
         }
 
         body.add(new Button("Save current", () -> {
             Core.config().save();
-            Core.notifications().success("Profiles", "Saved");
+            Notices.success(Source.CLIENT, "Profiles", "Saved");
             rebuild();
         }));
 

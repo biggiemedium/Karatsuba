@@ -8,9 +8,9 @@ import dev.px.core.math.Vec3;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.karatsuba.adapter.game.player.Players;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
-import java.util.List;
 
 /**
  * Where the player is, in three rows or on one line.
@@ -42,8 +42,6 @@ public final class CoordinatesElement extends StyledElement {
     @Override
     protected void describe(Content body) {
         Vec3 at = isEditing() ? SAMPLE : Players.position();
-        // Moving to another block is a change; standing still is idle. Coordinates never cue.
-        watch(List.of((long) Math.floor(at.getX()), (long) Math.floor(at.getY()), (long) Math.floor(at.getZ())), null);
         if (arrangement.get() == Arrangement.INLINE) {
             body.row(row -> {
                 row.align(Align.CENTER);
@@ -72,7 +70,7 @@ public final class CoordinatesElement extends StyledElement {
             label(row, name);
             row.space(LABEL_GAP, 0f);
         }
-        fixed(row, format(value), widest(), style().value());
+        fixed(row, format(value), widest(), TextRole.VALUE);
     }
 
     private String format(double value) {

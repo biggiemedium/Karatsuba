@@ -5,6 +5,8 @@ import dev.px.karatsuba.adapter.screen.OverlayHost;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.settings.ClientSettings;
 import dev.px.karatsuba.client.settings.gui.GuiSettings;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * The overlay catalogue: everything the client puts on screen.
@@ -89,7 +91,7 @@ public final class Overlays {
         if (wasOpen) {
             active().open(null);
         } else {
-            Core.notifications().info("Interface", next == GuiSettings.Style.APPLE ? "Apple" : "Classic");
+            Notices.info(Source.CLIENT, "Interface", next == GuiSettings.Style.APPLE ? "Apple" : "Classic");
         }
     }
 

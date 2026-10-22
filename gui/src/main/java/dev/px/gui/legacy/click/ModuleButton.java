@@ -94,7 +94,9 @@ public final class ModuleButton extends Panel {
 
         c.row(row -> {
             row.grow().padding(GuiStyle.padding(), 0f).align(Align.CENTER);
-            row.text(module.getDisplayName(), GuiStyle.textMuted().lerp(GuiStyle.text(), progress));
+            // The name alone: a module's display info (a mode, a speed, a target)
+            // changes every tick and belongs to the ArrayList, not a settings list.
+            row.text(module.getName(), GuiStyle.textMuted().lerp(GuiStyle.text(), progress));
             row.fill();
             if (hasSettings()) {
                 float dot = 2f;

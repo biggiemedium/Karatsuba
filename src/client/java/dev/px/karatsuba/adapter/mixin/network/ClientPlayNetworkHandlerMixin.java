@@ -6,10 +6,12 @@ import dev.px.karatsuba.adapter.event.game.network.WeatherEvent;
 import dev.px.karatsuba.adapter.event.game.network.WorldTimeEvent;
 import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
 import dev.px.karatsuba.adapter.event.game.player.ServerTeleportEvent;
+import dev.px.karatsuba.adapter.movement.EntityPush;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.ExplosionS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket;
 import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
@@ -64,7 +66,12 @@ public abstract class ClientPlayNetworkHandlerMixin {
     private void karatsuba$onEntityVelocityUpdate(EntityVelocityUpdateS2CPacket packet,
                                                   CallbackInfo callback) {
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
-        if (!Events.isArmed() || player == null || packet.getEntityId() != player.getId()) {
+        if (player == null || packet.getEntityId() != player.getId()) {
+            return;
+        }
+        // Whatever a handler does with it, the server set this motion, not a push.
+        EntityPush.serverVelocity();
+        if (!Events.isArmed()) {
             return;
         }
 
@@ -82,6 +89,14 @@ public abstract class ClientPlayNetworkHandlerMixin {
             player.setVelocityClient(scaled.getX(), scaled.getY(), scaled.getZ());
             callback.cancel();
         }
+    }
+
+    /** An explosion's knockback is the server's motion too; see {@link EntityPush#serverVelocity}. */
+    @Inject(method = "onExplosion",
+            at = @At(value = "INVOKE", shift = At.Shift.AFTER,
+                    target = "Lnet/minecraft/network/NetworkThreadUtils;forceMainThread(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/listener/PacketListener;Lnet/minecraft/util/thread/ThreadExecutor;)V"))
+    private void karatsuba$onExplosion(ExplosionS2CPacket packet, CallbackInfo callback) {
+        EntityPush.serverVelocity();
     }
 
     /**
@@ -160,6 +175,7 @@ public abstract class ClientPlayNetworkHandlerMixin {
     /** After it is set and confirmed, so the event reports where the player actually ended up. */
     @Inject(method = "onPlayerPositionLook", at = @At("TAIL"))
     private void karatsuba$afterPositionLook(PlayerPositionLookS2CPacket packet, CallbackInfo callback) {
+        EntityPush.serverVelocity();
         Vec3 from = karatsuba$teleportFrom;
         karatsuba$teleportFrom = null;
         ClientPlayerEntity player = MinecraftClient.getInstance().player;

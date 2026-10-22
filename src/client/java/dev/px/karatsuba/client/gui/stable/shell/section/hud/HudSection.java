@@ -8,6 +8,7 @@ import dev.px.core.setting.SettingHolder;
 import dev.px.gui.Widget;
 import dev.px.gui.container.Row;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.hud.preset.HudPresets;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.gui.stable.shell.Section;
@@ -19,8 +20,11 @@ import dev.px.karatsuba.client.gui.stable.shell.frame.SmoothScroll;
 import dev.px.karatsuba.client.gui.stable.shell.frame.Spacer;
 import dev.px.karatsuba.client.gui.stable.shell.rail.Glyph;
 import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
+import dev.px.karatsuba.client.gui.stable.shell.section.themes.ThemesSection;
 import dev.px.karatsuba.client.gui.stable.shell.setting.ActionRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.AnchorRow;
+import dev.px.karatsuba.client.gui.stable.shell.setting.ChoiceRow;
+import dev.px.karatsuba.client.gui.stable.shell.setting.InfoRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.SettingList;
 import dev.px.karatsuba.client.gui.stable.shell.setting.SwitchRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.ValueRow;
@@ -42,6 +46,11 @@ import java.util.List;
  * chosen element's own settings and its place on screen beside them, laid out
  * exactly as the modules are.
  *
+ * <p>First in the list is HUD Settings ({@code hud/DESIGN.md} §1.4, §1.8): the
+ * Appearance card (the Preset, the accent, and Legacy Settings… while Legacy
+ * draws), then Accessibility, then Behaviour. Legacy Settings is a page of its
+ * own, reached from Appearance.
+ *
  * <p>Where an element sits is set here by numbers (anchor, scale, lock, order)
  * or by hand in the {@link LayoutSection} editor, entered from the button under
  * the list or from an element's "Edit on screen". Both edit the same layout.
@@ -50,8 +59,15 @@ public final class HudSection implements Section {
 
     public static final String ID = "hud";
 
-    /** What {@link #lastSelected} holds while the HUD Style is chosen rather than an element. */
-    private static final String STYLE = "#style";
+    /** What the inspector shows: the HUD-wide settings, Legacy's settings, or one element. */
+    private enum Page { SETTINGS, LEGACY, ELEMENT }
+
+    /** What {@link #lastSelected} holds while a settings page is shown rather than an element. */
+    private static final String SETTINGS = "#settings";
+    private static final String LEGACY = "#legacy";
+
+    /** How long "Reset Legacy Settings" waits for its confirming second press. */
+    private static final long CONFIRM_MILLIS = 3000L;
 
     /** The element last chosen, across openings, and for the editor to start on. */
     private static String lastSelected;
@@ -65,9 +81,9 @@ public final class HudSection implements Section {
 
     private HudElement selected;
     private HudElement built;
-    private boolean styleSelected;
-    private boolean builtStyle;
-    private boolean firstBuild = true;
+    private Page page = Page.ELEMENT;
+    private Page builtPage;
+    private long resetArmedAt;
 
     public HudSection(Shell shell) {
         this.shell = shell;
@@ -82,14 +98,15 @@ public final class HudSection implements Section {
         SmoothScroll rows = list.add(new SmoothScroll());
         rows.gap(Palette.GAP_ROW);
         rows.grow(1f);
-        // The style every element inherits, first: it is where a HUD's look starts.
-        rows.add(new NavItem("Style", () -> "All elements", () -> styleSelected, this::selectStyle))
-                .tooltip("The panel, colours and text protection every element uses unless it has its own");
+        // How the whole HUD is drawn, first: it is where a HUD's look starts.
+        rows.add(new NavItem("HUD Settings", () -> HudPresets.active().name() + " preset",
+                () -> page != Page.ELEMENT, this::showSettings))
+                .tooltip("The preset, accessibility and behaviour of every element");
         rows.add(new Spacer(Palette.GAP_ROW));
         for (HudElement element : elements) {
             rows.add(new ListItem(element::getDisplayName, null,
                     () -> isShown(element), () -> toggleShown(element),
-                    () -> !styleSelected && element == selected, () -> select(element)));
+                    () -> page == Page.ELEMENT && element == selected, () -> select(element)));
         }
         Row bulk = list.add(new Row().gap(Palette.GAP_ROW));
         bulk.add(new TextButton("Show all", () -> false, () -> setAllShown(true)));
@@ -99,7 +116,7 @@ public final class HudSection implements Section {
                 () -> shell.show(LayoutSection.ID)))
                 .tooltip("Move and scale the elements on screen    Ctrl+E");
 
-        // ---- the chosen element
+        // ---- the chosen element, or a settings page
         this.inspector = content.add(new SettingsColumn(paneReveal));
         inspector.gap(Palette.GAP_ROW * 2f);
         inspector.grow(1f);
@@ -107,7 +124,7 @@ public final class HudSection implements Section {
 
         HudElement start = lastSelected == null ? null : Core.hud().find(lastSelected).orElse(null);
         selected = start != null ? start : elements.isEmpty() ? null : elements.get(0);
-        styleSelected = STYLE.equals(lastSelected);
+        page = SETTINGS.equals(lastSelected) ? Page.SETTINGS : LEGACY.equals(lastSelected) ? Page.LEGACY : Page.ELEMENT;
     }
 
     /** Makes {@code id} the chosen element: the editor hands back what was selected there. */
@@ -156,28 +173,51 @@ public final class HudSection implements Section {
     public void tick() {
         float squeeze = Math.max(0f, Math.min(1f, (Palette.FRAME_WIDTH - shell.windowWidth()) / 280f));
         list.width(Palette.LIST_WIDTH + 14f - 36f * squeeze);
-        if (built != selected || builtStyle != styleSelected || firstBuild) {
+        // Legacy Settings only while Legacy draws: a page for another preset's look would mislead.
+        if (page == Page.LEGACY && HudPresets.active() != HudPresets.LEGACY) {
+            page = Page.SETTINGS;
+        }
+        if (built != selected || builtPage != page) {
             rebuild();
         }
         settings.refresh();
     }
 
+    /** Escape on Legacy Settings goes back to HUD Settings. */
+    @Override
+    public boolean back() {
+        if (page == Page.LEGACY) {
+            showSettings();
+            return true;
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------- internals
 
-    private void selectStyle() {
-        if (!styleSelected) {
+    private void showSettings() {
+        show(Page.SETTINGS, SETTINGS);
+    }
+
+    private void showLegacy() {
+        resetArmedAt = 0L;
+        show(Page.LEGACY, LEGACY);
+    }
+
+    private void show(Page shown, String remembered) {
+        if (page != shown) {
             paneReveal.start();
         }
-        styleSelected = true;
-        lastSelected = STYLE;
+        page = shown;
+        lastSelected = remembered;
     }
 
     private void select(HudElement element) {
-        if (element != selected || styleSelected) {
+        if (element != selected || page != Page.ELEMENT) {
             paneReveal.start();
         }
         selected = element;
-        styleSelected = false;
+        page = Page.ELEMENT;
         lastSelected = element == null ? null : element.getId();
     }
 
@@ -212,17 +252,20 @@ public final class HudSection implements Section {
         return count;
     }
 
-    /** Fills the inspector for the chosen element; only when the choice changes. */
+    /** Fills the inspector for what is chosen; only when the choice changes. */
     private void rebuild() {
-        firstBuild = false;
         built = selected;
-        builtStyle = styleSelected;
+        builtPage = page;
         inspector.clear();
         settings.clear();
-        if (styleSelected) {
-            buildStyle();
-            return;
+        switch (page) {
+            case SETTINGS -> buildSettings();
+            case LEGACY -> buildLegacy();
+            case ELEMENT -> buildElement();
         }
+    }
+
+    private void buildElement() {
         if (selected == null) {
             inspector.add(new Caption("No HUD elements"));
             return;
@@ -276,20 +319,67 @@ public final class HudSection implements Section {
                 new ActionRow.Action("Edit on screen", () -> shell.show(LayoutSection.ID)))));
     }
 
-    /** Fills the inspector with the HUD Style: what every element looks like unless it has its own. */
-    private void buildStyle() {
-        inspector.add(new SectionTitle("HUD Style", () -> "Every element, unless it has Custom Style on"));
+    /** HUD Settings: Appearance, then Accessibility, then Behaviour (§1.8). */
+    private void buildSettings() {
+        HudStyle hud = HudStyle.get();
+        inspector.add(new SectionTitle("HUD Settings", () -> "Every element, drawn by the "
+                + HudPresets.active().name() + " preset"));
         inspector.add(new Spacer(Palette.INSET - Palette.GAP_ROW * 2f));
         SmoothScroll rows = inspector.add(new SmoothScroll());
         rows.gap(Palette.GAP_ROW);
         rows.grow(1f);
-        settings.build(HudStyle.get(), rows);
+
+        rows.add(new SectionHeader("Appearance", null));
+        rows.add(ChoiceRow.of(hud.presetSetting()));
+        // Apple only (§1.4): each row hides with its setting while another preset draws.
+        rows.add(ChoiceRow.of(hud.glassSetting()));
+        rows.add(ChoiceRow.of(hud.appearanceSetting()));
+        rows.add(new InfoRow("Accent", () -> Core.themes().getActive().getName(), "Themes…",
+                () -> shell.show(ThemesSection.ID))
+                .describe("The theme's colour, shared with the GUI"));
+        rows.add(new InfoRow("Legacy Settings", () -> "Plate, text and ArrayList", "Open…", this::showLegacy)
+                .describe("How the Legacy preset draws every element"))
+                .visibleWhen(() -> HudPresets.active() == HudPresets.LEGACY);
         rows.add(new Spacer(Palette.GAP_SECTION));
-        rows.add(new Caption("Every element sits on the plate. Each element's Style group can give it"
-                + " its own panel, colours and font instead (Custom Style)."));
+        settings.build(List.<Setting<?>>of(hud.accessibilityGroup(), hud.behaviourGroup()), null, rows, "General");
     }
 
-    /** @return an element's settings with its Style group moved last, after what is particular to it */
+    /** Legacy Settings: the plate, text and ArrayList settings the Legacy preset draws with, and a Reset (§5). */
+    private void buildLegacy() {
+        HudStyle hud = HudStyle.get();
+        inspector.add(new SectionTitle("Legacy Settings", () -> "How the Legacy preset draws every element"));
+        inspector.add(new Spacer(Palette.INSET - Palette.GAP_ROW * 2f));
+        SmoothScroll rows = inspector.add(new SmoothScroll());
+        rows.gap(Palette.GAP_ROW);
+        rows.grow(1f);
+        rows.add(new TextButton("‹ HUD Settings", () -> false, this::showSettings));
+        rows.add(new Spacer(Palette.GAP_ROW));
+        settings.build(new ArrayList<Setting<?>>(hud.legacyGroups()), null, rows, "General");
+        rows.add(new Spacer(Palette.GAP_SECTION));
+        rows.add(new Caption("An element's Display group can give it its own plate, colours and font"
+                + " instead (Custom Style)."));
+        rows.add(new Spacer(Palette.GAP_ROW));
+        Row foot = rows.add(new Row());
+        foot.add(new PillButton(Glyph.RESET, "Reset Legacy Settings", false, PillButton.Style.PLAIN, null, null,
+                this::resetLegacy).labelledBy(() -> armed() ? "Click again to reset" : "Reset Legacy Settings"));
+    }
+
+    /** Resets Legacy's settings on a second press within three seconds. */
+    private void resetLegacy() {
+        if (armed()) {
+            resetArmedAt = 0L;
+            HudStyle.get().resetLegacy();
+            AutoSave.markDirty();
+        } else {
+            resetArmedAt = System.currentTimeMillis();
+        }
+    }
+
+    private boolean armed() {
+        return resetArmedAt != 0L && System.currentTimeMillis() - resetArmedAt < CONFIRM_MILLIS;
+    }
+
+    /** @return an element's settings with its Display group moved last, after what is particular to it */
     private static List<Setting<?>> ordered(SettingHolder holder) {
         List<Setting<?>> list = new ArrayList<>(holder.getSettings());
         if (holder instanceof StyledElement styled && list.remove(styled.styleGroup())) {

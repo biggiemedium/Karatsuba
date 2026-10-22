@@ -66,7 +66,7 @@ moves and composes like a task while staying a toggle. The task system itself
 | Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Surround, Velocity, Web Aura |
 | Movement | Elytra Fly (Bounce, Firework), Parkour, Safe Walk, Speed, Sprint, Step |
 | Building | Scaffold |
-| Mining | Auto Tool |
+| Mining | Auto Tool, Ender Chest Farmer, Smart Mine |
 | Inventory | Elytra Swap, Inventory Manager, XCarry |
 | Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search, Shaders |
 | Utility | Anti AFK, Anti Hunger, Anti Sound, Auto Eat, Fake Player, Middle Click, Recorder |
@@ -157,6 +157,34 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Mining
 
+- **Smart Mine** · done (was Auto Mine) (needs in-game testing, then the Grim dev server). Left click queues
+  a block and right click on a queued block unqueues it, neither reaching the server
+  (`ClickEvent`, `ClickMixin`); Cancel Animation (default on) also skips the
+  arm swing, so no one sees the click. Select VEIN marks the whole touching vein
+  (deepslate variants folded in, Vein Limit). It mines the nearest (or first-marked)
+  queued block that is in reach and in sight. It uses a silent rotation, and digs only
+  while the rotation the server has lands on the block. The best tool is held openly
+  and must be in hand before the start. Breaking goes through the new
+  `adapter.game.player.Digging`: vanilla's `updateBlockBreakingProgress` called from
+  `handleBlockBreaking` (`BlockBreakingMixin`), so the speed, packets, swing and 5-tick
+  pause are the game's. It pauses (no packet, progress kept) in a tick where
+  `ActionService` sent something. While it is on, holding the attack key never digs by
+  hand (`Digging.holdOffHand`). Queued blocks draw as `CellBoxes`; the one being mined grows from
+  its middle with eased progress, Start to Finish colour (`smartmine/MiningBox`, after
+  Shoreline's Speed Mine). Queued blocks past Dissolve Range drop out. It steps aside
+  (no claims, vanilla clicks) when you pick a slot (`HotbarPickEvent`), hit, use or
+  place, and resumes after Resume After seconds. Digging is `Services.digging()`
+  (`DigService`), shared with Ender Chest Farmer and tasks; Quiet Mining and Early Break
+  are Client Settings > Mining (see `service/DigService`). See Grim.md
+  "Breaking". Packet Mine below can build on `Digging`.
+- **Ender Chest Farmer** · done (needs in-game testing): after Lambda's. Places an ender chest in
+  the cell in front of your feet (placement planner, strict, no supports, through
+  `Services.actions()`) and breaks it through `Digging` with the fastest pickaxe that has
+  no Silk Touch (`Inventories.bestHarvestingTool`), 8 obsidian a chest. Swaps a chest or
+  pickaxe up from the main inventory. Keep (chests left alone), Stop At; stops on a full
+  inventory, no pickaxe, a blocked cell or being out of reach, and reports what it made.
+  Waits while you click or pick a slot. Shares `mining/Sightline` and `mining/MiningBox`
+  with Smart Mine.
 - **Packet Mine** · M: queue blocks, break them at exactly the server's break rate
   with the best tool (silent swap), rebreak when replaced. Grim checks break timing,
   so it mines at the server's rate, never faster. Absorbs Auto Tool.

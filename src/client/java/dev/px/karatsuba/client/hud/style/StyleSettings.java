@@ -76,6 +76,7 @@ public final class StyleSettings {
     public Style resolve() {
         Color plate = plateColor.resolve().withAlpha(plateOpacity.getInt() / 100f);
         return new Style(plate, radius.getInt(), padding.getInt(), gap.getInt(),
-                labelColor.resolve(), valueColor.resolve(), mutedColor.resolve(), HudFonts.resolve(font.resolved()));
+                labelColor.resolve(), valueColor.resolve(), mutedColor.resolve(), HudFonts.resolve(font.resolved()),
+                labelColor.isSyncToTheme());
     }
 }

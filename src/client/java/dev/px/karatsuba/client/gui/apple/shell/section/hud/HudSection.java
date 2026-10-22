@@ -6,109 +6,98 @@ import dev.px.core.hud.HudLayout;
 import dev.px.core.setting.Setting;
 import dev.px.core.setting.SettingHolder;
 import dev.px.gui.Widget;
-import dev.px.gui.container.Row;
+import dev.px.gui.container.Column;
 import dev.px.karatsuba.client.config.AutoSave;
-import dev.px.karatsuba.client.hud.style.HudStyle;
-import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.gui.apple.shell.Section;
 import dev.px.karatsuba.client.gui.apple.shell.Shell;
 import dev.px.karatsuba.client.gui.apple.shell.card.Card;
-import dev.px.karatsuba.client.gui.apple.shell.frame.ModuleColumn;
-import dev.px.karatsuba.client.gui.apple.shell.frame.Reveal;
-import dev.px.karatsuba.client.gui.apple.shell.frame.SettingsColumn;
-import dev.px.karatsuba.client.gui.apple.shell.frame.SmoothScroll;
-import dev.px.karatsuba.client.gui.apple.shell.frame.Spacer;
+import dev.px.karatsuba.client.gui.apple.shell.card.CardList;
+import dev.px.karatsuba.client.gui.apple.shell.card.CardPage;
+import dev.px.karatsuba.client.gui.apple.shell.card.PushButton;
+import dev.px.karatsuba.client.gui.apple.shell.frame.PageStack;
 import dev.px.karatsuba.client.gui.apple.shell.rail.Glyph;
+import dev.px.karatsuba.client.gui.apple.shell.section.appearance.AppearanceSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.apple.shell.setting.ActionRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.AnchorRow;
-import dev.px.karatsuba.client.gui.apple.shell.setting.SettingList;
+import dev.px.karatsuba.client.gui.apple.shell.setting.ChoiceRow;
+import dev.px.karatsuba.client.gui.apple.shell.setting.InfoRow;
+import dev.px.karatsuba.client.gui.apple.shell.setting.LinkRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.SwitchRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.ValueRow;
-import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
-import dev.px.karatsuba.client.gui.apple.shell.widget.Caption;
-import dev.px.karatsuba.client.gui.apple.shell.widget.InspectorHeader;
-import dev.px.karatsuba.client.gui.apple.shell.widget.ListItem;
-import dev.px.karatsuba.client.gui.apple.shell.widget.NavItem;
-import dev.px.karatsuba.client.gui.apple.shell.widget.PillButton;
-import dev.px.karatsuba.client.gui.apple.shell.widget.SectionHeader;
-import dev.px.karatsuba.client.gui.apple.shell.widget.SectionTitle;
-import dev.px.karatsuba.client.gui.apple.shell.widget.TextButton;
+import dev.px.karatsuba.client.gui.apple.shell.widget.PageIntro;
+import dev.px.karatsuba.client.hud.preset.HudPresets;
+import dev.px.karatsuba.client.hud.style.HudStyle;
+import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The HUD: every element in a list with a switch to show or hide it, and the
- * chosen element's own settings and its place on screen beside them, laid out
- * exactly as the modules are.
+ * The HUD, as Tahoe's System Settings pages ({@code hud/DESIGN.md} §7.1b): a list
+ * page with a card of HUD Settings and Legacy Settings…, a card of the elements
+ * (each with its Shown switch and a ›), and the Edit HUD button under them; each
+ * pushed in from the right.
  *
- * <p>Where an element sits is set here by numbers (anchor, scale, lock, order)
- * or by hand in the {@link LayoutSection} editor, entered from the button under
- * the list or from an element's "Edit on screen". Both edit the same layout.
+ * <ul>
+ *   <li><b>HUD Settings:</b> the Appearance card (Preset, Glass and Appearance while
+ *       Apple draws, the accent), then Accessibility and Behaviour.</li>
+ *   <li><b>Legacy Settings:</b> Plate, Text and ArrayList, with a Reset that asks twice.</li>
+ *   <li><b>An element:</b> its own settings, its Display card, a Layout card, and
+ *       Edit on Screen… under them.</li>
+ * </ul>
+ *
+ * <p>Placing elements by hand is the editor's ({@link LayoutSection}), opened from
+ * the Edit HUD button or an element's Edit on Screen….
  */
 public final class HudSection implements Section {
 
     public static final String ID = "hud";
 
-    /** What {@link #lastSelected} holds while the HUD Style is chosen rather than an element. */
-    private static final String STYLE = "#style";
+    /** The places of the pages under the list, for the history; an element's is its id. */
+    private static final String SETTINGS = "#settings";
+    private static final String LEGACY = "#legacy";
+
+    /** How long a Reset waits for its confirming second press. */
+    private static final long CONFIRM_MILLIS = 3000L;
 
     /** The element last chosen, across openings, and for the editor to start on. */
     private static String lastSelected;
 
     private final Shell shell;
-    private final Row content;
-    private final ModuleColumn list;
-    private final SettingsColumn inspector;
-    private final SettingList settings = new SettingList();
-    private final Reveal paneReveal = new Reveal();
+    private final PageStack stack = new PageStack();
+    private final CardPage list = new CardPage();
+    private final CardPage settingsPage = new CardPage();
+    private final CardPage legacyPage = new CardPage();
+    private final CardPage elementPage = new CardPage();
+    private final CardList hudRows = new CardList(true);
+    private final CardList legacyRows = new CardList(true);
+    private final CardList elementRows = new CardList(true);
 
-    private HudElement selected;
-    private HudElement built;
-    private boolean styleSelected;
-    private boolean builtStyle;
-    private boolean firstBuild = true;
+    /** What is open under the list: {@link #SETTINGS}, {@link #LEGACY}, an element's id, or null for the list. */
+    private String open;
+    private String built;
+    private long resetArmedAt;
 
     public HudSection(Shell shell) {
         this.shell = shell;
-        this.content = new Row();
-        List<HudElement> elements = Core.hud().getElements().all();
+        stack.page(list);
+        stack.page(settingsPage);
+        stack.page(legacyPage);
+        stack.page(elementPage);
 
-        // ---- the elements, under the section's title
-        this.list = content.add(new ModuleColumn(new Reveal()));
-        list.gap(Palette.GAP_ROW);
-        list.add(new SectionTitle("HUD", () -> shownCount() + " of " + elements.size() + " shown"));
-        list.add(new Spacer(Palette.INSET - Palette.GAP_ROW));
-        SmoothScroll rows = list.add(new SmoothScroll());
-        rows.gap(Palette.GAP_ROW);
-        rows.grow(1f);
-        // The style every element inherits, first: it is where a HUD's look starts.
-        rows.add(new NavItem("Style", () -> "All elements", () -> styleSelected, this::selectStyle))
-                .tooltip("The panel, colours and text protection every element uses unless it has its own");
-        rows.add(new Spacer(Palette.GAP_ROW));
-        for (HudElement element : elements) {
-            rows.add(new ListItem(element::getDisplayName, null,
-                    () -> isShown(element), () -> toggleShown(element),
-                    () -> !styleSelected && element == selected, () -> select(element)));
+        Card hud = list.card(null);
+        hud.add(new LinkRow("HUD Settings", () -> HudPresets.active().name(), () -> push(SETTINGS)));
+        LinkRow legacy = hud.add(new LinkRow("Legacy Settings", () -> "", () -> push(LEGACY)));
+        legacy.visibleWhen(HudSection::legacyDraws);
+
+        Column elements = list.group("Elements");
+        Card card = elements.add(new Card());
+        for (HudElement element : Core.hud().getElements().all()) {
+            card.add(new ElementRow(element, () -> isShown(element), () -> toggleShown(element),
+                    () -> push(element.getId())));
         }
-        Row bulk = list.add(new Row().gap(Palette.GAP_ROW));
-        bulk.add(new TextButton("Show all", () -> false, () -> setAllShown(true)));
-        bulk.add(new TextButton("Hide all", () -> false, () -> setAllShown(false)));
-        list.add(new Spacer(Palette.GAP_ROW));
-        list.add(new PillButton(Glyph.LAYOUT, "Edit layout", false, PillButton.Style.PRIMARY, null, null,
-                () -> shell.show(LayoutSection.ID)))
-                .tooltip("Move and scale the elements on screen    Ctrl+E");
-
-        // ---- the chosen element
-        this.inspector = content.add(new SettingsColumn(paneReveal));
-        inspector.gap(Palette.GAP_ROW * 2f);
-        inspector.grow(1f);
-        shell.veil(paneReveal, () -> inspector);
-
-        HudElement start = lastSelected == null ? null : Core.hud().find(lastSelected).orElse(null);
-        selected = start != null ? start : elements.isEmpty() ? null : elements.get(0);
-        styleSelected = STYLE.equals(lastSelected);
+        list.actions(elements, new PushButton("Edit HUD…", () -> shell.show(LayoutSection.ID)));
     }
 
     /** Makes {@code id} the chosen element: the editor hands back what was selected there. */
@@ -142,45 +131,208 @@ public final class HudSection implements Section {
 
     @Override
     public Widget content() {
-        return content;
-    }
-
-    @Override
-    public void entered() {
-        // Coming back from the editor: show the element that was selected there.
-        if (lastSelected != null && (selected == null || !selected.getId().equals(lastSelected))) {
-            Core.hud().find(lastSelected).ifPresent(this::select);
-        }
+        return stack;
     }
 
     @Override
     public void tick() {
-        float squeeze = Math.max(0f, Math.min(1f, (Palette.FRAME_WIDTH - shell.windowWidth()) / 280f));
-        list.width(Palette.LIST_WIDTH + 14f - 36f * squeeze);
-        if (built != selected || builtStyle != styleSelected || firstBuild) {
-            rebuild();
+        // Legacy Settings only while Legacy draws: a page for another preset's look would mislead.
+        if (LEGACY.equals(open) && !legacyDraws()) {
+            open = null;
+            stack.jump(list);
         }
-        settings.refresh();
+        if (open != null && !open.equals(built)) {
+            build(open);
+        }
+        hudRows.refresh();
+        legacyRows.refresh();
+        elementRows.refresh();
     }
 
-    // ------------------------------------------------------------- internals
-
-    private void selectStyle() {
-        if (!styleSelected) {
-            paneReveal.start();
+    @Override
+    public String heading() {
+        if (open == null) {
+            return title();
         }
-        styleSelected = true;
-        lastSelected = STYLE;
+        if (SETTINGS.equals(open)) {
+            return "HUD Settings";
+        }
+        if (LEGACY.equals(open)) {
+            return "Legacy Settings";
+        }
+        return Core.hud().find(open).map(HudElement::getDisplayName).orElse(title());
     }
 
-    private void select(HudElement element) {
-        if (element != selected || styleSelected) {
-            paneReveal.start();
-        }
-        selected = element;
-        styleSelected = false;
-        lastSelected = element == null ? null : element.getId();
+    @Override
+    public String place() {
+        return open == null ? "" : open;
     }
+
+    @Override
+    public boolean slidesPlaces() {
+        return true;
+    }
+
+    @Override
+    public void restore(String place, int direction) {
+        open = place.isEmpty() || !exists(place) ? null : place;
+        if (open != null) {
+            build(open);
+        }
+        Widget page = pageFor(open);
+        if (direction > 0) {
+            stack.push(page);
+        } else if (direction < 0) {
+            stack.pop(page);
+        } else {
+            stack.jump(page);
+        }
+    }
+
+    /** Escape on a page goes back to the list, as ‹ does. */
+    @Override
+    public boolean back() {
+        if (open == null) {
+            return false;
+        }
+        open = null;
+        stack.pop(list);
+        return true;
+    }
+
+    // ----------------------------------------------------------------- pages
+
+    private void push(String place) {
+        open = place;
+        resetArmedAt = 0L;
+        if (!SETTINGS.equals(place) && !LEGACY.equals(place)) {
+            lastSelected = place;
+        }
+        build(place);
+        stack.push(pageFor(place));
+    }
+
+    private Widget pageFor(String place) {
+        if (place == null) {
+            return list;
+        }
+        return SETTINGS.equals(place) ? settingsPage : LEGACY.equals(place) ? legacyPage : elementPage;
+    }
+
+    private boolean exists(String place) {
+        return SETTINGS.equals(place) || LEGACY.equals(place) || Core.hud().find(place).isPresent();
+    }
+
+    /** Fills a page: only when another opens, never per frame. */
+    private void build(String place) {
+        built = place;
+        if (SETTINGS.equals(place)) {
+            buildSettings();
+        } else if (LEGACY.equals(place)) {
+            buildLegacy();
+        } else {
+            Core.hud().find(place).ifPresent(this::buildElement);
+        }
+    }
+
+    /** HUD Settings: Appearance, then Accessibility and Behaviour (§1.8). */
+    private void buildSettings() {
+        HudStyle hud = HudStyle.get();
+        settingsPage.clearCards();
+        hudRows.clear();
+        Card appearance = settingsPage.card("Appearance");
+        appearance.add(ChoiceRow.of(hud.presetSetting()));
+        // Apple only (§1.4): each row hides with its setting while another preset draws.
+        appearance.add(ChoiceRow.of(hud.glassSetting()));
+        appearance.add(ChoiceRow.of(hud.appearanceSetting()));
+        appearance.add(new InfoRow("Accent", () -> Core.themes().getActive().getName(), "Appearance…",
+                () -> shell.show(AppearanceSection.ID)).describe("The theme's colour, shared with the GUI"));
+        hudRows.build(List.<Setting<?>>of(hud.accessibilityGroup(), hud.behaviourGroup()), null, settingsPage);
+    }
+
+    /** Legacy Settings: Plate, Text and ArrayList, and a Reset that asks twice (§5). */
+    private void buildLegacy() {
+        HudStyle hud = HudStyle.get();
+        legacyPage.clearCards();
+        legacyRows.clear();
+        legacyPage.group(null).add(new PageIntro("How the Legacy preset draws every element. An element's Display"
+                + " card can give it its own instead (Custom Style)"));
+        legacyRows.build(new ArrayList<Setting<?>>(hud.legacyGroups()), null, legacyPage);
+        Column foot = legacyPage.group(null);
+        legacyPage.actions(foot, new PushButton(this::resetLabel, this::resetLegacy));
+    }
+
+    /** An element: its own settings, its Display card, its Layout card, and Edit on Screen…. */
+    private void buildElement(HudElement element) {
+        elementPage.clearCards();
+        elementRows.clear();
+        String id = element.getId();
+        if (element instanceof SettingHolder holder && !holder.getSettings().isEmpty()) {
+            elementRows.build(ordered(holder), null, elementPage);
+        }
+        HudLayout defaults = element.defaultLayout();
+        Column layoutGroup = elementPage.group("Layout");
+        Card layout = layoutGroup.add(new Card());
+        layout.add(new AnchorRow("Anchor", "Which part of the screen it holds to as the window changes size",
+                defaults.getAnchor(), () -> layoutOf(element).getAnchor(), anchor -> {
+            Core.hud().setAnchor(id, anchor);
+            AutoSave.markDirty();
+        }));
+        layout.add(new ValueRow("Scale", 0.5d, 3d, 0.05d, defaults.getScale(),
+                () -> layoutOf(element).getScale(), value -> {
+            layoutOf(element).setScale((float) value);
+            AutoSave.markDirty();
+        }, value -> Math.round(value * 100d) + "%"));
+        layout.add(new SwitchRow("Locked", "A locked element cannot be dragged in the editor",
+                defaults.isLocked(), () -> layoutOf(element).isLocked(), locked -> {
+            layoutOf(element).setLocked(locked);
+            AutoSave.markDirty();
+        }));
+        layout.add(new ActionRow("Order", "Which element is drawn on top where two overlap", List.of(
+                new ActionRow.Action("To Front", () -> {
+                    Core.hud().bringToFront(id);
+                    AutoSave.markDirty();
+                }),
+                new ActionRow.Action("To Back", () -> {
+                    Core.hud().sendToBack(id);
+                    AutoSave.markDirty();
+                }))));
+        elementPage.actions(layoutGroup,
+                new PushButton("Reset Position", () -> {
+                    Core.hud().resetLayout(id);
+                    AutoSave.markDirty();
+                }),
+                new PushButton("Edit on Screen…", () -> {
+                    lastSelected = id;
+                    shell.show(LayoutSection.ID);
+                }));
+    }
+
+    // ---------------------------------------------------------------- legacy
+
+    private void resetLegacy() {
+        if (armed()) {
+            resetArmedAt = 0L;
+            HudStyle.get().resetLegacy();
+            AutoSave.markDirty();
+        } else {
+            resetArmedAt = System.currentTimeMillis();
+        }
+    }
+
+    private String resetLabel() {
+        return armed() ? "Click Again to Reset" : "Reset Legacy Settings…";
+    }
+
+    private boolean armed() {
+        return resetArmedAt != 0L && System.currentTimeMillis() - resetArmedAt < CONFIRM_MILLIS;
+    }
+
+    private static boolean legacyDraws() {
+        return HudPresets.active() == HudPresets.LEGACY;
+    }
+
+    // -------------------------------------------------------------- elements
 
     private static boolean isShown(HudElement element) {
         HudLayout layout = Core.hud().layoutOf(element);
@@ -195,103 +347,7 @@ public final class HudSection implements Section {
         }
     }
 
-    private static void setAllShown(boolean shown) {
-        for (HudElement element : Core.hud().getElements().all()) {
-            if (isShown(element) != shown) {
-                toggleShown(element);
-            }
-        }
-    }
-
-    private static int shownCount() {
-        int count = 0;
-        for (HudElement element : Core.hud().getElements().all()) {
-            if (isShown(element)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    /** Fills the inspector for the chosen element; only when the choice changes. */
-    private void rebuild() {
-        firstBuild = false;
-        built = selected;
-        builtStyle = styleSelected;
-        inspector.clear();
-        settings.clear();
-        if (styleSelected) {
-            buildStyle();
-            return;
-        }
-        if (selected == null) {
-            inspector.add(new Caption("No HUD elements"));
-            return;
-        }
-        HudElement element = selected;
-        String id = element.getId();
-        inspector.add(new InspectorHeader(element.getDisplayName(), "Shown", "Hidden",
-                () -> isShown(element), () -> toggleShown(element)));
-        inspector.add(new Spacer(Palette.INSET - Palette.GAP_ROW * 2f));
-        SmoothScroll rows = inspector.add(new SmoothScroll());
-        rows.gap(Palette.GAP_ROW);
-        rows.grow(1f);
-
-        boolean ownSettings = element instanceof SettingHolder holder && !holder.getSettings().isEmpty();
-        if (ownSettings) {
-            settings.build(ordered((SettingHolder) element), null, rows, "General");
-            rows.add(new Spacer(Palette.GAP_SECTION));
-        }
-
-        HudLayout defaults = element.defaultLayout();
-        rows.add(new SectionHeader("Layout", null));
-        Card layoutCard = rows.add(new Card());
-        layoutCard.add(new AnchorRow("Anchor", "Which part of the screen it holds to as the window changes size",
-                defaults.getAnchor(), () -> layout(element).getAnchor(), anchor -> {
-            Core.hud().setAnchor(id, anchor);
-            AutoSave.markDirty();
-        }));
-        layoutCard.add(new ValueRow("Scale", 0.5d, 3d, 0.05d, defaults.getScale(),
-                () -> layout(element).getScale(), value -> {
-            layout(element).setScale((float) value);
-            AutoSave.markDirty();
-        }, value -> Math.round(value * 100d) + "%"));
-        layoutCard.add(new SwitchRow("Locked", "A locked element cannot be dragged in the editor",
-                defaults.isLocked(), () -> layout(element).isLocked(), locked -> {
-            layout(element).setLocked(locked);
-            AutoSave.markDirty();
-        }));
-        layoutCard.add(new ActionRow("Order", "Which element is drawn on top where two overlap", List.of(
-                new ActionRow.Action("To front", () -> {
-                    Core.hud().bringToFront(id);
-                    AutoSave.markDirty();
-                }),
-                new ActionRow.Action("To back", () -> {
-                    Core.hud().sendToBack(id);
-                    AutoSave.markDirty();
-                }))));
-        layoutCard.add(new ActionRow("Position", "Put it back where it started, or place it by hand", List.of(
-                new ActionRow.Action("Reset", () -> {
-                    Core.hud().resetLayout(id);
-                    AutoSave.markDirty();
-                }),
-                new ActionRow.Action("Edit on screen", () -> shell.show(LayoutSection.ID)))));
-    }
-
-    /** Fills the inspector with the HUD Style: what every element looks like unless it has its own. */
-    private void buildStyle() {
-        inspector.add(new SectionTitle("HUD Style", () -> "Every element, unless it has Custom Style on"));
-        inspector.add(new Spacer(Palette.INSET - Palette.GAP_ROW * 2f));
-        SmoothScroll rows = inspector.add(new SmoothScroll());
-        rows.gap(Palette.GAP_ROW);
-        rows.grow(1f);
-        settings.build(HudStyle.get(), rows);
-        rows.add(new Spacer(Palette.GAP_SECTION));
-        rows.add(new Caption("Every element sits on the plate. Each element's Style group can give it"
-                + " its own panel, colours and font instead (Custom Style)."));
-    }
-
-    /** @return an element's settings with its Style group moved last, after what is particular to it */
+    /** @return an element's settings with its Display group moved last, after what is particular to it */
     private static List<Setting<?>> ordered(SettingHolder holder) {
         List<Setting<?>> list = new ArrayList<>(holder.getSettings());
         if (holder instanceof StyledElement styled && list.remove(styled.styleGroup())) {
@@ -300,7 +356,7 @@ public final class HudSection implements Section {
         return list;
     }
 
-    private static HudLayout layout(HudElement element) {
+    private static HudLayout layoutOf(HudElement element) {
         return Core.hud().layoutOf(element);
     }
 }

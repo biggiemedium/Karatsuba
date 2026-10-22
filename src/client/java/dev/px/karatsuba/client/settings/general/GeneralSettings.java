@@ -7,6 +7,8 @@ import dev.px.core.setting.impl.StringSetting;
 import dev.px.karatsuba.adapter.platform.MinecraftPlatform;
 import dev.px.karatsuba.client.screen.Overlays;
 import dev.px.karatsuba.client.settings.ClientSection;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * How the client talks to you: whether it signs its chat messages, and whether
@@ -57,9 +59,9 @@ public final class GeneralSettings extends ClientSection {
         }
         String name = event.getModule().getName();
         if (event.isNowEnabled()) {
-            Core.notifications().success(name, "Enabled");
+            Notices.success(Source.MODULE_TOGGLES, name, "Enabled");
         } else {
-            Core.notifications().info(name, "Disabled");
+            Notices.info(Source.MODULE_TOGGLES, name, "Disabled");
         }
     }
 }

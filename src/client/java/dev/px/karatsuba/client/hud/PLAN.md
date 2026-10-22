@@ -23,6 +23,8 @@ the developer says otherwise.
 
 ## 1. Roles and preset plumbing, Legacy only
 
+**Done 2026-10-17.** `hud/preset/` (`HudPreset`, `HudPresets`, `HudTokens`, `TextRole`, `ColorRole`, `HudIcon`, `LegacyPreset`); `StyledElement` draws through the active preset and offers `tokens()` in place of `style()`. Harness: every element pixel-identical before and after (default and White themes), the new structural roles and the Custom Style path drawn in Legacy; the client starts with no errors. Not seen in game (nothing should look different). Left for later steps: `element/Health` and ArrayList Tint (step 2), Notifications' type colours (Core's), Debug's own colours (proposed exempt).
+
 Nothing visible changes. The HUD is drawn through a preset, and the only preset
 is Legacy, drawing exactly what it draws today.
 
@@ -42,6 +44,8 @@ is Legacy, drawing exactly what it draws today.
 
 ## 2. Health colours and ArrayList Tint into Legacy
 
+**Done 2026-10-17.** `element/Health` deleted: Ping, TPS, Server and Task use the good, fair and bad colour roles (`StyledElement.health(level)`), whose only copy is in `LegacyPreset`. ArrayList asks for each name's colour as the new listItem role (`HudTokens.listItem`, added to `DESIGN.md` §3.2 first); Tint now lives in the HUD Style's new ArrayList group, Legacy's answer to that role. A Tint saved on ArrayList arrives through a hidden carrier setting on the element's first frame and is then saved empty. Harness: every element pixel-identical to step 1's baseline in both themes; a saved Label and Value Tint each carried over and drew. The client starts with no errors. Still literal in elements: Debug's own colours (proposed exempt, §9), Notifications' type colours (Core's `NotificationType`), and Now Playing's white cover tint (draws the art unchanged). Not seen in game.
+
 Still nothing visible changes.
 
 - **Health:** `element/Health`'s good, fair and bad become the good, fair and bad
@@ -54,6 +58,8 @@ Still nothing visible changes.
 - *Needs:* nothing.
 
 ## 3. The new settings pages
+
+**Done 2026-10-17.** `HudStyle` now holds every HUD-wide setting (still `hud-style.json`): Preset (Match GUI / Legacy; `HudPresets.active()` follows `GuiSettings.style()`), the Accessibility group (Reduce Transparency and Motion following the Apple UI's until set here, through hidden "Set" flags; Increase Contrast; Text Size), the Behaviour group, and Legacy's Plate, Text and ArrayList groups. Its config section carries over Animate (off → Motion: Off) and the old Context group. Legacy: Reduce Transparency and Increase Contrast make plates opaque; Increase Contrast adds a 1px border and lifts colours to 7:1 (`preset/Contrast`); Text Size resizes the font (`NanoVGFont.resized`); Motion gates easing (Full), fades (not Off) and the steady cue (Off), in elements, toasts and avoidance. The Font menu drops italic fonts. Both GUIs' HUD sections: a HUD Settings page (Appearance, Accessibility, Behaviour), a Legacy Settings page with a two-press Reset, and the element's Style group shown as Display (`client/setting/SettingLabels`; still saved as "Style"), Custom Style only while Legacy draws. Harness: defaults pixel-identical to the baseline; Increase Contrast, Reduce Transparency, Text Size Larger and the italic fallback each seen; an old file's values carried over; the Classic HUD Settings, Legacy Settings and element pages screenshotted. The client starts with no errors. Not seen: the Apple UI's HUD section (needs the game's GL), anything in game. In the Classic and Apple list-and-inspector layout, HUD Settings is the first entry of the list rather than cards above the elements (§1.8); the Apple editor (step 5) is where the Apple layout changes.
 
 The settings take their new shape (`DESIGN.md` §1.4, §1.8), in both GUIs' HUD
 pages. Legacy still looks the same with every setting at its default.
@@ -80,6 +86,75 @@ pages. Legacy still looks the same with every setting at its default.
 
 ## 4. The Apple preset
 
+**After 4e, 2026-10-17 (developer's requests):** the receding dim is gone; Apple's
+glass dims with its element in screens, as Legacy's does (`DESIGN.md` §4.13).
+Notifications gained a **Show** group, a switch per source (Module Toggles, Module
+Messages, Tasks, Server, Client; §2.13b): every client notification posts through
+`client/notify/Notices` with its source, and a source switched off posts nothing.
+The adapter's two prompts (Microsoft sign-in, Spotify's browser) post directly and
+always show. Harness: Legacy pixel-identical; a switched-off source posted nothing;
+the Notifications page seen. The client starts with no errors.
+
+**4e built 2026-10-17; checked in game.** Notifications always animate,
+whatever Motion says (`DESIGN.md` §2.10, at the developer's request). `preset/Curve`
+adds Apple's spring (damping 0.78: 1.99% overshoot, measured), and `style/Tween`
+runs any curve, so a plate springs to a new size in Apple (360 ms) and eases as
+before in Legacy. Toasts arrive by `HudPreset.toastSlide`: Legacy's 12-unit slide,
+Apple's 24-unit spring from the anchor edge. The change cue brightens Apple's rim
+(the glass press, `HudPlate.cue`) instead of its text, unless plates are solid.
+Dim in screens is now its own eased focus: text dims as before, while Apple's
+glass stays formed, gains tint and loses rim and light (`HudPlate.focus`).
+Harness: Legacy elements pixel-identical; Legacy toasts differ between runs only by
+the clock-driven countdown line; Apple's settled toasts identical to 4d. The client
+starts with no errors. Not seen: any of the motion itself, which needs the game.
+
+**4d built 2026-10-17; checked in game.** Two new structural roles in
+`DESIGN.md` §3.2, categoryMarker and listMarker. `preset/HudCategory` (info,
+success, warning, error, from Core's notification types), `preset/HudGlyphs` (the
+original glyph set: an i, a tick, an exclamation mark, a cross), `preset/Accents`
+(the theme's first colour lifted until it passes: 3:1 on glass at its brightest,
+on the white toggle and on a Legacy plate; 4.5:1 where it is text). Notifications
+draws through the preset: Legacy keeps its coloured edge, category-coloured title
+and countdown line exactly; Apple draws the glyph in a tinted well, a semibold
+title and a regular message, and no countdown. ArrayList carries Apple's accent
+dot on the side it hugs. Legacy lifts Label Colour and the ArrayList gradient only
+while they follow the theme. Harness: Legacy pixel-identical in the default and
+White themes; both presets' toasts and a dark theme's lifted labels (Midnight)
+seen. The client starts with no errors.
+
+**4c built 2026-10-17; checked in game.** `HudStyle` gained Glass (Clear,
+Tinted; follows the Apple UI's slider until set here, through a hidden "Glass Set"
+flag) and Appearance (Auto, Light, Dark), shown on the Appearance card only while
+Apple draws. `preset/Backdrop` reads what is behind each element's plates from the
+HUD glass's own capture: its smallest useful mip level, read back about six times
+a second (`SceneTexture.sampleMipmapped`), never a capture of its own. At Auto, a
+capsule over glass turns light above 0.62 brightness and dark again below 0.45;
+tiles follow the Apple UI. Tint and shadow strengthen over bright or busy
+backdrops (§4.6). Apple tokens pick each Tone by the element's own appearance.
+Harness: Legacy still pixel-identical; Light and Dark seen on the solid stand-in;
+the hysteresis checked on synthetic screens; the Apple Appearance card seen. The
+client starts with no errors. Not seen: anything reading a real capture (Auto
+capsules, adaptive tint and shadow), and the read back's cost.
+
+**Between 4b and 4c, 2026-10-17: idle fade removed** (`DESIGN.md` §2.8b). Fade
+When Idle, Fade When Idle After and Idle Opacity are gone; `watch` now takes only
+the cue. Saved values for them are ignored. Harness: every element pixel-identical
+to the baseline; the client starts with no errors.
+
+**4a and 4b built 2026-10-17; in-game check pending.** `preset/ApplePreset`
+(Regular glass behind each plate; a solid stand-in with Reduce Transparency or
+Increase Contrast; SF Pro with primary text and values semibold and labels
+secondary; capsules for single rows, tiles with a corner of at most 30% of their
+height; left-aligned text, ArrayList excepted; Debug exempt) and `preset/HudGlass`,
+the host that draws every plate's shadow and then its glass from one capture,
+before the elements: from `HudOverlay` and both layout editors. Where no pass can
+run (the editors draw inside an alpha fade) a plate falls back to the solid
+stand-in. Elements give their plates through `StyledElement.plates`; Notifications
+gives one capsule per toast. Glass follows the Apple UI's slider (Tinted from
+halfway) until 4c gives the HUD its own setting. Harness: Legacy still
+pixel-identical; Apple's solid stand-in, Increase Contrast and Text Size Larger
+seen. Glass itself needs the game.
+
 Built in parts, each one usable before the next. Legacy is untouched throughout;
 Match GUI starts choosing Apple once part 4a is done.
 
@@ -103,7 +178,7 @@ Match GUI starts choosing Apple once part 4a is done.
   every element showing (§8.2); in game, the developer has seen it over a bright
   and a dark world.
 - *Needs:* Apple sizing, Apple alignment, Debug's exemption, the screen-edge inset,
-  SF Pro's licence (before any public build), and whether Connection exists as an
+  and whether Connection exists as an
   element (§4.9 names it).
 
 ## 5. The Apple editor
@@ -111,7 +186,14 @@ Match GUI starts choosing Apple once part 4a is done.
 Apple plan step 15, with the Apple preset's editor chrome (`DESIGN.md` §4.15,
 §7): the Edit HUD pill, elements at full quality with an accent glow on the
 selected one, a circular minus badge to hide, snap guides and undo. The Classic
-editor is untouched.
+editor is untouched. Decided 2026-10-17: the Apple UI keeps a HUD page, rebuilt;
+the editor replaces only its Layout section; hidden elements stay faint with a
+plus badge.
+
+- **5a. The HUD page** (`DESIGN.md` §7.1b): Tahoe pushed pages and cards, as
+  Settings and Friends are, with the Edit HUD pill below the list.
+- **5b. The editor** (§7.1c): the Apple UI's Layout section replaced by a glass
+  editor over the game.
 
 - *Done when:* editing works in the Apple UI, in either preset, and the Classic
   editor behaves as before.

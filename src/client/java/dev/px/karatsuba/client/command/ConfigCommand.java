@@ -6,6 +6,8 @@ import dev.px.core.command.CommandContext;
 import dev.px.core.command.CommandException;
 import dev.px.core.command.CommandInfo;
 import dev.px.core.util.text.ChatColor;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.List;
 
@@ -52,14 +54,14 @@ public final class ConfigCommand extends Command {
         } else {
             Core.config().save();
         }
-        Core.notifications().success("Config", "Saved");
+        Notices.success(Source.CLIENT, "Config", "Saved");
         context.reply("Saved");
     }
 
     private void load(CommandContext context) {
         String profile = requireProfile(context);
         Core.config().load(profile);
-        Core.notifications().success("Config", "Loaded " + profile);
+        Notices.success(Source.CLIENT, "Config", "Loaded " + profile);
         context.reply("Loaded " + profile);
     }
 

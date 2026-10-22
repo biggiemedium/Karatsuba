@@ -9,6 +9,8 @@ import dev.px.core.network.server.ServerChangeEvent;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.karatsuba.client.anticheat.AntiCheats;
 import dev.px.karatsuba.client.settings.ClientSection;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -54,9 +56,9 @@ public final class AlertSettings extends ClientSection {
             return;
         }
         if (event.isStarted()) {
-            Core.notifications().warn("Lag", "Server not responding");
+            Notices.warn(Source.SERVER, "Lag", "Server not responding");
         } else {
-            Core.notifications().info("Lag", String.format(Locale.ROOT, "Server back after %.1fs",
+            Notices.info(Source.SERVER, "Lag", String.format(Locale.ROOT, "Server back after %.1fs",
                     event.getMillis() / 1000d));
         }
     }
@@ -73,7 +75,7 @@ public final class AlertSettings extends ClientSection {
         if (brand.getProxy() != null) {
             name += " via " + brand.getProxy().getName();
         }
-        Core.notifications().info("Server", event.getCurrent().getHost() + " runs " + name);
+        Notices.info(Source.SERVER, "Server", event.getCurrent().getHost() + " runs " + name);
     }
 
     /** Only when the verdict changes, not the evidence; see {@link AntiCheats#verdictChanged}. */
@@ -82,7 +84,7 @@ public final class AlertSettings extends ClientSection {
             return;
         }
         Optional<Detection> verdict = AntiCheats.verdictChanged(event);
-        verdict.ifPresent(detection -> Core.notifications().warn("Anticheat", detection.getName() + " ("
+        verdict.ifPresent(detection -> Notices.warn(Source.SERVER, "Anticheat", detection.getName() + " ("
                 + detection.getConfidence().name().toLowerCase(Locale.ROOT) + ")"));
     }
 }

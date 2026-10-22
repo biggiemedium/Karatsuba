@@ -38,6 +38,7 @@ public final class Services {
     private static MotionService motion;
     private static ActionService actions;
     private static PacketService packets;
+    private static DigService digging;
 
     private Services() {
     }
@@ -46,14 +47,16 @@ public final class Services {
      * Registers every service.
      *
      * <p>Before {@code Core.start()}, which is what starts them. Order within is
-     * not significant: none of them depends on another, and Core would sort it
-     * out through {@code dependsOn()} if one ever did.
+     * not significant: the one that uses others ({@code DigService}, on the hands
+     * and the hotbar) says so through {@code dependsOn()}, and Core sorts it out.
      */
     public static void registerAll(Core core) {
         inventory = core.getServices().register(new InventoryService(core.getBus()));
         motion = core.getServices().register(new MotionService(core.getBus()));
         actions = core.getServices().register(new ActionService(core.getBus()));
         packets = core.getServices().register(new PacketService(core.getBus(), core.getLogger()));
+        // The one dig, decided after the hands have acted and dug through them.
+        digging = core.getServices().register(new DigService(core.getBus(), actions, inventory));
         // Core's buttons, sent through the hands above. Nothing reaches it directly:
         // a click is asked of Core.controls(), which hands the winner to it.
         core.getServices().register(new ControlClicks(core.getBus(), core.getControlService(), actions));
@@ -80,6 +83,14 @@ public final class Services {
      */
     public static ActionService actions() {
         return require(actions, "ActionService");
+    }
+
+    /**
+     * The player's one dig: which block, with which tool, dug the way Grim accepts
+     * and with Client Settings &gt; Mining applied, the same for every caller.
+     */
+    public static DigService digging() {
+        return require(digging, "DigService");
     }
 
     /**

@@ -6,6 +6,8 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.util.net.Http;
 import dev.px.karatsuba.client.settings.ClientSection;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.concurrent.TimeUnit;
 
@@ -86,7 +88,7 @@ public final class UpdateSettings extends ClientSection {
         // Back onto the game thread before touching anything the renderer reads.
         Core.threads().sync(() -> {
             reported = latest;
-            Core.notifications().info("Update", latest + " is available");
+            Notices.info(Source.CLIENT, "Update", latest + " is available");
         });
     }
 }

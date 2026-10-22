@@ -32,6 +32,7 @@ import dev.px.karatsuba.client.automation.navigation.Navigation;
 import dev.px.karatsuba.client.automation.navigation.Replan;
 import dev.px.navigation.plan.PlanStats;
 import dev.px.karatsuba.client.debug.PacketSample;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;
@@ -124,6 +125,12 @@ public final class DebugElement extends StyledElement {
         super("debug", "Debug", HudLayout.at(Anchor.TOP_LEFT, 4f, 24f));
     }
 
+    /** A dev readout: drawn as Legacy draws it, whatever the preset (hud/DESIGN.md §3.6). */
+    @Override
+    protected boolean exemptFromPresets() {
+        return true;
+    }
+
     @Override
     protected void describe(Content content) {
         content.gap(SECTION_GAP);
@@ -164,13 +171,13 @@ public final class DebugElement extends StyledElement {
 
     private void connection(Content body) {
         LagService lag = Core.lag();
-        row(body, "TPS", Core.tps().hasEstimate() ? format("%.2f", Core.tps().getTps()) : "--", style().value());
+        row(body, "TPS", Core.tps().hasEstimate() ? format("%.2f", Core.tps().getTps()) : "--", tokens().text(TextRole.VALUE));
         int ping = lag.getPing();
         row(body, "Ping", ping < 0 ? "--" : ping + "ms" + (lag.getAveragePing() >= 0
-                ? format(" (avg %.0f, jitter %.0f)", lag.getAveragePing(), lag.getPingJitter()) : ""), style().value());
-        row(body, "Packets", format("%.0f in / %.0f out /s", lag.getInboundRate(), lag.getOutboundRate()), style().value());
+                ? format(" (avg %.0f, jitter %.0f)", lag.getAveragePing(), lag.getPingJitter()) : ""), tokens().text(TextRole.VALUE));
+        row(body, "Packets", format("%.0f in / %.0f out /s", lag.getInboundRate(), lag.getOutboundRate()), tokens().text(TextRole.VALUE));
         row(body, "Lag", lag.isLagging() ? format("silent %.1fs", lag.getLagMillis() / 1000d) : "none",
-                lag.isLagging() ? Color.RED : style().value());
+                lag.isLagging() ? Color.RED : tokens().text(TextRole.VALUE));
     }
 
     private void movement(Content body, DebugMonitor monitor) {
@@ -180,21 +187,21 @@ public final class DebugElement extends StyledElement {
         }
         Vec3 at = Players.position();
         Vec2 look = Players.rotation();
-        row(body, "Position", format("%.2f, %.2f, %.2f", at.getX(), at.getY(), at.getZ()), style().value());
-        row(body, "Speed", format("%.2f b/s", monitor.getHorizontalSpeed()), style().value());
-        row(body, "Vertical", format("%+.2f b/s", monitor.getVerticalSpeed()), style().value());
-        row(body, "Ground", Players.onGround() ? "yes" : "no", style().value());
-        row(body, "Rotation", format("%.1f / %.1f", look.getYaw(), look.getPitch()), style().value());
+        row(body, "Position", format("%.2f, %.2f, %.2f", at.getX(), at.getY(), at.getZ()), tokens().text(TextRole.VALUE));
+        row(body, "Speed", format("%.2f b/s", monitor.getHorizontalSpeed()), tokens().text(TextRole.VALUE));
+        row(body, "Vertical", format("%+.2f b/s", monitor.getVerticalSpeed()), tokens().text(TextRole.VALUE));
+        row(body, "Ground", Players.onGround() ? "yes" : "no", tokens().text(TextRole.VALUE));
+        row(body, "Rotation", format("%.1f / %.1f", look.getYaw(), look.getPitch()), tokens().text(TextRole.VALUE));
 
         DriftMonitor drift = Core.simulation().getDrift();
         row(body, "Drift", drift.isReliable()
                 ? format("%.4f h, %.4f v", drift.getHorizontalError(), drift.getVerticalError())
-                : "sampling", drift.isReliable() ? style().value() : Color.GRAY);
+                : "sampling", drift.isReliable() ? tokens().text(TextRole.VALUE) : Color.GRAY);
 
         int rubberbands = monitor.getRubberbands();
         row(body, "Rubberbands", rubberbands == 0 ? "0"
                 : format("%d (last %.2f)", rubberbands, monitor.getLastRubberbandDistance()),
-                rubberbands == 0 ? style().value() : AlertType.RUBBERBAND.getColor());
+                rubberbands == 0 ? tokens().text(TextRole.VALUE) : AlertType.RUBBERBAND.getColor());
     }
 
     private void server(Content body) {
@@ -203,12 +210,12 @@ public final class DebugElement extends StyledElement {
             row(body, "Server", info.isSingleplayer() ? "singleplayer" : "not connected", Color.GRAY);
             return;
         }
-        row(body, "Address", info.getAddress(), style().value());
+        row(body, "Address", info.getAddress(), tokens().text(TextRole.VALUE));
         ServerBrand brand = info.getBrand();
         String software = brand == null ? "--"
                 : (brand.getSoftware().isKnown() ? brand.getSoftware().getName() : brand.getRaw())
                 + (brand.getProxy() != null ? " via " + brand.getProxy().getName() : "");
-        row(body, "Software", software, style().value());
+        row(body, "Software", software, tokens().text(TextRole.VALUE));
         Optional<Detection> primary = Core.anticheat().getPrimary();
         row(body, "Anticheat", primary.map(d -> d.getName() + " (" + lower(d.getConfidence().name()) + ")")
                 .orElse("none detected"), primary.isPresent() ? AlertType.ANTICHEAT.getColor() : Color.GRAY);
@@ -222,7 +229,7 @@ public final class DebugElement extends StyledElement {
             return;
         }
         for (DebugMonitor.PacketRate rate : busiest) {
-            row(body, arrow(rate.inbound()) + " " + rate.name(), format("%.0f/s", rate.perSecond()), style().value());
+            row(body, arrow(rate.inbound()) + " " + rate.name(), format("%.0f/s", rate.perSecond()), tokens().text(TextRole.VALUE));
         }
     }
 
@@ -236,7 +243,7 @@ public final class DebugElement extends StyledElement {
         long now = Core.network().nanoTime();
         for (PacketSample sample : feed) {
             row(body, arrow(sample.isInbound()) + " " + sample.getName(),
-                    format("%.1fs", (now - sample.getNanos()) / 1_000_000_000d), style().muted());
+                    format("%.1fs", (now - sample.getNanos()) / 1_000_000_000d), tokens().text(TextRole.SECONDARY));
         }
     }
 
@@ -253,10 +260,10 @@ public final class DebugElement extends StyledElement {
                 row.align(Align.CENTER);
                 row.text(alert.getType().getLabel(), alert.getType().getColor());
                 row.space(LABEL_GAP, 0f);
-                row.text(alert.getMessage(), style().value());
+                row.text(alert.getMessage(), tokens().text(TextRole.VALUE));
                 row.fill();
                 row.space(LABEL_GAP, 0f);
-                row.text(format("%.0fs", alert.ageSeconds(now)), style().muted());
+                row.text(format("%.0fs", alert.ageSeconds(now)), tokens().text(TextRole.SECONDARY));
             });
         }
     }
@@ -269,7 +276,7 @@ public final class DebugElement extends StyledElement {
         }
         row(body, "Client tick", window(perf.getTick()), heat(perf.getTick().max(), PerformanceMonitor.TICK_SPIKE_MS));
         row(body, "Flows", window(perf.getFlows()), heat(perf.getFlows().max(), PerformanceMonitor.TICK_SPIKE_MS));
-        row(body, "Drawing", window(perf.getFrame()), style().value());
+        row(body, "Drawing", window(perf.getFrame()), tokens().text(TextRole.VALUE));
         row(body, "Game-thread plans", format("%d/s, %.1f ms/s, max %.1f", perf.getLocalPlans(),
                 perf.getLocalPlanTime().sum(), perf.getLocalPlanTime().max()),
                 heat(perf.getLocalPlanTime().max(), PerformanceMonitor.PLAN_SPIKE_MS));
@@ -277,16 +284,16 @@ public final class DebugElement extends StyledElement {
         if (last != null && last.getExpanded() > 0) {
             row(body, "Last plan", format("%s %d st%s, %,d sim, %.1f ms", lower(last.getOutcome().name()),
                     last.getExpanded(), last.isBudgetSpent() ? " (budget)" : "", last.getSimulatedTicks(),
-                    last.getMicros() / 1000d), style().muted());
+                    last.getMicros() / 1000d), tokens().text(TextRole.SECONDARY));
         }
         PlanStats worker = perf.getLastWorker();
         row(body, "Worker plans", worker == null ? perf.getWorkerPlans() + "/s"
                 : format("%d/s, last %.1f ms, %d st; asked %d ticks ahead", perf.getWorkerPlans(),
-                worker.getMicros() / 1000d, worker.getExpanded(), perf.getSegments().getLead()), style().muted());
+                worker.getMicros() / 1000d, worker.getExpanded(), perf.getSegments().getLead()), tokens().text(TextRole.SECONDARY));
         Navigation.CoarseStats coarse = perf.getLastCoarse();
         row(body, "Long range", coarse == null ? perf.getCoarsePlans() + "/s"
                 : format("%d/s, last %.1f ms, %,d cells, %,d kept (worker)", perf.getCoarsePlans(),
-                coarse.lastMillis(), coarse.lastExpanded(), coarse.nodes()), style().muted());
+                coarse.lastMillis(), coarse.lastExpanded(), coarse.nodes()), tokens().text(TextRole.SECONDARY));
         TripStats trip = perf.getTripStats();
         if (trip != null) {
             StringBuilder reasons = new StringBuilder();
@@ -297,9 +304,9 @@ public final class DebugElement extends StyledElement {
                             .append(lower(reason.name()).replace('_', ' ')).append(' ').append(count);
                 }
             }
-            row(body, "Trip plans", trip.getPlans() + (reasons.length() == 0 ? "" : " (" + reasons + ")"), style().muted());
+            row(body, "Trip plans", trip.getPlans() + (reasons.length() == 0 ? "" : " (" + reasons + ")"), tokens().text(TextRole.SECONDARY));
             row(body, "Smoothness", format("%d spliced, %d ticks waiting", trip.getSplices(), trip.getWaitTicks()),
-                    trip.getWaitTicks() == 0 ? style().value() : Color.YELLOW);
+                    trip.getWaitTicks() == 0 ? tokens().text(TextRole.VALUE) : Color.YELLOW);
         }
     }
 
@@ -309,7 +316,7 @@ public final class DebugElement extends StyledElement {
 
     /** @return red at or past {@code spike}, yellow past half of it */
     private Color heat(double ms, double spike) {
-        return ms >= spike ? Color.RED : ms >= spike / 2d ? Color.YELLOW : style().value();
+        return ms >= spike ? Color.RED : ms >= spike / 2d ? Color.YELLOW : tokens().text(TextRole.VALUE);
     }
 
     // ------------------------------------------------------------------ filter
@@ -368,7 +375,7 @@ public final class DebugElement extends StyledElement {
     private void section(Content content, String title, java.util.function.Consumer<Content> body) {
         content.column(column -> {
             column.align(Align.STRETCH).gap(ROW_GAP);
-            column.text(title, style().label());
+            column.text(title, tokens().text(TextRole.LABEL));
             body.accept(column);
         });
     }
@@ -377,7 +384,7 @@ public final class DebugElement extends StyledElement {
         content.row(row -> {
             row.align(Align.CENTER);
             if (!label.isEmpty()) {
-                row.text(label, style().muted());
+                row.text(label, tokens().text(TextRole.SECONDARY));
                 row.space(LABEL_GAP, 0f);
             }
             row.fill();

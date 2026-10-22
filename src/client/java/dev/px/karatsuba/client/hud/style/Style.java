@@ -16,7 +16,8 @@ import dev.px.core.render.font.Font;
  * @param value   the value itself: "42ms"
  * @param muted   secondary text, and the empty part of bars
  * @param font    the face everything is set in
+ * @param labelFromTheme whether Label Colour follows the theme, and so may be lifted to pass on the plate (§5b.2)
  */
 public record Style(Color plate, float radius, float padding, float gap,
-                    Color label, Color value, Color muted, Font font) {
+                    Color label, Color value, Color muted, Font font, boolean labelFromTheme) {
 }

@@ -3,6 +3,7 @@ package dev.px.karatsuba.client.settings;
 import dev.px.core.Core;
 import dev.px.core.config.section.SettingsSection;
 import dev.px.karatsuba.client.settings.interaction.InteractionSettings;
+import dev.px.karatsuba.client.settings.mining.MiningSettings;
 import dev.px.karatsuba.client.settings.alerts.AlertSettings;
 import dev.px.karatsuba.client.settings.automation.AutomationSettings;
 import dev.px.karatsuba.client.settings.gui.GuiSettings;
@@ -43,6 +44,7 @@ public final class ClientSettings {
                 new GeneralSettings(),
                 new InteractionSettings(),
                 new AutomationSettings(),
+                new MiningSettings(),
                 new UpdateSettings(),
                 new AlertSettings(),
                 new GuiSettings(),
@@ -95,6 +97,11 @@ public final class ClientSettings {
     /** How every module's rotations, clicks and packets are checked and sent. */
     public static InteractionSettings interaction() {
         return get(InteractionSettings.class);
+    }
+
+    /** How every dig goes: Quiet Mining and Early Break. */
+    public static MiningSettings mining() {
+        return get(MiningSettings.class);
     }
 
     /** How tasks hold the controls, plan their routes and report back. */

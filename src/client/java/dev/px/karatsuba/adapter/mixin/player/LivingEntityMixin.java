@@ -4,9 +4,12 @@ import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.player.PlayerJumpEvent;
 import dev.px.karatsuba.adapter.game.entity.PositionStamped;
+import dev.px.karatsuba.adapter.movement.EntityPush;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -74,6 +77,18 @@ public abstract class LivingEntityMixin implements PositionStamped {
     private void karatsuba$jumped(CallbackInfo callback) {
         if ((Object) this == MinecraftClient.getInstance().player) {
             MotionBridge.jumped();
+        }
+    }
+
+    /**
+     * The velocity the move left, before anything pushes the player out of
+     * another entity. RETURN rather than TAIL: {@code travel} returns early from
+     * its fluid and gliding branches.
+     */
+    @Inject(method = "travel", at = @At("RETURN"))
+    private void karatsuba$travelled(Vec3d movementInput, CallbackInfo callback) {
+        if ((Object) this instanceof ClientPlayerEntity player && player == MinecraftClient.getInstance().player) {
+            EntityPush.afterTravel(player);
         }
     }
 }

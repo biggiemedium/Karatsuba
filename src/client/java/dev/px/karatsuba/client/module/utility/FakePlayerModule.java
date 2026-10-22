@@ -29,6 +29,8 @@ import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.module.utility.fakeplayer.ArmorSet;
 import dev.px.karatsuba.client.module.utility.fakeplayer.HeldItem;
 import dev.px.karatsuba.client.module.utility.fakeplayer.MotionRecording;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.Locale;
 
@@ -370,7 +372,7 @@ public final class FakePlayerModule extends ClientModule {
         }
         path.clear();
         recording = true;
-        Core.notifications().info(getName(), "Recording your movement");
+        Notices.info(Source.MODULE_MESSAGES, getName(), "Recording your movement");
     }
 
     private void stopRecording() {
@@ -378,10 +380,10 @@ public final class FakePlayerModule extends ClientModule {
         path.rewind();
         if (path.size() < 2) {
             path.clear();
-            Core.notifications().info(getName(), "Recording too short");
+            Notices.info(Source.MODULE_MESSAGES, getName(), "Recording too short");
             return;
         }
-        Core.notifications().info(getName(), String.format(Locale.ROOT, "Running a %.1fs path", path.seconds()));
+        Notices.info(Source.MODULE_MESSAGES, getName(), String.format(Locale.ROOT, "Running a %.1fs path", path.seconds()));
     }
 
     // ------------------------------------------------------------------ kit

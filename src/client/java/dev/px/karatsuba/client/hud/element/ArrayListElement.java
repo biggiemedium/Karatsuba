@@ -3,12 +3,13 @@ package dev.px.karatsuba.client.hud.element;
 import dev.px.core.Core;
 import dev.px.core.hud.Anchor;
 import dev.px.core.hud.HudLayout;
+import dev.px.core.layout.Align;
 import dev.px.core.layout.Content;
 import dev.px.core.module.Module;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.core.setting.impl.EnumSetting;
-import dev.px.gui.legacy.GuiStyle;
+import dev.px.core.setting.impl.StringSetting;
+import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.module.ClientModule;
 
@@ -22,26 +23,64 @@ import java.util.List;
  * other element: anchored right, the names hug the right edge and the list grows
  * leftwards. As modules are switched on and off the list eases to its new size.
  * An empty list takes no space; while positioning, a sample keeps it grabbable.
+ *
+ * <p>Each name is a list item ({@code hud/DESIGN.md} §3.2): its colour is the
+ * preset's, by its place in the list. Legacy colours it by its Tint.
  */
 public final class ArrayListElement extends StyledElement {
 
-    public enum Tint { THEME_GRADIENT, LABEL, VALUE }
-
     private final BooleanSetting showInfo = bool("Show Info", true)
             .describe("The extra text a module puts after its name, like a mode");
-    private final EnumSetting<Tint> tint = enumOf("Tint", Tint.THEME_GRADIENT)
-            .describe("A gradient through the theme's accents, or one of the style's text colours");
+
+    /**
+     * Where a Tint saved before 2026-10-17 arrives, when Tint was this element's
+     * setting: never shown, and emptied once it has been passed to the HUD Style,
+     * which now holds Tint for the Legacy preset.
+     */
+    private final StringSetting movedTint = text("Tint", "");
 
     public ArrayListElement() {
         super("arraylist", "ArrayList", HudLayout.at(Anchor.TOP_RIGHT, -4f, 4f));
+        movedTint.visibleWhen(() -> false);
+    }
+
+    /** Names hug the side the list is anchored to, even in a preset that left-aligns (hud/DESIGN.md §4.16). */
+    @Override
+    protected boolean keepsAnchorAlignment() {
+        return true;
     }
 
     @Override
     protected void describe(Content body) {
+        if (!movedTint.get().isEmpty()) {
+            // After every section has loaded, whichever order they loaded in.
+            HudStyle.get().takeMovedListTint(movedTint.get());
+            movedTint.set("");
+        }
         List<String> entries = entries();
-        watch(entries, entries);
+        watch(entries);
+        boolean marked = preset().marksListItems();
+        // The marker sits on the side the list hugs: before the name, or after it anchored right.
+        boolean trailing = alignment() == Align.END;
         for (int i = 0; i < entries.size(); i++) {
-            text(body, entries.get(i), colorFor(i, entries.size()));
+            String name = entries.get(i);
+            Color colour = tokens().listItem(i, entries.size());
+            if (!marked) {
+                text(body, name, colour);
+                continue;
+            }
+            body.row(row -> {
+                row.align(Align.CENTER);
+                if (!trailing) {
+                    preset().listMarker(row, tokens());
+                    row.space(LABEL_GAP, 0f);
+                }
+                text(row, name, colour);
+                if (trailing) {
+                    row.space(LABEL_GAP, 0f);
+                    preset().listMarker(row, tokens());
+                }
+            });
         }
     }
 
@@ -57,13 +96,5 @@ public final class ArrayListElement extends StyledElement {
                 .sorted(Comparator.comparingInt((Module module) -> module.getDisplayName().length()).reversed())
                 .map(showInfo.isOn() ? Module::getDisplayName : Module::getName)
                 .toList();
-    }
-
-    private Color colorFor(int index, int total) {
-        return switch (tint.get()) {
-            case THEME_GRADIENT -> GuiStyle.accent(total <= 1 ? 0f : index / (float) (total - 1));
-            case LABEL -> style().label();
-            case VALUE -> style().value();
-        };
     }
 }

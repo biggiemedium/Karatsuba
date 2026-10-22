@@ -11,6 +11,8 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.karatsuba.adapter.game.entity.GameEntity;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.entity.Targets;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * Puts several actions on the middle mouse button.
@@ -88,10 +90,10 @@ public final class MiddleClickModule extends ClientModule {
 
         if (Core.social().isFriend(name)) {
             Core.social().remove(name);
-            Core.notifications().info("Social", "Removed " + name);
+            Notices.info(Source.MODULE_MESSAGES, "Social", "Removed " + name);
         } else {
             Core.social().add(name);
-            Core.notifications().success("Social", "Added " + name);
+            Notices.success(Source.MODULE_MESSAGES, "Social", "Added " + name);
         }
     }
 }

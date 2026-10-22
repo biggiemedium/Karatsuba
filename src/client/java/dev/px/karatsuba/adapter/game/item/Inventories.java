@@ -12,6 +12,9 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
 import net.minecraft.component.type.FoodComponent;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerInventory;
@@ -268,6 +271,69 @@ public final class Inventories {
             }
         }
         return best;
+    }
+
+    /**
+     * @return the slot of the fastest item that <em>harvests</em> this block (gets
+     *         its drops, as a pickaxe does an ender chest), with or without Silk
+     *         Touch as asked: the hotbar first, then the main inventory (0 to 35);
+     *         {@link #NOT_FOUND} when nothing carried does
+     *
+     * <p>Silk Touch decides what a block drops: an ender chest gives eight obsidian
+     * without it and itself with it, so the choice is the caller's, not a speed.
+     */
+    public static int bestHarvestingTool(String blockId, boolean silkTouch) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || blockId == null || blockId.isEmpty()) {
+            return NOT_FOUND;
+        }
+        Block block = Registries.BLOCK.get(Identifier.tryParse(blockId));
+        if (block == null) {
+            return NOT_FOUND;
+        }
+        BlockState state = block.getDefaultState();
+        int best = NOT_FOUND;
+        float bestSpeed = 0f;
+        for (int slot = 0; slot < PlayerInventory.MAIN_SIZE; slot++) {
+            ItemStack stack = inventory.getStack(slot);
+            if (stack.isEmpty() || !stack.isSuitableFor(state) || hasSilkTouch(stack) != silkTouch) {
+                continue;
+            }
+            // Strictly faster to move off the hotbar, so a tie keeps the one already there.
+            float speed = stack.getMiningSpeedMultiplier(state);
+            if (speed > bestSpeed) {
+                bestSpeed = speed;
+                best = slot;
+            }
+        }
+        return best;
+    }
+
+    private static boolean hasSilkTouch(ItemStack stack) {
+        for (RegistryEntry<Enchantment> enchantment : stack.getEnchantments().getEnchantments()) {
+            if (enchantment.matchesKey(Enchantments.SILK_TOUCH)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return whether one more of this item would be picked up: an empty slot in the
+     *         hotbar or main inventory, or a stack of it with room; namespace optional
+     */
+    public static boolean hasRoomFor(String itemId) {
+        PlayerInventory inventory = inventory();
+        if (inventory == null || itemId == null) {
+            return false;
+        }
+        for (int slot = 0; slot < PlayerInventory.MAIN_SIZE; slot++) {
+            ItemStack stack = inventory.getStack(slot);
+            if (stack.isEmpty() || (matches(idOf(stack), itemId) && stack.getCount() < stack.getMaxCount())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

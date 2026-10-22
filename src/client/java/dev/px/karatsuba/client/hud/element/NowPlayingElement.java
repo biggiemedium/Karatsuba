@@ -18,6 +18,7 @@ import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.karatsuba.adapter.asset.RemoteImages;
 import dev.px.karatsuba.client.hud.style.HudStyle;
+import dev.px.karatsuba.client.hud.preset.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;
@@ -47,7 +48,6 @@ import java.util.Objects;
 public final class NowPlayingElement extends StyledElement {
 
     private static final float COVER_GAP = 6f;
-    private static final float BAR_HEIGHT = 2f;
     private static final float TIME_GAP = 8f;
 
     /** The narrowest the text column gets with Auto Width, so a short title does not make a sliver. */
@@ -117,11 +117,11 @@ public final class NowPlayingElement extends StyledElement {
 
     @Override
     protected void describe(Content body) {
-        Font font = style().font();
+        Font font = tokens().font(TextRole.PRIMARY);
         MediaTrack track = isEditing() ? SAMPLE : Core.integrations().getCurrentTrack();
         boolean wanted = track != null && (isEditing() || track.isPlaying() || showPaused.isOn());
 
-        presence.duration(HudStyle.get().animates() ? FADE_MILLIS : 0L).target(wanted);
+        presence.duration(HudStyle.get().motion() == HudStyle.Motion.OFF ? 0L : FADE_MILLIS).target(wanted);
         if (wanted) {
             shown = track;
         } else if (presence.isIdleAtZero()) {
@@ -133,7 +133,7 @@ public final class NowPlayingElement extends StyledElement {
         float alpha = presence.get();
         opacity = alpha;
         MediaTrack drawn = shown;
-        watch(drawn.getTitle() + drawn.isPlaying(), drawn.getTitle());
+        watch(drawn.getTitle());
         if (!Objects.equals(drawn.getTitle(), scrollingTitle)) {
             scrollingTitle = drawn.getTitle();
             scrollStartedAt = System.currentTimeMillis();
@@ -178,12 +178,6 @@ public final class NowPlayingElement extends StyledElement {
         return opacity;
     }
 
-    /** A paused track, or one left playing for a long while, is worth only a glance. */
-    @Override
-    protected boolean fadesWhenIdleByDefault() {
-        return true;
-    }
-
     // ------------------------------------------------------------------ parts
 
     /** One line of text: what it says, and whether it is the title. */
@@ -219,10 +213,10 @@ public final class NowPlayingElement extends StyledElement {
     }
 
     private void text(Content column, Font font, List<Line> lines, MediaTrack track, float w, float alpha) {
-        column.align(alignment()).gap(style().gap());
+        column.align(alignment()).gap(tokens().gap());
         boolean dim = !track.isPlaying() && !isEditing();
-        Color title = style().value().fade(dim ? 0.6f : 1f).fade(alpha);
-        Color detail = style().muted().fade(alpha);
+        Color title = tokens().text(TextRole.TITLE).fade(dim ? 0.6f : 1f).fade(alpha);
+        Color detail = tokens().text(TextRole.SECONDARY).fade(alpha);
         for (Line line : lines) {
             line(column, font, line.text(), w, line.title() ? title : detail);
         }
@@ -230,8 +224,7 @@ public final class NowPlayingElement extends StyledElement {
         boolean timed = track.getDurationMillis() > 0L;
         if (showBar.isOn() && timed) {
             column.space(0f, 1f);
-            column.bar(w, BAR_HEIGHT, BAR_HEIGHT / 2f, track.getProgress(),
-                    detail.fade(0.25f), style().label().fade(alpha));
+            track(column, w, track.getProgress(), alpha);
         }
         if (showTime.isOn() && timed) {
             column.row(times -> {
@@ -277,8 +270,8 @@ public final class NowPlayingElement extends StyledElement {
 
     private void cover(Content row, MediaTrack track, float size, float alpha) {
         Texture art = RemoteImages.texture(track.getArtworkUrl());
-        float radius = Math.min(style().radius(), size / 6f);
-        Color placeholder = style().muted().withAlpha(40).fade(alpha);
+        float radius = Math.min(tokens().radius(), size / 6f);
+        Color placeholder = tokens().text(TextRole.SECONDARY).withAlpha(40).fade(alpha);
         row.custom(size, size, (x, y, w, h) -> {
             if (art != null) {
                 Render.roundTexture(art, x, y, w, h, radius, Color.WHITE.fade(alpha));

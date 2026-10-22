@@ -7,6 +7,7 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.client.gui.apple.shell.setting.SettingList;
+import dev.px.karatsuba.client.setting.SettingLabels;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +93,7 @@ public final class CardList {
             }
         }
         if (!loose.isEmpty()) {
-            card(page, group.getName(), loose, group::isVisible);
+            card(page, SettingLabels.of(group), loose, group::isVisible);
         }
         for (GroupSetting inner : nested) {
             addGroup(page, inner);

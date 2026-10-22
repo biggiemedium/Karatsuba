@@ -104,6 +104,7 @@ public abstract class ClientPlayerEntityMixin {
         MovementKeys.apply(self().input);
         // After both: standing still overrides whatever they wrote.
         Inputs.applyHoldStill(self().input);
+        Inputs.applyJumpLetGo(self().input);
     }
 
     @Inject(method = "tickMovement", at = @At("TAIL"))

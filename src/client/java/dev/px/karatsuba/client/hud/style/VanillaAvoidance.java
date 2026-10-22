@@ -99,7 +99,8 @@ public final class VanillaAvoidance implements PlacementAdjuster {
     }
 
     private static float move(Animation animation, float target) {
-        if (HudStyle.get() != null && HudStyle.get().animates()) {
+        // Sliding out of the way is movement: only at Motion: Full (§2.10).
+        if (HudStyle.get() != null && HudStyle.get().motion() == HudStyle.Motion.FULL) {
             animation.target(target);
         } else {
             animation.snapTo(target);

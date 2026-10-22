@@ -18,7 +18,8 @@ import dev.px.karatsuba.client.module.movement.strafe.VanillaStrafe;
  *   <tr><td>Grim</td>
  *       <td>silently faces the way the keys point and lets Move Fix turn them
  *           into W, so sprint, the sprint jump and air control all push that
- *           way. Never touches velocity</td></tr>
+ *           way. Never touches velocity, except the opt-in extras that stay
+ *           inside an allowance Grim grants itself</td></tr>
  * </table>
  *
  * <p>Like Velocity and Elytra Fly, this file has no logic in it. Adding a mode

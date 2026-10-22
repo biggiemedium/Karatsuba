@@ -11,6 +11,7 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectCategory;
@@ -178,6 +179,44 @@ public final class Entities {
             }
         }
         return count;
+    }
+
+    /**
+     * A dropped item lying in the world.
+     *
+     * @param position where it is
+     * @param count    how many are in the stack
+     * @param age      ticks since it was dropped; it cannot be picked up for the first ten
+     */
+    public record Dropped(Vec3 position, int count, int age) {
+    }
+
+    /**
+     * @return the dropped items of this kind within {@code radius} of {@code around},
+     *         nearest first; namespace optional ({@code "obsidian"})
+     */
+    public static List<Dropped> droppedItems(String itemId, Vec3 around, double radius) {
+        ClientWorld world = world();
+        if (world == null || itemId == null) {
+            return Collections.emptyList();
+        }
+        String wanted = itemId.indexOf(':') < 0 ? "minecraft:" + itemId : itemId;
+        double squared = radius * radius;
+        List<Dropped> found = new ArrayList<>();
+        for (Entity entity : world.getEntities()) {
+            if (!(entity instanceof ItemEntity item) || !item.isAlive()) {
+                continue;
+            }
+            Vec3 at = Vec3.of(item.getX(), item.getY(), item.getZ());
+            if (at.squaredDistanceTo(around) > squared
+                    || !wanted.equals(Registries.ITEM.getId(item.getStack().getItem()).toString())) {
+                continue;
+            }
+            found.add(new Dropped(at, item.getStack().getCount(), item.getItemAge()));
+        }
+        found.sort((a, b) -> Double.compare(a.position().squaredDistanceTo(around),
+                b.position().squaredDistanceTo(around)));
+        return found;
     }
 
     /**

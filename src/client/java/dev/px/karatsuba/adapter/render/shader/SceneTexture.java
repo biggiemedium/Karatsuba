@@ -95,6 +95,54 @@ public final class SceneTexture implements Texture, GlTexture {
         }
     }
 
+    /**
+     * The last {@link #captureMipmapped()}, read back at the smallest mip level no
+     * narrower than {@code minWidth}: a few dozen pixels across, for judging how
+     * bright or busy parts of the screen are (the HUD's adaptive glass). A read back
+     * waits for the GPU, so call it sparingly; null before any capture.
+     */
+    public static Sample sampleMipmapped(int minWidth) {
+        RenderSystem.assertOnRenderThread();
+        Framebuffer copy = MIPMAPPED.copy;
+        if (copy == null) {
+            return null;
+        }
+        int level = 0;
+        while ((copy.textureWidth >> (level + 1)) >= minWidth && (copy.textureHeight >> (level + 1)) >= 1) {
+            level++;
+        }
+        int width = Math.max(1, copy.textureWidth >> level);
+        int height = Math.max(1, copy.textureHeight >> level);
+        java.nio.ByteBuffer pixels = org.lwjgl.BufferUtils.createByteBuffer(width * height * 4);
+        int bound = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        int alignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
+        GlStateManager._bindTexture(copy.getColorAttachment());
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+        GL11.glGetTexImage(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels);
+        GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, alignment);
+        GlStateManager._bindTexture(bound);
+        return new Sample(width, height, pixels);
+    }
+
+    /**
+     * A small read-back picture of the screen: row 0 is the bottom, as GL keeps it.
+     *
+     * @param rgba {@code width * height} pixels, four bytes each
+     */
+    public record Sample(int width, int height, java.nio.ByteBuffer rgba) {
+
+        /** @return the luminance of a pixel, 0 to 1; {@code row} 0 is the top of the screen */
+        public float luminance(int column, int row) {
+            int x = Math.max(0, Math.min(width - 1, column));
+            int y = Math.max(0, Math.min(height - 1, height - 1 - row));
+            int at = (y * width + x) * 4;
+            float r = (rgba.get(at) & 0xFF) / 255f;
+            float g = (rgba.get(at + 1) & 0xFF) / 255f;
+            float b = (rgba.get(at + 2) & 0xFF) / 255f;
+            return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+        }
+    }
+
     /** Frees the copies. From {@code MinecraftAdapter.shutdown}, on the render thread. */
     public static void release() {
         INSTANCE.free();

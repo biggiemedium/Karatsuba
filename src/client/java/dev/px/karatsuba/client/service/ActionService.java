@@ -129,6 +129,9 @@ public final class ActionService implements Service {
     /** Whether this tick's offhand action actually sent something. */
     private boolean swapped;
 
+    /** Whether anything at all went out at the start of this tick. */
+    private boolean acted;
+
     private ActionProfile profile = new ActionProfile() {
     };
 
@@ -227,6 +230,15 @@ public final class ActionService implements Service {
     /** @return whether this module's right-click is the one that will be sent this tick */
     public boolean isClicking(Object owner) {
         return clicks.isHeldBy(owner);
+    }
+
+    /**
+     * @return whether an attack, a click, a use or an offhand swap went out at the
+     *         start of this tick. The game never digs in the same tick as any of
+     *         them, so a module digging by itself waits a tick when this is true.
+     */
+    public boolean actedThisTick() {
+        return acted;
     }
 
     /** @return a name for whoever holds the attack this tick, or null */
@@ -352,6 +364,9 @@ public final class ActionService implements Service {
                         : execute(click.getValue());
             }
         }
+
+        acted = swapped || attacked == Outcome.SENT || attacked == Outcome.REFUSED
+                || clicked == Outcome.SENT || clicked == Outcome.REFUSED;
 
         report(offhands, offhand, moved);
         report(attacks, attack, attacked);

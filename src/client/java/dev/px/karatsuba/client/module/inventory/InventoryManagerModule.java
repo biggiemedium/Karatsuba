@@ -26,6 +26,8 @@ import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.service.inventory.InventoryClick;
 import dev.px.karatsuba.client.setting.ItemSetting;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 /**
  * Looks after the inventory while you play: the best armour on, the hotbar
@@ -244,7 +246,7 @@ public final class InventoryManagerModule extends ClientModule {
 
     private void flipCleaner() {
         cleaner.set(!cleaner.isOn());
-        Core.notifications().info("Inventory Manager", cleaner.isOn() ? "Cleaner on" : "Cleaner off");
+        Notices.info(Source.MODULE_MESSAGES, "Inventory Manager", cleaner.isOn() ? "Cleaner on" : "Cleaner off");
     }
 
     @Override

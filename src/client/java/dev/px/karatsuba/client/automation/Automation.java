@@ -18,6 +18,8 @@ import dev.px.karatsuba.client.automation.task.Task;
 import dev.px.karatsuba.client.automation.view.RouteView;
 import dev.px.karatsuba.client.settings.ClientSettings;
 import dev.px.karatsuba.client.settings.automation.AutomationSettings;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -248,9 +250,9 @@ public final class Automation implements Service {
         String title = about.getName() + " " + ending.word;
         String message = about.describe() + (why == null ? "" : ": " + why);
         switch (ending) {
-            case DONE -> Core.notifications().success(title, message);
-            case FAILED -> Core.notifications().error(title, message);
-            case STOPPED -> Core.notifications().info(title, message);
+            case DONE -> Notices.success(Source.TASKS, title, message);
+            case FAILED -> Notices.error(Source.TASKS, title, message);
+            case STOPPED -> Notices.info(Source.TASKS, title, message);
         }
     }
 

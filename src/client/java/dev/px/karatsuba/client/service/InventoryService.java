@@ -7,6 +7,7 @@ import dev.px.core.event.Subscription;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.service.Service;
+import dev.px.karatsuba.adapter.event.game.player.HotbarPickEvent;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
@@ -125,6 +126,7 @@ public final class InventoryService implements Service {
     private Subscription tickEnd;
     private Subscription clickStart;
     private Subscription worldSubscription;
+    private Subscription pickSubscription;
 
     public InventoryService(EventBus bus) {
         this.bus = bus;
@@ -161,16 +163,24 @@ public final class InventoryService implements Service {
         // A claim cannot survive a world change: the slot it names may not hold
         // what it did, and the baseline certainly does not.
         worldSubscription = bus.on(WorldEvent.class, event -> reset());
+        // The player picking a slot while the hotbar is claimed: that pick, not the
+        // slot from before the claim, is what they get back when it ends.
+        pickSubscription = bus.on(HotbarPickEvent.class, event -> {
+            if (playerSlot != Inventories.NOT_FOUND) {
+                playerSlot = event.getSlot();
+            }
+        });
     }
 
     @Override
     public void stop() {
-        for (Subscription subscription : new Subscription[]{tickStart, tickEnd, clickStart, worldSubscription}) {
+        for (Subscription subscription : new Subscription[]{tickStart, tickEnd, clickStart, worldSubscription,
+                pickSubscription}) {
             if (subscription != null) {
                 subscription.close();
             }
         }
-        tickStart = tickEnd = clickStart = worldSubscription = null;
+        tickStart = tickEnd = clickStart = worldSubscription = pickSubscription = null;
         reset();
     }
 

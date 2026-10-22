@@ -190,6 +190,19 @@ public final class Blocks {
         return !world.isOutOfHeightLimit(pos) && !world.getFluidState(pos).isEmpty();
     }
 
+    /**
+     * @return whether a placed block would take this cell's place: air, grass, snow
+     *         layers, water and the like; not a torch, which is passable but stays
+     */
+    public static boolean isReplaceable(Vec3i position) {
+        ClientWorld world = Voxels.world();
+        if (world == null) {
+            return false;
+        }
+        BlockPos pos = Voxels.toBlockPos(position);
+        return !world.isOutOfHeightLimit(pos) && world.getBlockState(pos).isReplaceable();
+    }
+
     /** @return whether this cell is air, which is not the same as being passable */
     public static boolean isAir(Vec3i position) {
         ClientWorld world = Voxels.world();

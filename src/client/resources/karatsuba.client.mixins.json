@@ -3,6 +3,9 @@
 	"package": "dev.px.karatsuba.adapter.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"game.BlockBreakingMixin",
+		"game.ClickMixin",
+		"game.HotbarPickMixin",
 		"game.MinecraftClientAccessor",
 		"game.MinecraftClientMixin",
 		"game.SimpleOptionAccessor",
