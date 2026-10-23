@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.role;
 
 import dev.px.core.notification.NotificationType;
 import dev.px.core.render.Color;
@@ -21,7 +21,7 @@ public enum HudCategory {
     }
 
     /** @return Core's colour for this kind of notification: what Legacy has always drawn it in */
-    Color coreColour() {
+    public Color coreColour() {
         return type.getColor();
     }
 

@@ -55,6 +55,7 @@ public final class HudEditorView {
      * <p>Includes hidden elements while editing, so they can be shown somehow
      * &mdash; faintly, outlined, however the consumer likes &mdash; and selected
      * to be brought back. {@code placement.getLayout().isHidden()} says which.
+     * Leaves them out when {@link HudEditor#setShowsHidden} is off.
      */
     private final List<Placement> placements;
 

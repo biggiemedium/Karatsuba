@@ -70,9 +70,32 @@ public final class NanoVGTexture implements Texture, GlTexture {
             if (pixels == null) {
                 throw new IOException("stb could not decode the image: " + STBImage.stbi_failure_reason());
             }
+            premultiply(pixels);
             return new Decoded(pixels, width[0], height[0]);
         } finally {
             MemoryUtil.memFree(encoded);
+        }
+    }
+
+    /**
+     * Multiplies each pixel's colour by its alpha, in place.
+     *
+     * <p>A PNG stores colour and alpha apart, and its transparent pixels are usually
+     * black. The GPU averages colour and alpha separately when it filters or builds
+     * mipmaps, so a white logo's edges pick up that black and draw with a grey halo.
+     * Premultiplied, a transparent pixel carries no colour to average in, and an
+     * opaque one is unchanged.
+     */
+    private static void premultiply(ByteBuffer pixels) {
+        for (int i = 0, end = pixels.limit(); i + 3 < end; i += 4) {
+            int alpha = pixels.get(i + 3) & 0xFF;
+            if (alpha == 255) {
+                continue;
+            }
+            for (int c = 0; c < 3; c++) {
+                int colour = pixels.get(i + c) & 0xFF;
+                pixels.put(i + c, (byte) ((colour * alpha + 127) / 255));
+            }
         }
     }
 
@@ -86,8 +109,20 @@ public final class NanoVGTexture implements Texture, GlTexture {
      * @throws IOException if NanoVG rejects the image
      */
     public static NanoVGTexture upload(NanoVGRender2D backend, Decoded decoded, boolean mipmaps) throws IOException {
+        return upload(backend, decoded, mipmaps, false);
+    }
+
+    /**
+     * As {@link #upload(NanoVGRender2D, Decoded, boolean)}, for pixel art when
+     * {@code pixelated}: sampled nearest, so a game icon drawn larger than it is stays
+     * sharp-edged rather than blurring.
+     */
+    public static NanoVGTexture upload(NanoVGRender2D backend, Decoded decoded, boolean mipmaps, boolean pixelated)
+            throws IOException {
         try {
-            int flags = mipmaps ? NanoVG.NVG_IMAGE_GENERATE_MIPMAPS : 0;
+            // Premultiplied by decode(), so NanoVG must not multiply again in its shader.
+            int flags = NanoVG.NVG_IMAGE_PREMULTIPLIED | (mipmaps ? NanoVG.NVG_IMAGE_GENERATE_MIPMAPS : 0)
+                    | (pixelated ? NanoVG.NVG_IMAGE_NEAREST : 0);
             int image = NanoVG.nvgCreateImageRGBA(backend.handle(), decoded.width, decoded.height, flags, decoded.pixels);
             if (image == 0) {
                 throw new IOException("NanoVG rejected the decoded image");

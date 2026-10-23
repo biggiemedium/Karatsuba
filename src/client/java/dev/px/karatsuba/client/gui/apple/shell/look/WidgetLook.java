@@ -14,7 +14,6 @@ import dev.px.karatsuba.client.gui.apple.shell.widget.FieldMessage;
 import dev.px.karatsuba.client.gui.apple.shell.widget.ListHeading;
 import dev.px.karatsuba.client.gui.apple.shell.widget.NavItem;
 import dev.px.karatsuba.client.gui.apple.shell.widget.PageIntro;
-import dev.px.karatsuba.client.gui.apple.shell.widget.PillButton;
 import dev.px.karatsuba.client.gui.apple.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.apple.shell.widget.SectionTitle;
 
@@ -160,35 +159,6 @@ final class WidgetLook {
                     String action = header.isOpen() ? "Show Less" : "Show All (" + header.count() + ")";
                     trailing(r, null, action, hover);
                 }
-            });
-        }));
-
-        look.register(WidgetRenderer.of(PillButton.class, (button, c) -> {
-            float hover = button.hover();
-            float on = button.on();
-            boolean enabled = button.isEnabled();
-            PillButton.Style style = button.style();
-            Color fill;
-            Color ink;
-            if (style == PillButton.Style.PRIMARY) {
-                fill = accent().lerp(Color.WHITE, hover * 0.12f);
-                ink = onAccent(accent());
-            } else {
-                fill = faded(SELECTED.get(), 1f).lerp(SELECTED.get(), hover).lerp(accentTint(70), on);
-                ink = !enabled ? LABEL_TERTIARY.get() : LABEL_SECONDARY.get().lerp(LABEL.get(), Math.max(hover, on));
-            }
-            Color glyphInk = style == PillButton.Style.TOGGLE ? ink.lerp(accent(), on) : ink;
-            // Centred in whatever width it is given: its own in a toolbar, a whole column under a list.
-            c.align(Align.STRETCH).row(r -> {
-                r.height(ROW_HEIGHT).padding(button.iconOnly() ? 5f : 8f, 0f).gap(5f).align(Align.CENTER)
-                        .backdrop((x, y, w, h) -> Render.roundRect(x, y, w, h, button.isRounded() ? h / 2f : RADIUS_CONTROL,
-                                enabled ? fill : faded(fill, 0.5f)))
-                        .fill()
-                        .custom(10f, 10f, (x, y, w, h) -> Glyphs.draw(button.glyph(), x, y, w, glyphInk));
-                if (!button.iconOnly()) {
-                    r.text(small(), button.label(), ink);
-                }
-                r.fill();
             });
         }));
     }

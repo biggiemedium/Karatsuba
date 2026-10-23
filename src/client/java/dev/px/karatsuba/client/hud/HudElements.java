@@ -3,15 +3,18 @@ package dev.px.karatsuba.client.hud;
 import dev.px.core.Core;
 import dev.px.core.hud.HudElement;
 import dev.px.karatsuba.client.hud.element.ArrayListElement;
+import dev.px.karatsuba.client.hud.element.CompassElement;
 import dev.px.karatsuba.client.hud.element.CoordinatesElement;
 import dev.px.karatsuba.client.hud.element.DebugElement;
 import dev.px.karatsuba.client.hud.element.NotificationElement;
 import dev.px.karatsuba.client.hud.element.PingElement;
+import dev.px.karatsuba.client.hud.element.PotionsElement;
 import dev.px.karatsuba.client.hud.element.NowPlayingElement;
 import dev.px.karatsuba.client.hud.element.ServerElement;
 import dev.px.karatsuba.client.hud.element.TaskElement;
 import dev.px.karatsuba.client.hud.element.TpsElement;
 import dev.px.karatsuba.client.hud.element.WatermarkElement;
+import dev.px.karatsuba.client.hud.group.HudGroups;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.VanillaAvoidance;
 
@@ -32,6 +35,8 @@ public final class HudElements {
         HudStyle.install(core);
         // Moves elements off the game's own HUD while it shows.
         VanillaAvoidance.install(core);
+        // Holds grouped elements edge to edge, re-stacked every frame (hud/DESIGN.md §6).
+        HudGroups.install();
         core.getHudService().registerAll(all());
     }
 
@@ -39,12 +44,14 @@ public final class HudElements {
         return new HudElement[]{
                 new WatermarkElement(),
                 new CoordinatesElement(),
+                new CompassElement(),
                 new ArrayListElement(),
                 new NotificationElement(),
                 new TpsElement(),
                 new PingElement(),
                 new ServerElement(),
                 new NowPlayingElement(),
+                new PotionsElement(),
                 new TaskElement(),
                 new DebugElement(),
         };

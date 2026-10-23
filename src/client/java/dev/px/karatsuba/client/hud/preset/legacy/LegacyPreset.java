@@ -1,10 +1,19 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.legacy;
 
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
 import dev.px.core.render.Render;
 import dev.px.core.render.font.Font;
 import dev.px.gui.legacy.GuiStyle;
+import dev.px.karatsuba.client.hud.preset.HudPlate;
+import dev.px.karatsuba.client.hud.preset.HudPreset;
+import dev.px.karatsuba.client.hud.preset.HudTokens;
+import dev.px.karatsuba.client.hud.preset.color.Accents;
+import dev.px.karatsuba.client.hud.preset.color.Contrast;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.HudIcon;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.Style;
 import dev.px.karatsuba.client.hud.style.StyleSettings;
@@ -18,7 +27,7 @@ import dev.px.karatsuba.client.hud.style.StyledElement;
  * <p>Its settings are the HUD Style's, unchanged for now; they move to the Legacy
  * Settings page in {@code hud/PLAN.md} step 3.
  */
-final class LegacyPreset implements HudPreset {
+public final class LegacyPreset implements HudPreset {
 
     // Good, fair and bad: softer than the game's pure red and green, which vibrate
     // against each other and against a bright sky. Never the only cue: an element
@@ -90,6 +99,12 @@ final class LegacyPreset implements HudPreset {
             Render.roundRect(x, y, w, h, radius, fill);
             Render.roundRectOutline(x, y, w, h, radius, BORDER, edge);
         });
+    }
+
+    /** The style's radius, scaled with the element, and never past a capsule's. */
+    @Override
+    public float plateRadius(HudTokens tokens, HudPlate plate, float scale) {
+        return Math.min(tokens.radius() * scale, plate.height() / 2f);
     }
 
     @Override

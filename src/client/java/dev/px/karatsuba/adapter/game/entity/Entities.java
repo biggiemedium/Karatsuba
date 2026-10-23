@@ -255,7 +255,7 @@ public final class Entities {
 
         List<GameEntity> found = new ArrayList<>();
         for (Entity entity : world.getEntities()) {
-            if (entity == self || !entity.isAlive() || !filter.test(entity)) {
+            if (entity == self || FakePlayers.isBodyDouble(entity) || !entity.isAlive() || !filter.test(entity)) {
                 continue;
             }
             found.add(GameEntity.of(entity, partialTicks));

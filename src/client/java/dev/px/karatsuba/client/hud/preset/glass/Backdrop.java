@@ -1,8 +1,9 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.glass;
 
 import dev.px.core.Core;
 import dev.px.karatsuba.adapter.render.shader.SceneTexture;
 import dev.px.karatsuba.adapter.render.shader.ShaderPasses;
+import dev.px.karatsuba.client.hud.preset.HudPlate;
 
 import java.util.HashMap;
 import java.util.List;

@@ -11,8 +11,8 @@ import dev.px.core.network.server.ServerInfo;
 import dev.px.core.network.server.ServerSoftware;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.karatsuba.client.hud.preset.ColorRole;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.Locale;

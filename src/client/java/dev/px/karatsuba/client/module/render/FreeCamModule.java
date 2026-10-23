@@ -2,6 +2,7 @@ package dev.px.karatsuba.client.module.render;
 
 import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
+import dev.px.core.event.impl.TickEvent;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.client.module.ClientModule;
@@ -12,6 +13,9 @@ import dev.px.core.setting.impl.NumberSetting;
 import dev.px.karatsuba.adapter.event.game.render.CameraEvent;
 import dev.px.karatsuba.adapter.event.game.player.PlayerJumpEvent;
 import dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent;
+import dev.px.core.util.math.RotationMath;
+import dev.px.karatsuba.adapter.event.game.player.LookEvent;
+import dev.px.karatsuba.adapter.game.entity.FakePlayers;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
 
@@ -30,6 +34,9 @@ import dev.px.karatsuba.adapter.game.player.Players;
  *       velocity and the server is told nothing new.</li>
  *   <li>{@link PlayerJumpEvent} is cancelled, because the jump does not go
  *       through the movement tick and would otherwise still launch the body.</li>
+ *   <li>{@link LookEvent} is cancelled and the turn kept for the camera, which
+ *       has its own look. The player's head stays where it was, so the server is
+ *       not sent a head swinging round with the mouse.</li>
  * </ul>
  *
  * <p><b>Client-side only, and it looks it.</b> Nothing here is sent anywhere: the
@@ -62,8 +69,18 @@ public final class FreeCamModule extends ClientModule {
     private final BooleanSetting freezeBody = bool("Freeze Body", true)
             .describe("Stop the player moving while the camera is away; off lets them walk blind");
 
+    private final BooleanSetting showBody = bool("Show Body", true)
+            .describe("Draw yourself where you stand, so you can see yourself from the camera");
+
     /** Where the detached camera is. Null while the module is off. */
     private Vec3 position;
+
+    /** Where the detached camera looks; the mouse turns this, not the player. */
+    private float yaw;
+    private float pitch;
+
+    /** The body double's entity id, or {@link FakePlayers#NO_ENTITY} when there is none. */
+    private int body = FakePlayers.NO_ENTITY;
 
     /** Frame clock for the wall-clock step. Zero on the first frame after enabling. */
     private long lastFrameNanos;
@@ -73,13 +90,55 @@ public final class FreeCamModule extends ClientModule {
         // Starts at the eyes rather than the feet, so switching on does not drop
         // the view to the floor before the first keypress.
         position = Players.eyePosition();
+        Vec2 look = Players.rotation();
+        yaw = look.getYaw();
+        pitch = look.getPitch();
         lastFrameNanos = 0L;
+    }
+
+    /** The mouse turns the camera instead of the player, as the game would have turned the player. */
+    @Subscribe
+    private void onLook(LookEvent event) {
+        if (position == null) {
+            return;
+        }
+        event.cancel();
+        yaw += event.getDeltaYaw();
+        pitch = RotationMath.clampPitch(pitch + event.getDeltaPitch());
     }
 
     @Override
     protected void onDisable() {
         position = null;
         lastFrameNanos = 0L;
+        removeBody();
+    }
+
+    // ------------------------------------------------------------------- body
+
+    /**
+     * Keeps the body double where the player is, as they are.
+     *
+     * <p>In first person the game never draws the player, and the camera being
+     * elsewhere does not change that, so without it there is nothing to see where
+     * you stand. Spawned on the first tick rather than on enabling, and again if a
+     * world change took it.
+     */
+    @Subscribe(stage = Stage.POST)
+    private void onTick(TickEvent event) {
+        if (!showBody.isOn() || !Players.present()) {
+            removeBody();
+            return;
+        }
+        if (!FakePlayers.exists(body)) {
+            body = FakePlayers.spawnBodyDouble();
+        }
+        FakePlayers.mirrorSelf(body);
+    }
+
+    private void removeBody() {
+        FakePlayers.remove(body);
+        body = FakePlayers.NO_ENTITY;
     }
 
     // --------------------------------------------------------------- freezing
@@ -114,17 +173,19 @@ public final class FreeCamModule extends ClientModule {
         if (position == null) {
             return;
         }
+        // In third person the game draws the player itself; the double would sit inside them.
+        FakePlayers.setShown(body, !event.isThirdPerson());
         position = position.add(step(secondsSinceLastFrame()));
         event.setPosition(position);
+        event.setRotation(Vec2.rotation(yaw, pitch));
     }
 
     /**
      * How far to travel this frame, in world space.
      *
-     * <p>The horizontal part is rotated by the player's yaw, so forward means
-     * where they are looking rather than north &mdash; the head still turns with
-     * the mouse while the body is frozen, which is what makes steering work at
-     * all. Pitch is deliberately ignored: a camera that dives when you look down
+     * <p>The horizontal part is rotated by the camera's own yaw, so forward means
+     * where the camera is looking rather than north. Pitch is deliberately
+     * ignored: a camera that dives when you look down
      * is much harder to fly than one where up and down are their own keys.
      */
     private Vec3 step(double seconds) {
@@ -141,10 +202,9 @@ public final class FreeCamModule extends ClientModule {
         double length = Math.sqrt(forward * forward + strafe * strafe);
         double distance = speed.getDouble() * seconds / length;
 
-        Vec2 rotation = Players.rotation();
-        double yaw = Math.toRadians(rotation.getYaw());
-        double sin = Math.sin(yaw);
-        double cos = Math.cos(yaw);
+        double heading = Math.toRadians(yaw);
+        double sin = Math.sin(heading);
+        double cos = Math.cos(heading);
 
         // The game's yaw 0 faces south (+Z): forward is (-sin, cos) and the
         // player's right is (-cos, -sin), so at yaw 0 right is west (-X).

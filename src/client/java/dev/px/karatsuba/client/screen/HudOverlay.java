@@ -4,7 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.hud.Placement;
 import dev.px.karatsuba.adapter.screen.Overlay;
 import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
-import dev.px.karatsuba.client.hud.preset.HudGlass;
+import dev.px.karatsuba.client.hud.preset.glass.HudGlass;
 
 import java.util.List;
 

@@ -32,7 +32,7 @@ import dev.px.karatsuba.client.automation.navigation.Navigation;
 import dev.px.karatsuba.client.automation.navigation.Replan;
 import dev.px.navigation.plan.PlanStats;
 import dev.px.karatsuba.client.debug.PacketSample;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;

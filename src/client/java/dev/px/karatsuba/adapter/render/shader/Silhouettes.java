@@ -6,6 +6,7 @@ import dev.px.core.render.Texture;
 import dev.px.karatsuba.adapter.MinecraftAdapter;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.render.HandRenderEvent;
+import dev.px.karatsuba.adapter.game.entity.FakePlayers;
 import dev.px.karatsuba.adapter.render.WorldRender3D;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
@@ -230,6 +231,10 @@ public final class Silhouettes {
         if (entity == camera.getFocusedEntity()) {
             // Not drawn by the game in first person, so not outlined either.
             return camera.isThirdPerson() && targets.contains(Target.SELF);
+        }
+        if (FakePlayers.isBodyDouble(entity)) {
+            // Free Cam's copy of the player: outlined as them, not as another player.
+            return targets.contains(Target.SELF);
         }
         if (entity instanceof PlayerEntity) {
             return targets.contains(Target.PLAYERS);

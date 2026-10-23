@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.color;
 
 import dev.px.core.render.Color;
 

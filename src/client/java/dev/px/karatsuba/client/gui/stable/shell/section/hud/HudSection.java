@@ -8,6 +8,7 @@ import dev.px.core.setting.SettingHolder;
 import dev.px.gui.Widget;
 import dev.px.gui.container.Row;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.hud.group.HudGroups;
 import dev.px.karatsuba.client.hud.preset.HudPresets;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.StyledElement;
@@ -313,7 +314,7 @@ public final class HudSection implements Section {
                 }))));
         rows.add(new ActionRow("Position", "Put it back where it started, or place it by hand", List.of(
                 new ActionRow.Action("Reset", () -> {
-                    Core.hud().resetLayout(id);
+                    HudGroups.resetLayout(id);
                     AutoSave.markDirty();
                 }),
                 new ActionRow.Action("Edit on screen", () -> shell.show(LayoutSection.ID)))));

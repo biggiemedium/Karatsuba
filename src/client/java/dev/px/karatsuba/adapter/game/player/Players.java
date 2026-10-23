@@ -47,7 +47,9 @@ public final class Players {
     }
 
     private static ClientPlayerEntity player() {
-        return MinecraftClient.getInstance().player;
+        // No client at all only outside the game (a test, the screenshot harness): no player either.
+        MinecraftClient client = MinecraftClient.getInstance();
+        return client == null ? null : client.player;
     }
 
     /** @return whether there is a player at all, which there is not in a menu */

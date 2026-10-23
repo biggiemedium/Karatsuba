@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.role;
 
 /**
  * What a piece of HUD text is, so the preset can decide how it looks

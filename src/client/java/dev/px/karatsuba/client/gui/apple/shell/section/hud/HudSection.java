@@ -8,6 +8,7 @@ import dev.px.core.setting.SettingHolder;
 import dev.px.gui.Widget;
 import dev.px.gui.container.Column;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.hud.group.HudGroups;
 import dev.px.karatsuba.client.gui.apple.shell.Section;
 import dev.px.karatsuba.client.gui.apple.shell.Shell;
 import dev.px.karatsuba.client.gui.apple.shell.card.Card;
@@ -36,8 +37,8 @@ import java.util.List;
 /**
  * The HUD, as Tahoe's System Settings pages ({@code hud/DESIGN.md} §7.1b): a list
  * page with a card of HUD Settings and Legacy Settings…, a card of the elements
- * (each with its Shown switch and a ›), and the Edit HUD button under them; each
- * pushed in from the right.
+ * (each with its Shown switch and a ›), and the Edit HUD button under them,
+ * right-aligned; each pushed in from the right.
  *
  * <ul>
  *   <li><b>HUD Settings:</b> the Appearance card (Preset, Glass and Appearance while
@@ -299,7 +300,7 @@ public final class HudSection implements Section {
                 }))));
         elementPage.actions(layoutGroup,
                 new PushButton("Reset Position", () -> {
-                    Core.hud().resetLayout(id);
+                    HudGroups.resetLayout(id);
                     AutoSave.markDirty();
                 }),
                 new PushButton("Edit on Screen…", () -> {

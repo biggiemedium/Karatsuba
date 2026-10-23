@@ -1,9 +1,10 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.color;
 
 import dev.px.core.Core;
 import dev.px.core.render.Color;
 import dev.px.core.render.theme.Theme;
 import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
+import dev.px.karatsuba.client.hud.preset.apple.ApplePreset;
 
 /**
  * The accent's checked variants ({@code hud/DESIGN.md} §5b.2): the active theme's

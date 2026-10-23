@@ -10,6 +10,9 @@ import dev.px.core.input.MouseButton;
 import dev.px.core.layout.Bounds;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.hud.group.GroupEditing;
+import dev.px.karatsuba.client.hud.group.HudGroups;
+import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.gui.stable.shell.Section;
 import dev.px.karatsuba.client.gui.stable.shell.Shell;
 import dev.px.karatsuba.client.gui.stable.shell.rail.Glyph;
@@ -58,6 +61,7 @@ public final class LayoutSection implements Section {
     private final Caption placeholder = new Caption("");
     private final EditorToolbar toolbar = new EditorToolbar();
     private final LayoutHistory history = new LayoutHistory();
+    private final GroupEditing grouping = new GroupEditing();
 
     private boolean altHeld;
     private long lastScaleAt;
@@ -80,7 +84,7 @@ public final class LayoutSection implements Section {
         toolbar.add(new PillButton(Glyph.SNAP, "Snap to edges and other elements (hold Alt to skip)", true,
                 PillButton.Style.TOGGLE, () -> snapping, null, () -> snapping = !snapping));
         toolbar.add(new PillButton(Glyph.RESET, "Reset the selected element    R", true, PillButton.Style.PLAIN,
-                null, () -> editor().getSelected() != null, () -> change(() -> editor().resetSelected())));
+                null, () -> editor().getSelected() != null, () -> change(() -> HudGroups.resetLayout(editor().getSelectedId()))));
         toolbar.add(new PillButton(Glyph.RESET, "Reset all", false, PillButton.Style.PLAIN, null, null,
                 this::resetAll).labelledBy(() -> armed() ? "Click to reset all" : "Reset all"));
         toolbar.add(new EditorToolbar.Divider());
@@ -130,6 +134,9 @@ public final class LayoutSection implements Section {
     @Override
     public void entered() {
         HudEditor editor = editor();
+        // Elements snap against one another as they are dragged, not only once dropped.
+        editor.setDragConstraint(grouping);
+        editor.setShowsHidden(HudStyle.get().dimHiddenInEditor());
         if (!editor.isActive()) {
             editor.open();
         }
@@ -144,6 +151,7 @@ public final class LayoutSection implements Section {
     public void left() {
         history.commit();
         HudEditor editor = editor();
+        editor.setDragConstraint(null);
         HudSection.remember(editor.getSelectedId());
         if (editor.isActive()) {
             editor.close();
@@ -167,6 +175,10 @@ public final class LayoutSection implements Section {
     public void drawScreen(float width, float height) {
         HudEditor editor = editor();
         editor.setSnappingSuspended(!snapping || altHeld);
+        // Off by default: a hidden element is gone from the editor, not dimmed (HUD Settings, Behaviour).
+        editor.setShowsHidden(HudStyle.get().dimHiddenInEditor());
+        // An attached element pulled far enough leaves its group before Core moves it on.
+        grouping.moving(editor, Core.platform().getMouseX(), Core.platform().getMouseY());
         editor.update(Core.platform().getMouseX(), Core.platform().getMouseY());
         HudEditorView view = editor.view();
         toolbar.inTheWay(view.isInteracting() && nearToolbar(view));
@@ -193,6 +205,7 @@ public final class LayoutSection implements Section {
         if (button == MouseButton.LEFT) {
             history.begin();
             editor.press(x, y);
+            grouping.pressed(editor, x, y);
             return true;
         }
         if (button == MouseButton.RIGHT) {
@@ -210,6 +223,8 @@ public final class LayoutSection implements Section {
     public void release(float x, float y) {
         HudEditor editor = editor();
         editor.release();
+        // Dropped on or against another element: snapped to its side, in the same undo step.
+        grouping.released(editor);
         history.commit();
         AutoSave.markDirty();
     }
@@ -260,7 +275,7 @@ public final class LayoutSection implements Section {
             case DOWN -> nudge(0f, step);
             case L -> change(editor::toggleLockSelected);
             case H, DELETE -> change(editor::toggleHiddenSelected);
-            case R -> change(editor::resetSelected);
+            case R -> change(() -> HudGroups.resetLayout(editor.getSelectedId()));
             case PAGE_UP -> change(editor::bringSelectedToFront);
             case PAGE_DOWN -> change(editor::sendSelectedToBack);
             default -> {
@@ -307,7 +322,7 @@ public final class LayoutSection implements Section {
     private void resetAll() {
         if (armed()) {
             resetArmedAt = 0L;
-            change(Core.hud()::resetAll);
+            change(HudGroups::resetAll);
         } else {
             resetArmedAt = System.currentTimeMillis();
         }

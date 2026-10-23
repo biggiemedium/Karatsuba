@@ -3,11 +3,9 @@ package dev.px.karatsuba.client.gui.apple.shell.frame;
 import dev.px.gui.container.Column;
 
 /**
- * Where a full-screen section's toolbar floats: centred at the top of the
- * screen, a little way down from the edge.
+ * Where a full-screen section's toolbar floats: centred at the bottom of the
+ * screen, {@code Palette.TOOLBAR_MARGIN} up from the edge
+ * ({@code gui/apple/DESIGN.md} §10.2b).
  */
 public final class ToolbarDock extends Column {
-
-    /** How far below the top of the screen the toolbar floats. */
-    public static final float MARGIN = 10f;
 }

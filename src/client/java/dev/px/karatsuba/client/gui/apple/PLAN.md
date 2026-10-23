@@ -146,8 +146,8 @@ that same step.
   - **Solid surfaces** (Palette tokens): the window (about #1E1E20 Dark, #ECECEC
     Light), cards one step lighter in Dark (about #2A2A2D) and white in Light,
     borderless; popovers and menus elevated and solid with a soft shadow.
-  - **Glass:** the inset sidebar (radius = window radius − inset), the ‹ › pair,
-    and later the Edit HUD pill. No glass on glass, and none on a card.
+  - **Glass:** the inset sidebar (radius = window radius − inset) and the ‹ ›
+    pair. No glass on glass, and none on a card.
   - **Header:** no full-width capsule; the title is plain text in the window's top
     area, aligned with the content's left edge, with ‹ › in a small glass capsule
     to its left.
@@ -210,10 +210,16 @@ that same step.
   - Never glass on glass.
   - *Done when:* each opens over the window and over the sidebar correctly.
 
-- [ ] **15. Edit HUD pill and the Apple HUD editor.**
-  - A glass pill at the bottom centre.
+- [ ] **15. Edit HUD button and the Apple HUD editor.**
+  - Edit HUD… stays a push button under the elements' card (§10.1). *A glass pill
+    was built 2026-10-22 and taken out 2026-10-23 at the developer's request.*
+  - The editor's elements on glass, not the solid stand-in (§10.1b). *Fixed
+    2026-10-23: the shell's fade had been an alpha push around the whole editor,
+    so every pass refused; unseen in game.*
   - Its own HUD editor overlay, with glass tiles at each element's scale
     (§10.3), dragged with snap guides and undo.
+  - The glass toolbar at the bottom centre and the −/+ badges (§10.2b). *Built
+    2026-10-23; glass unseen in game.*
   - One shared capture for all tiles.
   - The old HUD and Layout sections go from this UI.
   - *Done when:* editing works and the Classic editor is untouched.

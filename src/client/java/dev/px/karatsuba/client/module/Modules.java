@@ -19,13 +19,7 @@ import dev.px.karatsuba.client.module.inventory.ElytraSwapModule;
 import dev.px.karatsuba.client.module.mining.AutoToolModule;
 import dev.px.karatsuba.client.module.mining.EnderChestFarmerModule;
 import dev.px.karatsuba.client.module.mining.SmartMineModule;
-import dev.px.karatsuba.client.module.movement.ElytraFlyModule;
-import dev.px.karatsuba.client.module.movement.ParkourModule;
-import dev.px.karatsuba.client.module.movement.SafeWalkModule;
-import dev.px.karatsuba.client.module.movement.SpeedModule;
-import dev.px.karatsuba.client.module.movement.SprintModule;
-import dev.px.karatsuba.client.module.movement.StepModule;
-import dev.px.karatsuba.client.module.movement.StrafeModule;
+import dev.px.karatsuba.client.module.movement.*;
 import dev.px.karatsuba.client.module.render.BlockOverlayModule;
 import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
@@ -85,6 +79,7 @@ public final class Modules {
                 new WebAuraModule(),
 
                 // Movement
+                new BlinkModule(),
                 new ElytraFlyModule(),
                 new ParkourModule(),
                 new SafeWalkModule(),

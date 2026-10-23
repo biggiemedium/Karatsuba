@@ -1,6 +1,8 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.apple;
 
 import dev.px.core.render.Render;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.HudIcon;
 
 /**
  * The HUD's own glyphs ({@code hud/DESIGN.md} §4.11): original, drawn from strokes

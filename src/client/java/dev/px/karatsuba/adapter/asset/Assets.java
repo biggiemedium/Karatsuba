@@ -65,7 +65,8 @@ public final class Assets {
     }
 
     /**
-     * A large image, decoded on a worker so asking for it never stalls a frame.
+     * A large image, decoded on a worker so asking for it never stalls a frame, with
+     * mipmaps: a backdrop, or anything drawn much smaller than it is (the logo).
      *
      * <p>For backdrops: a 4K PNG takes stb a few hundred milliseconds, which on the
      * render thread is a visible freeze. The first call starts the decode and

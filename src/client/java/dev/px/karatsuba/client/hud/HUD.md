@@ -33,6 +33,8 @@ numbers you never act on are filler.
 | **Ping** | Ping, or how long the server has been silent, with quality bars | `Core.lag()` | Show Lag, Quality Bars, Colour by Health, Good Below / Bad Above | bottom right |
 | **Server** | Address, software, probable anticheat with its confidence | `Core.server()`, `Core.anticheat()` | Address, Software, Anticheat, Raw Brand | bottom right, 44 up |
 | **Now Playing** | Cover art, title, artist, album, progress bar and time; fades in and out, nothing when idle | `Core.integrations()`, fed by the adapter's Spotify provider; covers via `RemoteImages` | Layout (Cover auto/left/right/off, Fit Cover To Text, Cover Size, Auto Width, Width, Long Titles), Show (Artist, Album, Progress Bar, Time, While Paused) | middle left |
+| **Compass** | Which way you face: a strip of N/E/S/W (and fainter NE/SE/SW/NW) with 15-degree ticks scrolling under a centre mark, the heading in degrees below; a quarter turn across its width | `Players.rotation()` | Width, Show Degrees | top centre, under Task |
+| **Potions** | The status effects on the player: icon, name and level, time left, soonest to run out on top; rows grow in and shrink away | `adapter/game/player/Effects`, icons through `adapter/asset/GameTextures` | Show Icon, Show Amplifier, Show Duration | bottom left, above Coordinates |
 | **Debug** | Connection, movement, server, busiest packets, packet feed, alert log | `DebugMonitor`, Core network services, simulation | sections, packet and alert filters | top left, 24 down |
 
 ## Problems found while listing

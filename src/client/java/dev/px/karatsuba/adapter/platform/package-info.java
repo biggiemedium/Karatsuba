@@ -12,5 +12,10 @@
  * than installed afterwards &mdash; and because keeping them out of the adapter
  * root leaves {@code MinecraftAdapter} there on its own, which is what it is:
  * the composition root and nothing else.
+ *
+ * <p>{@link dev.px.karatsuba.adapter.platform.MachineKey} sits here for the same
+ * reason it exists: keeping a key safe is a question for the operating system,
+ * which only the adapter may ask. It is the {@code ConfigCipher} key Core leaves
+ * to the client, for sections that hold credentials.
  */
 package dev.px.karatsuba.adapter.platform;

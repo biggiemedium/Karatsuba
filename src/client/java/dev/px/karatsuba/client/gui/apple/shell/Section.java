@@ -125,8 +125,13 @@ public interface Section {
 
     // ---------------------------------------------- fullscreen sections only
 
-    /** Draws the section over the game, under the toolbar. */
-    default void drawScreen(float width, float height) {
+    /**
+     * Draws the section over the game, under the toolbar, faded by {@code alpha} (0 to
+     * 1) as the window steps aside. The section applies the fade itself, so that glass
+     * can be drawn outside it: a pass refuses inside any alpha push
+     * ({@code gui/apple/DESIGN.md} §1.4), and glass forms by lensing, not opacity (§6.5).
+     */
+    default void drawScreen(float width, float height, float alpha) {
     }
 
     /** Input the toolbar did not take. @return whether the section took it */
@@ -146,6 +151,16 @@ public interface Section {
     }
 
     default void modifiers(Set<Modifier> modifiers) {
+    }
+
+    /**
+     * Draws the glass behind the section's toolbar, before the toolbar's own fade and
+     * slide, since no pass runs inside either ({@code gui/apple/DESIGN.md} §1.4).
+     *
+     * @param alpha  0 to 1: how present the toolbar is; glass forms by that much (§6.5)
+     * @param shiftY how far the toolbar is drawn from where it is laid out, as it arrives
+     */
+    default void drawToolbarGlass(float alpha, float shiftY) {
     }
 
     /** @return the toolbar's own content for this section, beside the rail's buttons; null for none */

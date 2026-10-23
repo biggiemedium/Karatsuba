@@ -9,8 +9,8 @@ import dev.px.core.network.lag.LagService;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.client.hud.preset.ColorRole;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -35,7 +35,7 @@ public final class PingElement extends StyledElement {
     private final BooleanSetting showBars = bool("Quality Bars", true)
             .describe("Three bars, more lit the better the connection");
 
-    private final BooleanSetting colourByHealth = bool("Colour by Health", true)
+    private final BooleanSetting colourByHealth = bool("Colour by Health", false)
             .describe("Colour the value and bars by how good the ping is");
 
     private final NumberSetting<Integer> goodPing = integer("Good Below", 80, 10, 500)

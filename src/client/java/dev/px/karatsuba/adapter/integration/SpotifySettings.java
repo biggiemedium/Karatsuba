@@ -19,9 +19,9 @@ import dev.px.karatsuba.adapter.concurrent.GameThread;
  * {@link Spotify#REDIRECT_URI} for the one value it has to be given.
  *
  * <h2>Where the credential goes</h2>
- * The refresh token is kept in plain text in {@code shared/spotify.json}, as a
- * Microsoft account's is in {@code accounts.json}, for the same reason: without it
- * every launch is a browser round trip. It grants control of your playback and
+ * The refresh token is kept in {@code shared/spotify.enc}, encrypted with
+ * {@code MachineKey} like a Microsoft account's, for the same reason it is kept at
+ * all: without it every launch is a browser round trip. It grants control of your playback and
  * nothing else on the account, and Disconnect in Settings or removing the app
  * at spotify.com/account/apps revokes it.
  */

@@ -21,6 +21,7 @@ import dev.px.karatsuba.adapter.game.entity.Targets;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Interactions;
 import dev.px.karatsuba.adapter.game.player.Players;
+import dev.px.karatsuba.adapter.network.PacketHold;
 import dev.px.karatsuba.client.service.action.Action;
 import dev.px.karatsuba.client.service.action.ActionProfile;
 import dev.px.karatsuba.client.service.action.Outcome;
@@ -87,6 +88,11 @@ import java.util.List;
  *       could not;</li>
  *   <li>the profile's delays, and one of each button a tick.</li>
  * </ul>
+ *
+ * <p>Whatever the profile, nothing is sent while {@code PacketHold} holds only some
+ * kinds of packet (Blink, holding only movement): the action would reach the
+ * server ahead of held packets that came before it. Holding everything, an
+ * action joins the hold in order and goes as usual.
  *
  * <h2>Hearing back</h2>
  * Every submitted action is told its {@link Outcome} at the end of the tick,
@@ -383,7 +389,7 @@ public final class ActionService implements Service {
      * (MultiActionsC).
      */
     private Outcome executeOffhand(Action action) {
-        if (!Players.present()) {
+        if (!Players.present() || PacketHold.isSplitting()) {
             return Outcome.BUSY;
         }
         InventoryService.OffhandResult result = Services.inventory()
@@ -405,7 +411,7 @@ public final class ActionService implements Service {
     }
 
     private Outcome execute(Action action) {
-        if (!Players.present()) {
+        if (!Players.present() || PacketHold.isSplitting()) {
             return Outcome.BUSY;
         }
         boolean checks = profile.checks();

@@ -18,6 +18,7 @@ import dev.px.core.util.CoreLogger;
 import lombok.Getter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -90,6 +91,9 @@ public final class HudService implements Service, ConfigSection {
     /** Moves elements out of the way of what the layout cannot see. Null for none. See {@link PlacementAdjuster}. */
     private volatile PlacementAdjuster adjuster;
 
+    /** Places elements relative to one another. Null for none. See {@link PlacementArranger}. */
+    private volatile PlacementArranger arranger;
+
     /**
      * How each element is drawn.
      *
@@ -140,6 +144,11 @@ public final class HudService implements Service, ConfigSection {
      * Installs what moves elements out of the way of things their layouts cannot
      * see, such as the game's own HUD. Null removes it.
      */
+    /** @param arranger places elements against one another after each is placed, in game and in the editor; null for none */
+    public void setArranger(PlacementArranger arranger) {
+        this.arranger = arranger;
+    }
+
     public void setAdjuster(PlacementAdjuster adjuster) {
         this.adjuster = adjuster;
     }
@@ -213,9 +222,33 @@ public final class HudService implements Service, ConfigSection {
             placements.add(new Placement(element, layout, natural,
                     placed, content));
         }
+        PlacementArranger arranging = arranger;
+        if (arranging != null && !placements.isEmpty()) {
+            placements = arranged(arranging, placements, screenWidth, screenHeight);
+        }
         // Stable, so equal z-order falls back to the order elements were registered.
         placements.sort(Comparator.comparingInt(placement -> placement.getLayout().getZOrder()));
         return placements;
+    }
+
+    /** @return {@code placements} with the arranger's bounds in place of their own, in the same order */
+    private static List<Placement> arranged(PlacementArranger arranging, List<Placement> placements,
+                                            float screenWidth, float screenHeight) {
+        Map<String, Bounds> placed = new LinkedHashMap<>();
+        for (Placement placement : placements) {
+            placed.put(placement.getId(), placement.getBounds());
+        }
+        Map<String, Bounds> moved = arranging.arrange(Collections.unmodifiableMap(placed), screenWidth, screenHeight);
+        if (moved == null || moved.isEmpty()) {
+            return placements;
+        }
+        List<Placement> result = new ArrayList<>(placements.size());
+        for (Placement placement : placements) {
+            Bounds instead = moved.get(placement.getId());
+            result.add(instead == null ? placement : new Placement(placement.getElement(), placement.getLayout(),
+                    placement.getNatural(), instead, placement.getContent()));
+        }
+        return result;
     }
 
     /**

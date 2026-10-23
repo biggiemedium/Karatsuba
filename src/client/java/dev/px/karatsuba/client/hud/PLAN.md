@@ -59,7 +59,7 @@ Still nothing visible changes.
 
 ## 3. The new settings pages
 
-**Done 2026-10-17.** `HudStyle` now holds every HUD-wide setting (still `hud-style.json`): Preset (Match GUI / Legacy; `HudPresets.active()` follows `GuiSettings.style()`), the Accessibility group (Reduce Transparency and Motion following the Apple UI's until set here, through hidden "Set" flags; Increase Contrast; Text Size), the Behaviour group, and Legacy's Plate, Text and ArrayList groups. Its config section carries over Animate (off → Motion: Off) and the old Context group. Legacy: Reduce Transparency and Increase Contrast make plates opaque; Increase Contrast adds a 1px border and lifts colours to 7:1 (`preset/Contrast`); Text Size resizes the font (`NanoVGFont.resized`); Motion gates easing (Full), fades (not Off) and the steady cue (Off), in elements, toasts and avoidance. The Font menu drops italic fonts. Both GUIs' HUD sections: a HUD Settings page (Appearance, Accessibility, Behaviour), a Legacy Settings page with a two-press Reset, and the element's Style group shown as Display (`client/setting/SettingLabels`; still saved as "Style"), Custom Style only while Legacy draws. Harness: defaults pixel-identical to the baseline; Increase Contrast, Reduce Transparency, Text Size Larger and the italic fallback each seen; an old file's values carried over; the Classic HUD Settings, Legacy Settings and element pages screenshotted. The client starts with no errors. Not seen: the Apple UI's HUD section (needs the game's GL), anything in game. In the Classic and Apple list-and-inspector layout, HUD Settings is the first entry of the list rather than cards above the elements (§1.8); the Apple editor (step 5) is where the Apple layout changes.
+**Done 2026-10-17.** `HudStyle` now holds every HUD-wide setting (still `hud-style.json`): Preset (Match GUI / Legacy; `HudPresets.active()` follows `GuiSettings.style()`), the Accessibility group (Reduce Transparency and Motion following the Apple UI's until set here, through hidden "Set" flags; Increase Contrast; Text Size), the Behaviour group, and Legacy's Plate, Text and ArrayList groups. Its config section carries over Animate (off → Motion: Off) and the old Context group. Legacy: Reduce Transparency and Increase Contrast make plates opaque; Increase Contrast adds a 1px border and lifts colours to 7:1 (`preset/color/Contrast`); Text Size resizes the font (`NanoVGFont.resized`); Motion gates easing (Full), fades (not Off) and the steady cue (Off), in elements, toasts and avoidance. The Font menu drops italic fonts. Both GUIs' HUD sections: a HUD Settings page (Appearance, Accessibility, Behaviour), a Legacy Settings page with a two-press Reset, and the element's Style group shown as Display (`client/setting/SettingLabels`; still saved as "Style"), Custom Style only while Legacy draws. Harness: defaults pixel-identical to the baseline; Increase Contrast, Reduce Transparency, Text Size Larger and the italic fallback each seen; an old file's values carried over; the Classic HUD Settings, Legacy Settings and element pages screenshotted. The client starts with no errors. Not seen: the Apple UI's HUD section (needs the game's GL), anything in game. In the Classic and Apple list-and-inspector layout, HUD Settings is the first entry of the list rather than cards above the elements (§1.8); the Apple editor (step 5) is where the Apple layout changes.
 
 The settings take their new shape (`DESIGN.md` §1.4, §1.8), in both GUIs' HUD
 pages. Legacy still looks the same with every setting at its default.
@@ -109,9 +109,9 @@ the clock-driven countdown line; Apple's settled toasts identical to 4d. The cli
 starts with no errors. Not seen: any of the motion itself, which needs the game.
 
 **4d built 2026-10-17; checked in game.** Two new structural roles in
-`DESIGN.md` §3.2, categoryMarker and listMarker. `preset/HudCategory` (info,
-success, warning, error, from Core's notification types), `preset/HudGlyphs` (the
-original glyph set: an i, a tick, an exclamation mark, a cross), `preset/Accents`
+`DESIGN.md` §3.2, categoryMarker and listMarker. `preset/role/HudCategory` (info,
+success, warning, error, from Core's notification types), `preset/apple/HudGlyphs` (the
+original glyph set: an i, a tick, an exclamation mark, a cross), `preset/color/Accents`
 (the theme's first colour lifted until it passes: 3:1 on glass at its brightest,
 on the white toggle and on a Legacy plate; 4.5:1 where it is text). Notifications
 draws through the preset: Legacy keeps its coloured edge, category-coloured title
@@ -125,7 +125,7 @@ seen. The client starts with no errors.
 **4c built 2026-10-17; checked in game.** `HudStyle` gained Glass (Clear,
 Tinted; follows the Apple UI's slider until set here, through a hidden "Glass Set"
 flag) and Appearance (Auto, Light, Dark), shown on the Appearance card only while
-Apple draws. `preset/Backdrop` reads what is behind each element's plates from the
+Apple draws. `preset/glass/Backdrop` reads what is behind each element's plates from the
 HUD glass's own capture: its smallest useful mip level, read back about six times
 a second (`SceneTexture.sampleMipmapped`), never a capture of its own. At Auto, a
 capsule over glass turns light above 0.62 brightness and dark again below 0.45;
@@ -141,11 +141,11 @@ When Idle, Fade When Idle After and Idle Opacity are gone; `watch` now takes onl
 the cue. Saved values for them are ignored. Harness: every element pixel-identical
 to the baseline; the client starts with no errors.
 
-**4a and 4b built 2026-10-17; in-game check pending.** `preset/ApplePreset`
+**4a and 4b built 2026-10-17; in-game check pending.** `preset/apple/ApplePreset`
 (Regular glass behind each plate; a solid stand-in with Reduce Transparency or
 Increase Contrast; SF Pro with primary text and values semibold and labels
 secondary; capsules for single rows, tiles with a corner of at most 30% of their
-height; left-aligned text, ArrayList excepted; Debug exempt) and `preset/HudGlass`,
+height; left-aligned text, ArrayList excepted; Debug exempt) and `preset/glass/HudGlass`,
 the host that draws every plate's shadow and then its glass from one capture,
 before the elements: from `HudOverlay` and both layout editors. Where no pass can
 run (the editors draw inside an alpha fade) a plate falls back to the solid
@@ -184,20 +184,69 @@ Match GUI starts choosing Apple once part 4a is done.
 ## 5. The Apple editor
 
 Apple plan step 15, with the Apple preset's editor chrome (`DESIGN.md` §4.15,
-§7): the Edit HUD pill, elements at full quality with an accent glow on the
+§7): elements at full quality with an accent glow on the
 selected one, a circular minus badge to hide, snap guides and undo. The Classic
 editor is untouched. Decided 2026-10-17: the Apple UI keeps a HUD page, rebuilt;
 the editor replaces only its Layout section; hidden elements stay faint with a
 plus badge.
 
 - **5a. The HUD page** (`DESIGN.md` §7.1b): Tahoe pushed pages and cards, as
-  Settings and Friends are, with the Edit HUD pill below the list.
+  Settings and Friends are, with the Edit HUD… button below the elements' card.
+
+  **Done 2026-10-23.** The pages were built in step 3 (`apple/.../hud/HudSection`: the
+  list with HUD Settings, Legacy Settings while Legacy draws, and the elements with
+  Shown switches; HUD Settings as Appearance, Accessibility and Behaviour; Legacy
+  Settings with a two-press Reset; an element's settings, Display, Layout and Edit on
+  Screen…). A floating glass Edit HUD pill was built on 2026-10-22 and taken out on
+  2026-10-23 at the developer's request: Edit HUD… is the right-aligned push button
+  under the elements' card again. Also fixed on 2026-10-23: the Apple editor drew
+  every element on the solid stand-in, because the shell faded it with an alpha push
+  and a pass refuses inside one. The shell now hands the fade to
+  `Section.drawScreen(width, height, alpha)`, and the editor draws the glass first
+  (`HudGlass.behind(placements, presence)`), then its elements inside the fade. Not
+  seen in game yet.
 - **5b. The editor** (§7.1c): the Apple UI's Layout section replaced by a glass
   editor over the game.
 
+  **Part 1 built 2026-10-23 (developer's order): the toolbar and the badges.**
+  The toolbar is a capsule of the HUD's own glass at the bottom centre
+  (`HudGlass.chrome`, through the Apple preset so it follows the HUD's Glass,
+  Appearance, Reduce Transparency and Increase Contrast), holding Undo, Redo,
+  Snap, Reset All and Done; its tools are `EditorToolbar.Tool`, coloured from that
+  glass (`HudGlass.chromeTokens`). `PillButton`, the mode label, the status text and
+  the toolbar's reset-selection button are gone (R still resets). The shell draws
+  its glass before its fade and slide (`Section.drawToolbarGlass`). Every element
+  has a −/+ badge at its top-left corner (`section/layout/Badges`, drawn in
+  `EditorLook`); a press hides or shows that element as one undo step. Harness
+  (HUD Reduce Transparency's solid fills): Dark over a blue and green scene, Light
+  over a bright one, a hidden element faint with its +. Not seen: the glass itself,
+  in game.
+
+  **Part 2 built 2026-10-23 (developer's order): outlines, selection and grip.**
+  Hidden elements leave the editor unless Behaviour's Dim Hidden in Editor is on
+  (Core `HudEditor.setShowsHidden`). Every element is ringed in white in its plates'
+  own shapes (`PlateShape`, `HudPreset.plateRadius`, `StyledElement.outlines`), the
+  dashed outlines gone; the selection in the accent with a glow. The grip is a white
+  dot on the bottom-right corner, the only handle (Core `setEnabledHandles`, handle
+  gap may now be negative), and Core's resize keeps the grab offset, so pressing it
+  no longer jumps the scale (+16% on a short element; a smoke check now covers it).
+  Harness: a tile and a capsule selected, every shape ringed.
+
+  **Part 3 built 2026-10-23 (developer's order): element groups** (`DESIGN.md` §6.2).
+  `hud/group/HudGroups` keeps the links (`hud-groups.json`) and is Core's new
+  `PlacementArranger` (a local Core edit: `HudService.setArranger`, run after every
+  element is placed, in the editor too), so groups re-stack every frame;
+  `hud/group/GroupEditing` does pulling out and snapping on for both editors; undo
+  snapshots hold groups with the layout (`HudGroups.snapshot/restore`); Reset All and
+  an element's reset ungroup. Harness, through the real code: TPS and Server stacked
+  above Ping end-aligned and touching (each bottom equal to the next top), Coordinates
+  dropped over the Watermark attached below it, TPS pulled out with Server closing up
+  onto Ping. The client boots clean. Not seen: dragging by hand in game.
+  **Still to do:** Ctrl+E.
+
 - *Done when:* editing works in the Apple UI, in either preset, and the Classic
   editor behaves as before.
-- *Needs:* the grouping mechanism, if grouping is to be edited here.
+- *Needs:* nothing (grouping settled 2026-10-23, `DESIGN.md` §6.2).
 
 ## 6. Verify
 

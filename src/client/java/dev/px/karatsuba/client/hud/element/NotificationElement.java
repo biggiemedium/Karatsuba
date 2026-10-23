@@ -11,11 +11,11 @@ import dev.px.core.render.font.Font;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
-import dev.px.karatsuba.client.hud.preset.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
 import dev.px.karatsuba.client.hud.preset.HudPlate;
 import dev.px.karatsuba.client.hud.preset.HudPreset;
 import dev.px.karatsuba.client.hud.preset.HudTokens;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.notify.Source;
 

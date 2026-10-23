@@ -8,7 +8,7 @@ import dev.px.core.layout.Content;
 import dev.px.core.network.tps.TpsService;
 import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -36,7 +36,7 @@ public final class TpsElement extends StyledElement {
     private final BooleanSetting showBars = bool("Quality Bars", true)
             .describe("Three bars, more lit the closer the server is to its target rate");
 
-    private final BooleanSetting colourByHealth = bool("Colour by Health", true)
+    private final BooleanSetting colourByHealth = bool("Colour by Health", false)
             .describe("Colour the value and bars against the server's target rate");
 
     public TpsElement() {

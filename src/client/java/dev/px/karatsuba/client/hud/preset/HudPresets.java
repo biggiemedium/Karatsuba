@@ -1,5 +1,7 @@
 package dev.px.karatsuba.client.hud.preset;
 
+import dev.px.karatsuba.client.hud.preset.apple.ApplePreset;
+import dev.px.karatsuba.client.hud.preset.legacy.LegacyPreset;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.settings.ClientSettings;
 import dev.px.karatsuba.client.settings.gui.GuiSettings;

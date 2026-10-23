@@ -1,13 +1,13 @@
 package dev.px.karatsuba.client.gui.stable.shell.section.layout;
 
 import com.google.gson.JsonObject;
-import dev.px.core.Core;
+import dev.px.karatsuba.client.hud.group.HudGroups;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * Undo and redo for the layout editor: the whole HUD layout snapshotted before
+ * Undo and redo for the layout editor: the whole HUD layout, and its groups, snapshotted before
  * each change, and kept only if the change changed anything.
  *
  * <p>Snapshots rather than recorded operations, because the editor's operations
@@ -58,7 +58,7 @@ final class LayoutHistory {
         commit();
         if (!undo.isEmpty()) {
             redo.push(snapshot());
-            Core.hud().load(undo.pop());
+            HudGroups.restore(undo.pop());
         }
     }
 
@@ -66,11 +66,11 @@ final class LayoutHistory {
         commit();
         if (!redo.isEmpty()) {
             undo.push(snapshot());
-            Core.hud().load(redo.pop());
+            HudGroups.restore(redo.pop());
         }
     }
 
     private static JsonObject snapshot() {
-        return Core.hud().save().deepCopy();
+        return HudGroups.snapshot();
     }
 }

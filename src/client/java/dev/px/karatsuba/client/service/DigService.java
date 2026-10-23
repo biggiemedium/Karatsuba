@@ -18,6 +18,7 @@ import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Digging;
 import dev.px.karatsuba.adapter.game.player.Interactions;
 import dev.px.karatsuba.adapter.game.player.Players;
+import dev.px.karatsuba.adapter.network.PacketHold;
 import dev.px.karatsuba.client.service.action.ActionProfile;
 import dev.px.karatsuba.client.service.claim.Claims;
 import dev.px.karatsuba.client.service.dig.DigProfile;
@@ -203,6 +204,10 @@ public final class DigService implements Service {
         Vec3i block = request.getBlock();
         if (!Digging.breakable(block)) {
             return blockedReport("can't be broken");
+        }
+        if (PacketHold.isSplitting()) {
+            // Only some packets held: a dig sent now would reach the server ahead of them.
+            return hold(block, Digging.continues(block), "packets held");
         }
         if (!block.equals(lastBlock)) {
             sightline.clear();

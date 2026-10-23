@@ -31,7 +31,7 @@ public enum Outcome {
     /** The entity to attack is gone. */
     NO_TARGET,
 
-    /** A player could not do this now: a container is open, or an item is in use. */
+    /** A player could not do this now: a container is open, an item is in use, or only some packets are held. */
     BUSY,
 
     /** Allowed, but not yet: the delay since the last one, or one of each a tick. */

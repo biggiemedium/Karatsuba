@@ -10,8 +10,10 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The interaction model behind edit mode: what is selected, what is being
@@ -75,7 +77,10 @@ public final class HudEditor {
     private boolean dragging;
     private Handle resizing;
 
-    /** Cursor position relative to the element's top-left when the drag began. */
+    /**
+     * Cursor position relative to the element's top-left when a drag began, or to
+     * the corner a resize moves when a resize began.
+     */
     private float grabX;
     private float grabY;
 
@@ -92,6 +97,17 @@ public final class HudEditor {
     private boolean snappingSuspended;
 
     /**
+     * Whether hidden elements take part in editing: in the view, hit testing and
+     * snapping. On by default, so they can be shown faintly and selected to be
+     * brought back; a consumer that brings them back some other way (a list with
+     * switches) turns it off, and they are then gone from the editor entirely.
+     */
+    private boolean showsHidden = true;
+
+    /** Where a drag may put an element, every frame of it. Null for anywhere. See {@link DragConstraint}. */
+    private DragConstraint dragConstraint;
+
+    /**
      * Size of a corner resize handle.
      *
      * <p>Settable because the handle rectangle is both what the consumer draws
@@ -99,6 +115,13 @@ public final class HudEditor {
      * target sets it here and the two stay in agreement.
      */
     private float handleSize = 6f;
+
+    /**
+     * The corner handles that exist: in the view, and grabbed by {@link #press}. All
+     * four unless a consumer draws fewer, so a corner it draws nothing at never
+     * starts a resize nobody can see.
+     */
+    private Set<Handle> enabledHandles = EnumSet.allOf(Handle.class);
 
     /** Gap between the element and its handles, so grabbing one never overlaps the element. */
     private float handleGap = 3f;
@@ -150,12 +173,44 @@ public final class HudEditor {
         this.snappingSuspended = suspended;
     }
 
+    /** @param shows whether hidden elements are in the editor at all; see the field. Takes effect at the next update */
+    public void setShowsHidden(boolean shows) {
+        this.showsHidden = shows;
+    }
+
+    public boolean showsHidden() {
+        return showsHidden;
+    }
+
     public void setHandleSize(float size) {
         this.handleSize = Math.max(1f, size);
     }
 
+    public float getHandleSize() {
+        return handleSize;
+    }
+
+    public float getHandleGap() {
+        return handleGap;
+    }
+
+    /** @return the corners that have a handle, as a copy */
+    public Set<Handle> getEnabledHandles() {
+        return enabledHandles.isEmpty() ? EnumSet.noneOf(Handle.class) : EnumSet.copyOf(enabledHandles);
+    }
+
+    /** @param handles the corners that have a handle; see the field. Empty for none */
+    public void setEnabledHandles(Set<Handle> handles) {
+        this.enabledHandles = handles.isEmpty() ? EnumSet.noneOf(Handle.class) : EnumSet.copyOf(handles);
+    }
+
+    /**
+     * @param gap between the element and its handles; negative overlaps the element,
+     *            and {@code -size / 2} centres each handle on its corner. Never more
+     *            negative than a whole handle, which would put it inside the element
+     */
     public void setHandleGap(float gap) {
-        this.handleGap = Math.max(0f, gap);
+        this.handleGap = Math.max(-handleSize, gap);
     }
 
     // ------------------------------------------------------------- selection
@@ -205,7 +260,7 @@ public final class HudEditor {
     /** @return the cached geometry, resolving once if nothing has been cached yet. */
     private List<Placement> currentPlacements() {
         if (placements.isEmpty()) {
-            placements = hud.resolve(true);
+            placements = hud.resolve(showsHidden);
         }
         return placements;
     }
@@ -304,6 +359,12 @@ public final class HudEditor {
             if (handle != null) {
                 resizing = handle;
                 dragging = false;
+                // Where on the handle it was grabbed, from the corner it moves. The handle sits
+                // outside the element, so sizing to the cursor itself would jump on the first
+                // frame: a short element grew by the handle's whole offset over its height.
+                Bounds bounds = selected.getBounds();
+                grabX = x - (handle.left ? bounds.getX() : bounds.getRight());
+                grabY = y - (handle.top ? bounds.getY() : bounds.getBottom());
                 return true;
             }
         }
@@ -365,7 +426,12 @@ public final class HudEditor {
     /** Re-resolves geometry, so hit testing and the next view see current positions. */
     private void refresh() {
         if (active) {
-            placements = hud.resolve(true);
+            placements = hud.resolve(showsHidden);
+            // An element hidden while hidden ones are left out cannot stay selected: it is gone.
+            HudLayout selected = selectedLayout();
+            if (!showsHidden && selected != null && selected.isHidden()) {
+                selectedId = null;
+            }
         }
     }
 
@@ -378,7 +444,38 @@ public final class HudEditor {
             targetX = snapAxis(targetX, bounds.getWidth(), platform.getScreenWidth(), true);
             targetY = snapAxis(targetY, bounds.getHeight(), platform.getScreenHeight(), false);
         }
+        DragConstraint constraint = dragConstraint;
+        if (constraint != null) {
+            Bounds held = constraint.constrain(placement,
+                    Bounds.of(targetX, targetY, bounds.getWidth(), bounds.getHeight()), currentPlacements());
+            if (held != null) {
+                targetX = held.getX();
+                targetY = held.getY();
+            }
+        }
         hud.moveTo(placement, targetX, targetY);
+    }
+
+    /**
+     * Where a dragged element may go, decided every frame of the drag, after the
+     * cursor and the screen's snapping have had their say: so a consumer can keep
+     * elements from overlapping as they move, rather than sorting it out on release.
+     */
+    @FunctionalInterface
+    public interface DragConstraint {
+
+        /**
+         * @param dragged    the element being dragged, as it was placed last frame
+         * @param proposed   where the drag would put it this frame, in screen space
+         * @param placements every element as last resolved, the dragged one included
+         * @return where it goes instead; {@code proposed} or null to let it be
+         */
+        Bounds constrain(Placement dragged, Bounds proposed, List<Placement> placements);
+    }
+
+    /** @param constraint consulted on every frame of a drag; null for none */
+    public void setDragConstraint(DragConstraint constraint) {
+        this.dragConstraint = constraint;
     }
 
     private void applyResize(Placement placement) {
@@ -394,8 +491,9 @@ public final class HudEditor {
         float fixedX = resizing.left ? bounds.getRight() : bounds.getX();
         float fixedY = resizing.top ? bounds.getBottom() : bounds.getY();
 
-        float wantedWidth = Math.abs(cursorX - fixedX);
-        float wantedHeight = Math.abs(cursorY - fixedY);
+        // The moving corner follows the cursor less the grab offset, so a press alone changes nothing.
+        float wantedWidth = Math.abs(cursorX - grabX - fixedX);
+        float wantedHeight = Math.abs(cursorY - grabY - fixedY);
 
         // Uniform: an element sizes itself from its content, so only scale is free.
         float scale = MathUtil.clamp(
@@ -480,7 +578,7 @@ public final class HudEditor {
             return found;
         }
         Bounds bounds = placement.shape().bounds();
-        for (Handle handle : Handle.values()) {
+        for (Handle handle : enabledHandles) {
             found.put(handle, handleBounds(bounds, handle));
         }
         return found;
@@ -488,7 +586,7 @@ public final class HudEditor {
 
     private Handle handleAt(Placement placement, float x, float y) {
         Bounds bounds = placement.shape().bounds();
-        for (Handle handle : Handle.values()) {
+        for (Handle handle : enabledHandles) {
             if (handleBounds(bounds, handle).contains(x, y)) {
                 return handle;
             }

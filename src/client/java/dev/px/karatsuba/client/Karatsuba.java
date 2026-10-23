@@ -72,15 +72,16 @@ public final class Karatsuba {
     /**
      * The Azure application Microsoft sign-ins are made against.
      *
-     * <p>Empty uses the vanilla launcher's public id, which is what ships and
-     * what most clients use. Put your own here if Microsoft starts refusing it
-     * with {@code unauthorized_client} or {@code invalid_client} &mdash; that
-     * error means the id, not the account, and it is the one login failure a
-     * player cannot do anything about.
+     * <p>Empty uses Microsoft's public Minecraft client through
+     * {@code login.live.com}, which needs no registration and is what ships.
+     * {@code unauthorized_client} or {@code invalid_client} means the id, not the
+     * account, and it is the one login failure a player cannot do anything about.
      *
-     * <p>An application you own also lets you see your own throttling and revoke
-     * your own consent. It needs the device code flow enabled and the
-     * {@code XboxLive.signin} scope.
+     * <p>An Azure application of your own goes here only once Mojang has approved
+     * it for the Minecraft API; until then every sign-in through it fails at
+     * {@code login_with_xbox}. It needs the device code flow enabled and the
+     * {@code XboxLive.signin} scope. Changing it costs every saved account one
+     * browser sign-in.
      */
     private static final String MICROSOFT_CLIENT_ID = "";
 

@@ -2,6 +2,8 @@ package dev.px.karatsuba.client.hud.preset;
 
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.HudIcon;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 /**
@@ -87,19 +89,17 @@ public interface HudPreset {
         return true;
     }
 
-    /** @return whether list items carry the listMarker (§3.2), drawn by {@link #listMarker} */
-    default boolean marksListItems() {
-        return false;
-    }
-
-    /** The listMarker: the enabled-module indicator beside a list item. */
-    default void listMarker(Content into, HudTokens tokens) {
-    }
-
     /** @return whether a plate {@code height} tall (natural units) holds a single row, and so is a capsule (§4.9) */
     default boolean capsule(HudTokens tokens, float height) {
         return false;
     }
+
+    /**
+     * @return the corner radius {@code plate} is drawn with, in screen units at
+     *         {@code scale}: what the HUD editor outlines it with, so the outline is the
+     *         plate's own shape (a capsule, a tile, a rounded rectangle)
+     */
+    float plateRadius(HudTokens tokens, HudPlate plate, float scale);
 
     /** @return whether text lines up by the element's anchor (§2.6); Apple left-aligns inside a plate (§4.16) */
     default boolean alignsByAnchor() {

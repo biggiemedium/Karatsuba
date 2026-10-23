@@ -113,6 +113,27 @@ public final class Palette {
     public static final Tone CARD_SOLID = CARD;
     public static final Tone GLASS_SOLID = Tone.of(Color.of(42, 42, 44, 255), Color.of(246, 246, 248, 255));
 
+    /**
+     * The HUD editor's hide and show badges (§10.2b): Control Center's grey circle with
+     * a white − or +, the same in both appearances since they sit over the game, and a
+     * little lighter under the cursor. Used nowhere else.
+     */
+    public static final Color BADGE = Color.of(86, 86, 92, 255);
+    public static final Color BADGE_HOVER = Color.of(116, 116, 122, 255);
+    public static final Color BADGE_INK = Color.of(255, 255, 255, 255);
+    public static final Color BADGE_SHADOW = Color.of(0, 0, 0, 90);
+
+    /**
+     * The HUD editor's outlines (§10.2b): every element ringed in white, brighter under
+     * the cursor, in its plate's own shape; the selection in the accent instead. White
+     * in both appearances, since they sit over the game.
+     */
+    public static final Color EDIT_OUTLINE = Color.of(255, 255, 255, 150);
+    public static final Color EDIT_OUTLINE_HOVER = Color.of(255, 255, 255, 235);
+    /** The scale grip: a white dot ringed in the accent. */
+    public static final Color GRIP_FILL = Color.of(255, 255, 255, 255);
+    public static final Color GRIP_SHADOW = Color.of(0, 0, 0, 110);
+
     // The sidebar's icon tiles (§4.7): Apple's Light-mode system colours, kept in
     // both appearances as Tahoe's System Settings does, and used nowhere else.
     public static final Color ICON_RED = rgb(0xFF3B30);
@@ -295,7 +316,6 @@ public final class Palette {
 
     /** A back or forward button in the header. */
     public static final float NAV_BUTTON = 22f;
-
     /** Inside the header: before the buttons, and after the title. */
     public static final float HEADER_PAD_LEFT = 5f;
     public static final float HEADER_PAD_RIGHT = 12f;
@@ -305,6 +325,43 @@ public final class Palette {
 
     /** The band at a glass shape's rim where it bends what is behind it. */
     public static final float GLASS_RIM = 10f;
+
+    /** The HUD editor's toolbar (§10.2b): a glass capsule; a tool, square for a glyph; inside the capsule; between tools. */
+    public static final float TOOL_SIZE = 24f;
+    public static final float TOOLBAR_PAD = 4f;
+    public static final float TOOLBAR_GAP = 2f;
+    /** A tool's glyph, and a labelled tool's ends. */
+    public static final float TOOL_GLYPH = 11f;
+    public static final float TOOL_PAD = 10f;
+    /** A hovered tool's tint, and a disabled one's ink, as shares of the toolbar's text colour. */
+    public static final float TOOL_HOVER = 0.14f;
+    public static final float TOOL_DISABLED = 0.35f;
+    /** How far above the screen's bottom edge the toolbar floats. */
+    public static final float TOOLBAR_MARGIN = 16f;
+
+    /**
+     * A hide or show badge (§10.2b): its diameter, its − or + stroke, and how far its
+     * centre sits in from the plate's corner curve along each axis; negative is outward,
+     * so it overhangs the element rather than covering it.
+     */
+    public static final float BADGE_SIZE = 14f;
+    public static final float BADGE_STROKE = 1.5f;
+    public static final float BADGE_GLYPH = 6f;
+    public static final float BADGE_INSET = -3f;
+
+    /** An element's outline in the editor: its weight, and how far outside the plate it runs. */
+    public static final float EDIT_OUTLINE_WEIGHT = 1f;
+    public static final float EDIT_OUTLINE_GAP = 0.25f;
+    /** The selection's accent ring, and the glow beyond it: rings fading out, one unit apart. */
+    public static final float EDIT_SELECT_WEIGHT = 1.5f;
+    public static final int EDIT_GLOW_RINGS = 3;
+    public static final float EDIT_GLOW_ALPHA = 0.35f;
+    /** A locked selection's ring, as a share of the accent. */
+    public static final float EDIT_LOCKED_FADE = 0.45f;
+    /** The scale grip: its diameter and its accent ring; and the square it is pressed in, a little larger than the dot. */
+    public static final float GRIP_SIZE = 7f;
+    public static final float GRIP_RING = 1.5f;
+    public static final float GRIP_TARGET = 10f;
 
     // ======================================================== Apple: fonts
 

@@ -16,6 +16,7 @@
  *   <li>{@code Interactions} &mdash; attacking and using.</li>
  *   <li>{@code Digging} &mdash; the game's own block breaking, pointed at a
  *       block other than the crosshair's.</li>
+ *   <li>{@code Effects} &mdash; the status effects on the player, and their icons.</li>
  * </ul>
  *
  * <p>Everything here reads and writes live game state, so it is <b>game thread

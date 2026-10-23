@@ -40,15 +40,17 @@ import java.util.Optional;
  *
  * <h2>Where the credentials go</h2>
  * A Microsoft account keeps a <b>refresh token</b> in its metadata so that
- * signing in again needs no browser. Core persists metadata, which means that
- * token is written to {@code .minecraft/karatsuba/configs/*.json} <b>in plain
- * text</b>.
+ * signing in again needs no browser. Core persists metadata, and the accounts
+ * section is encrypted: it is written to {@code configs/shared/accounts.enc},
+ * sealed with {@code adapter/platform/MachineKey}.
  *
  * <p>That is a real credential: anything holding it can obtain a session for that
  * account until it is revoked or expires. It is stored because the alternative is
  * a fifteen-minute browser dance every time an account is switched, which makes a
- * saved list pointless &mdash; but it is worth knowing, and {@link #forget} is
- * how it is removed. Signing out of Microsoft in a browser revokes it too.
+ * saved list pointless. On Windows only the same Windows user can open it;
+ * elsewhere the key sits beside the file, so the encryption only stops it being
+ * read by accident. {@link #forget} removes it, and signing out of Microsoft in a
+ * browser revokes it.
  */
 public final class Accounts {
 

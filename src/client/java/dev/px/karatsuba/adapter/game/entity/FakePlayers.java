@@ -6,11 +6,13 @@ import dev.px.core.math.Vec3;
 import dev.px.combat.explosion.state.TargetState;
 import dev.px.karatsuba.adapter.combat.ExplosionProfile;
 import dev.px.karatsuba.adapter.combat.GameBlocks;
+import dev.px.karatsuba.adapter.movement.MotionBridge;
 import dev.px.karatsuba.adapter.world.Voxels;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.OtherClientPlayerEntity;
+import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
@@ -28,6 +30,7 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.Registries;
@@ -359,6 +362,119 @@ public final class FakePlayers {
             }
         }
         return 0;
+    }
+
+    // ----------------------------------------------------------- body double
+
+    /**
+     * Adds a copy of the local player where they stand: their skin, name, kit and
+     * pose. For views that leave the body behind, such as Free Cam, where the game
+     * draws nothing there in first person.
+     *
+     * <p>Only something to look at. It cannot be hit, pushed or collided with, shows
+     * no name tag, and {@link #isBodyDouble} keeps it out of every entity list the
+     * client's modules read, so nothing targets it. Removed with {@link #remove}.
+     *
+     * @return its entity id, or {@link #NO_ENTITY} out of a world
+     */
+    public static int spawnBodyDouble() {
+        ClientWorld world = Voxels.world();
+        ClientPlayerEntity self = MinecraftClient.getInstance().player;
+        if (world == null || self == null) {
+            return NO_ENTITY;
+        }
+        BodyDouble copy = new BodyDouble(world, self);
+        copy.setId(nextId--);
+        copy.refreshPositionAndAngles(self.getX(), self.getY(), self.getZ(), self.getYaw(), self.getPitch());
+        copy.setHeadYaw(self.getHeadYaw());
+        copy.setBodyYaw(self.getBodyYaw());
+        copy.mirror();
+        world.addEntity(copy);
+        return copy.getId();
+    }
+
+    /** Brings a body double up to date with the player: place, the look last sent, pose and kit. Once a tick. */
+    public static void mirrorSelf(int id) {
+        if (find(Voxels.world(), id) instanceof BodyDouble copy) {
+            copy.mirror();
+        }
+    }
+
+    /** Shows or hides a fake without removing it. */
+    public static void setShown(int id, boolean shown) {
+        OtherClientPlayerEntity fake = find(Voxels.world(), id);
+        if (fake != null) {
+            fake.setInvisible(!shown);
+        }
+    }
+
+    /** @return whether {@code entity} is a body double, which nothing should treat as a player */
+    public static boolean isBodyDouble(Entity entity) {
+        return entity instanceof BodyDouble;
+    }
+
+    /** The local player's likeness, and nothing more. */
+    private static final class BodyDouble extends OtherClientPlayerEntity {
+
+        private final ClientPlayerEntity original;
+
+        BodyDouble(ClientWorld world, ClientPlayerEntity original) {
+            // The player's name, under a fresh UUID: the world refuses a second entity with theirs.
+            super(world, new GameProfile(UUID.randomUUID(), original.getGameProfile().getName()));
+            this.original = original;
+        }
+
+        /** Their skin, cape and model: looked up by UUID, a fresh one would get a default skin. */
+        @Override
+        public SkinTextures getSkinTextures() {
+            return original.getSkinTextures();
+        }
+
+        @Override
+        public boolean canHit() {
+            return false;
+        }
+
+        @Override
+        public boolean isPushable() {
+            return false;
+        }
+
+        @Override
+        public boolean isCollidable() {
+            return false;
+        }
+
+        /**
+         * Hides the name tag ({@code LivingEntityRenderer.hasLabel}). The body is
+         * hidden only while it is also invisible, which {@link #setShown} decides.
+         */
+        @Override
+        public boolean isInvisibleTo(PlayerEntity player) {
+            return true;
+        }
+
+        /**
+         * As the server has the player: looking where the last movement packet said,
+         * silent rotations included, not where the client's head is.
+         */
+        void mirror() {
+            Vec2 sent = MotionBridge.lastSentRotation();
+            float yaw = sent == null ? original.getYaw() : sent.getYaw();
+            float pitch = sent == null ? original.getPitch() : sent.getPitch();
+            updateTrackedPositionAndAngles(original.getX(), original.getY(), original.getZ(), yaw, pitch, 3);
+            updateTrackedHeadRotation(yaw, 3);
+            setSneaking(original.isSneaking());
+            setPose(original.getPose());
+            setMainArm(original.getMainArm());
+            getDataTracker().set(PLAYER_MODEL_PARTS, original.getDataTracker().get(PLAYER_MODEL_PARTS));
+            for (EquipmentSlot slot : EquipmentSlot.VALUES) {
+                ItemStack theirs = original.getEquippedStack(slot);
+                if (!ItemStack.areEqual(theirs, getEquippedStack(slot))) {
+                    equipStack(slot, theirs.copy());
+                }
+            }
+        }
     }
 
     /**

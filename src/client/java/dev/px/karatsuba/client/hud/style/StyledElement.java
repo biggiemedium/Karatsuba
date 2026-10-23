@@ -18,13 +18,14 @@ import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.karatsuba.adapter.game.GameHud;
-import dev.px.karatsuba.client.hud.preset.ColorRole;
-import dev.px.karatsuba.client.hud.preset.HudIcon;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.HudIcon;
 import dev.px.karatsuba.client.hud.preset.HudPlate;
 import dev.px.karatsuba.client.hud.preset.HudPreset;
 import dev.px.karatsuba.client.hud.preset.HudPresets;
 import dev.px.karatsuba.client.hud.preset.HudTokens;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.PlateShape;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.setting.SettingLabels;
 
 import java.util.ArrayList;
@@ -145,7 +146,8 @@ public abstract class StyledElement extends AbstractHudElement {
         // Not while the layout editor is open: an element being scaled or dragged there
         // must sit exactly under the cursor, not ease after it.
         // Only at Motion: Full; Reduced keeps fades but no movement or scaling (§2.10).
-        boolean ease = sized && HudStyle.get().motion() == HudStyle.Motion.FULL && !Core.hud().getEditor().isActive();
+        boolean ease = sized && !sizesItself() && HudStyle.get().motion() == HudStyle.Motion.FULL
+                && !Core.hud().getEditor().isActive();
         float w = resize(width, natural.getWidth(), ease);
         float h = resize(height, natural.getHeight(), ease);
         sized = true;
@@ -160,7 +162,7 @@ public abstract class StyledElement extends AbstractHudElement {
         content.column(frame -> {
             frame.width(w).height(h).align(inner);
             // Only while moving: settled, a clip at the edge shaves descenders.
-            if (moving) {
+            if (moving || overflowing()) {
                 frame.clip();
             }
             frame.include(shown);
@@ -172,6 +174,23 @@ public abstract class StyledElement extends AbstractHudElement {
      *         card per toast) rather than having one drawn behind everything
      */
     protected boolean platesItself() {
+        return false;
+    }
+
+    /**
+     * @return whether the element animates its own size (ArrayList's rows growing in
+     *         and out), so its plate follows it exactly rather than easing after it
+     */
+    protected boolean sizesItself() {
+        return false;
+    }
+
+    /**
+     * @return whether something in the element runs past its plate this frame (a row
+     *         sliding in from the edge) and has to be clipped to it; otherwise the
+     *         content is clipped only while the plate is resizing
+     */
+    protected boolean overflowing() {
         return false;
     }
 
@@ -202,6 +221,24 @@ public abstract class StyledElement extends AbstractHudElement {
         }
         return List.of(new HudPlate(getId(), x, y, naturalW * scale, naturalH * scale,
                 preset.capsule(tokens, naturalH), lastFade, cueAmount()));
+    }
+
+    /**
+     * @return this element's plates as the preset that drew it last frame shapes them,
+     *         in screen space, for the HUD editor to outline: one across the element,
+     *         or one per item for an element that plates each itself (a toast). Empty
+     *         before its first frame
+     */
+    public final List<PlateShape> outlines(float x, float y, float scale, float naturalW, float naturalH) {
+        if (tokens == null) {
+            return List.of();
+        }
+        List<PlateShape> shapes = new ArrayList<>();
+        for (HudPlate plate : plates(x, y, scale, naturalW, naturalH)) {
+            shapes.add(new PlateShape(plate.x(), plate.y(), plate.width(), plate.height(),
+                    preset.plateRadius(tokens, plate, scale)));
+        }
+        return shapes;
     }
 
     /** @return how faded the element was last frame, 0 to 1: its plates form and melt with it */
@@ -425,7 +462,7 @@ public abstract class StyledElement extends AbstractHudElement {
     }
 
     /** @return {@code color} lit by the current cue: pulled towards white for labels, towards the label colour for the rest */
-    private Color cued(Color color) {
+    protected final Color cued(Color color) {
         // A preset with a rim to brighten cues there instead (Apple, §4.12).
         float amount = preset.cuesText(tokens) ? cueAmount() : 0f;
         if (amount <= 0.01f) {
@@ -445,12 +482,19 @@ public abstract class StyledElement extends AbstractHudElement {
             case LEFT -> Align.START;
             case CENTER -> Align.CENTER;
             case RIGHT -> Align.END;
-            case AUTO -> {
-                HudLayout layout = Core.hud().layoutOf(this);
-                Anchor anchor = layout == null ? defaultLayout().getAnchor() : layout.getAnchor();
-                yield anchor.isRight() ? Align.END : anchor.isLeft() ? Align.START : Align.CENTER;
-            }
+            case AUTO -> autoAlignment();
         };
+    }
+
+    /**
+     * @return how rows line up with Align on Auto: by the side the element is anchored
+     *         to. An element that should follow where it actually is on screen instead
+     *         (ArrayList) overrides this
+     */
+    protected Align autoAlignment() {
+        HudLayout layout = Core.hud().layoutOf(this);
+        Anchor anchor = layout == null ? defaultLayout().getAnchor() : layout.getAnchor();
+        return anchor.isRight() ? Align.END : anchor.isLeft() ? Align.START : Align.CENTER;
     }
 
     /** @return whether Legacy is drawing, the one preset with per-element styling */

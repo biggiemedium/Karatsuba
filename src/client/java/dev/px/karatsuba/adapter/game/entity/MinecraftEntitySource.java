@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.game.entity;
 
+import com.google.common.collect.Iterables;
 import dev.px.core.entity.EntitySource;
 import dev.px.karatsuba.adapter.mixin.player.LivingEntityAccessor;
 import net.minecraft.client.MinecraftClient;
@@ -38,7 +39,8 @@ public final class MinecraftEntitySource implements EntitySource<Entity> {
     @Override
     public Iterable<Entity> entities() {
         ClientWorld world = MinecraftClient.getInstance().world;
-        return world == null ? null : world.getEntities();
+        // A body double is the local player's likeness, not a player to track.
+        return world == null ? null : Iterables.filter(world.getEntities(), entity -> !FakePlayers.isBodyDouble(entity));
     }
 
     @Override

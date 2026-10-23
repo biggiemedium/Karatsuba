@@ -2,6 +2,10 @@ package dev.px.karatsuba.client.hud.preset;
 
 import dev.px.core.render.Color;
 import dev.px.core.render.font.Font;
+import dev.px.karatsuba.client.hud.preset.color.Contrast;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 
 /**
  * One element's tokens for one frame, from the active preset: what each role looks

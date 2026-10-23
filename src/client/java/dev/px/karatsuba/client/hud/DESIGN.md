@@ -72,7 +72,7 @@ combination must work**):
 | | Increase Contrast | on, off (§2.11) | all |
 | | Text Size | Default, Large, Larger (§2.9) | all |
 | | Motion | Full, Reduced, Off (§2.10) | all |
-| **Behaviour** | In Screens, Hide with F3, Change Cues, Avoid Vanilla HUD | §2.8 | all |
+| **Behaviour** | In Screens, Hide with F3, Change Cues, Avoid Vanilla HUD, Dim Hidden in Editor (off: hidden elements are left out of both editors, §7.1c) | §2.8 | all |
 
 A setting a preset does not use is hidden, not greyed.
 
@@ -199,7 +199,7 @@ draw them.
 |---|---|
 | **Text** | primary, secondary, tertiary (inactive things only), value (fixed-width), title, subtitle |
 | **Colour** | accent, meterFill, meterTrack, good, fair, bad, separator; listItem (the colour of the n-th entry in a ranked list, such as ArrayList's) |
-| **Structure** | icon, iconWell, toggleOn, track (a thick rounded progress bar), titleBlock; categoryMarker (which of a small fixed set something is: a notification's info, success, warning or error, §2.13); listMarker (the enabled-module indicator beside a list item) |
+| **Structure** | icon, iconWell, toggleOn, track (a thick rounded progress bar), titleBlock; categoryMarker (which of a small fixed set something is: a notification's info, success, warning or error, §2.13) |
 
 The `label` helper produces a label. "Label in the accent" is **Legacy's mapping**
 of that role, not the role itself: Apple draws labels as secondary text (§4.8).
@@ -211,6 +211,14 @@ bare icon, or leaves it out. **An element never needs a preset-specific version.
 3.4 **No literal colours in elements.** Health's good, fair and bad
 (`element/Health`) and any other colour an element uses become colour roles,
 mapped by each preset, before the second preset ships.
+
+3.4b **The one exception: the Watermark's logo** (2026-10-23): the K mark beside the
+client's name in SF Pro Semibold (no wordmark image, no version). Its artwork comes in
+white and in black. At Logo Colour: Auto it picks whichever reads on the plate (white
+where the preset's primary text is light), and the name beside the mark is the
+preset's primary text. At White or Black the player has chosen the logo's own
+colour, and the name matches it. That is the artwork's colour, not one the element
+picked.
 
 3.5 An element that draws something no helper covers (Now Playing's cover, a
 radar) asks the preset for its roles inside its custom part, so it still changes
@@ -281,14 +289,13 @@ and separators. The material goes on the plate, never on its inner parts.
 
 4.11 **Icons** only where they are clear at once; otherwise a text label. One icon
 per concept, never tweaked variants of it. An original glyph set, not SF Symbols
-assets (`preset/HudGlyphs`). Today that is the categoryMarker's four: info (an i),
+assets (`preset/apple/HudGlyphs`). Today that is the categoryMarker's four: info (an i),
 success (a tick), warning (an exclamation mark), error (a cross), each in a rounded
 well tinted by its category's colour, the glyph in that colour.
 
 4.11b **Notifications** are a capsule each: the category marker, the title in
 primary text, semibold, and the message under it in primary text, regular. No
-countdown line. The list items of ArrayList each carry the listMarker, a small
-dot in the accent.
+countdown line.  ArrayList carries no marker beside its names (removed 2026-10-23).
 
 4.12 **Motion** (at Motion: Full; §2.10 for Reduced and Off): a soft, gel-like
 spring, damped to overshoot by about 2% (the Apple rules' limit, §8.1 there).
@@ -314,8 +321,22 @@ accent glow on the selected element, and a circular minus badge to hide one.
 
 4.16 **Text is left-aligned inside a plate**, whatever the anchor, as Control
 Center's tiles are; the anchor still decides which way the plate grows. ArrayList
-keeps anchor alignment. Each element's Align setting is hidden in Apple, except
-ArrayList's.
+is the exception, in every preset. Its Align on Auto follows where it is on screen,
+as drawn (groups included): left half left-aligned, right half right-aligned. Its
+Sort on Auto puts the widest line against the screen's nearer edge: on top in the
+top half, at the bottom in the bottom half (Longest First keeps the old order).
+Each name may be followed by its module's metadata in secondary text, set off as
+[ ], ( ), a bar, a dash or a space; there is no marker beside the names. Each
+element's Align setting is hidden in Apple, except ArrayList's.
+
+4.16b **ArrayList animates its lines**, in every preset. (The motion is `hud/style/AnimatedRows`, shared with Potions, whose rows grow and fade the same way without the slide.) A module switched on grows
+its line in (260ms, ease-out): the line's height opens from nothing, pushing the
+lines below down; its width opens from the side the list lines up on; and its text
+slides in from the screen's nearer edge, fading in, clipped to the plate. Switched
+off, the same backwards and quicker (200ms). The lines are always exactly one gap
+apart while they move. The plate follows the lines exactly rather than easing after
+them. What is on when the list first draws is simply there. At Motion: Reduced lines
+only fade; at Off they appear and go at once.
 
 ## 5. The Legacy preset
 
@@ -334,7 +355,7 @@ Today's drawing, kept as it is, as a preset:
 - notifications as they are: the categoryMarker is a coloured edge bar (colour
   plus shape), the title in the category's colour, the message in white, and a
   countdown line along the bottom. Category colours are Core's notification
-  colours. No listMarker.
+  colours.
 
 Its settings live on the **Legacy Settings…** page (Plate, Text, ArrayList, and a
 Reset), shown from Appearance only while Legacy is the preset, and in each
@@ -355,7 +376,7 @@ never rejected:
   Label Colour follows the theme: a colour the player picked is theirs.
 
 Each variant is the theme's first colour moved toward black or white until it
-passes (`preset/Accents`); a theme that already passes is unchanged. Where the
+passes (`preset/color/Accents`); a theme that already passes is unchanged. Where the
 accent is text (Legacy's labels, ArrayList's names) it reaches §2.2's 4.5:1
 instead, since text needs more than a fill does.
 
@@ -370,9 +391,35 @@ low-saturation accents still work.
 in the editors, the HUD pages' Stack section, `hud-stacks.json`). An old
 `hud-stacks.json` in a profile is now ignored.
 
-6.2 What replaces them is open; a proposed rule for how groups are drawn is in §9.
-Whatever it is works the same in every preset, and leaves Core's layout model
-alone unless this file says otherwise.
+6.2 **Element groups replace them** (decided 2026-10-23), so elements never sit
+inside one another (`hud/group/HudGroups`, `hud-groups.json` per profile):
+- **Attached, edge to edge.** An element in a group is attached to one other, on
+  one of its four sides, lined up with that side's start, centre or end. The
+  element at the top of the chain (the root) is placed by its own layout; the rest
+  follow it. Groups grow in any direction and **touch, with no gap**.
+- **They follow.** A group re-stacks every frame, in game and in the editor (Core's
+  `PlacementArranger`): when a member grows or shrinks, what is attached to it
+  moves to stay against it. A hidden member keeps its place at no size, so the
+  chain closes up across it.
+- **Snapping on, live.** In either editor, an element dragged over another, or
+  with an edge within a few units of one and sharing some of its length, is held
+  against the side it needs to move least to reach **on every frame of the drag**
+  (Core's `HudEditor.DragConstraint`), lined up with the nearest of start, centre
+  and end, so it is never shown inside another. A side with no room on screen is
+  skipped, and so is one that would overlap a third element: the nearest spot
+  that is clear of everything wins. Letting go attaches it there. Dropping on a
+  side that already has something attached inserts it there; what was there moves
+  out past it.
+- **Pulling out.** Dragging an attached element takes it out of its group once the
+  cursor has really moved (a click only selects); whatever was attached to it
+  closes up into its place. Dragging the root moves the whole group.
+- **Undo and reset.** Attaching and pulling out are undone with the layout (one
+  snapshot holds both). Reset All ungroups everything; an element's reset (R, Reset
+  Position) takes it out of its group first.
+- **Drawing is unchanged:** each member keeps its own plate. Groups are layout
+  only, the same in every preset.
+- **Not covered:** a group does not push unrelated elements aside; it keeps its
+  own members apart, and a drop never leaves one element inside another.
 
 ## 7. Editing
 
@@ -384,14 +431,19 @@ the elements, each with its Shown switch and a ›), and each pushed in: HUD Set
 as its Appearance, Accessibility and Behaviour cards; Legacy Settings as its Plate,
 Text and ArrayList cards with a two-press Reset below; an element as its own
 settings, its Display card and a Layout card, with "Edit on Screen…" below. The
-Edit HUD pill (Apple rules §10.1) sits below the list.
+**Edit HUD…** push button (Apple rules §10.1) sits below the elements' card,
+right-aligned, as every standalone action does. Not a floating glass pill: one was
+built and taken out on 2026-10-23 at the developer's request.
 
 7.1c **The Apple editor replaces the Layout section** in the Apple UI (Apple plan
-step 15), opened by the Edit HUD pill, an element's "Edit on Screen…" or Ctrl+E:
+step 15), opened by the Edit HUD… button, an element's "Edit on Screen…" or Ctrl+E:
 - elements drawn at full quality in the active preset, glass and all;
 - the selected element ringed by an accent glow;
-- a circular minus badge at a shown element's corner hides it; a hidden element
-  stays on screen faint, with a circular plus badge that shows it again;
+- a circular minus badge at a shown element's corner hides it, and a hidden
+  element is then **gone from the editor entirely** (decided 2026-10-23), coming
+  back from its Shown switch on the HUD page. Behaviour's **Dim Hidden in Editor**
+  (off by default) keeps hidden elements in the editor instead, faint, with a
+  circular plus badge that shows them again;
 - dragged by the element itself, with snap guides to the screen's edges and
   centre and to other elements (hold Alt to skip), the corner to scale, and the
   Classic editor's keys (arrows nudge, Ctrl+Z and Ctrl+Y undo and redo, Escape
@@ -470,16 +522,16 @@ settled.
 - **No idle fade:** Fade When Idle, Fade When Idle After and Idle Opacity are gone;
   an element shows until the player hides it (§2.8b).
 
+**Settled 2026-10-23:**
+- **Grouping mechanism:** element groups, attached edge to edge in any direction,
+  touching, following one another as they resize; dragging a member pulls it out,
+  dragging the root moves the group; each member keeps its own plate (§6.2).
+
 **Open:**
-- **Grouping mechanism:** what replaces stacks: snapping elements into shared
-  plates, layout groups that move together, a few fixed panels, or nothing?
 - **Other presets:** is a third wanted now, or just room for one?
 
 **Proposed:**
 - **Per element:** the preset is HUD-wide. There is no per-element preset.
-- **Grouping drawing:** whatever replaces stacks draws one plate per group. In
-  Apple, the items inside are divided by separators or flat translucent fills,
-  never nested glass. The mechanism stays open (above).
 - **Theme shape:** themes today are a pair (a primary and a secondary colour, with
   a gradient between them). If they stay a pair, Apple uses the first colour only,
   as the Apple UI already does (Apple rules §4.3).

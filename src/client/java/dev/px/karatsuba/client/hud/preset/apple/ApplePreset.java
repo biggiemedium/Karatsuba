@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.apple;
 
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
@@ -7,6 +7,17 @@ import dev.px.core.render.font.Font;
 import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.client.gui.apple.shell.style.Appearance;
 import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
+import dev.px.karatsuba.client.hud.preset.Curve;
+import dev.px.karatsuba.client.hud.preset.HudPlate;
+import dev.px.karatsuba.client.hud.preset.HudPreset;
+import dev.px.karatsuba.client.hud.preset.HudTokens;
+import dev.px.karatsuba.client.hud.preset.color.Accents;
+import dev.px.karatsuba.client.hud.preset.color.Contrast;
+import dev.px.karatsuba.client.hud.preset.glass.Backdrop;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.HudCategory;
+import dev.px.karatsuba.client.hud.preset.role.HudIcon;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.render.Glass;
@@ -22,7 +33,7 @@ import dev.px.karatsuba.client.render.Glass;
  * stand-in, {@code R_HUD_TILE}), so HUD glass and the GUI's glass read as one
  * material, and follow the Apple UI's appearance.
  */
-final class ApplePreset implements HudPreset {
+public final class ApplePreset implements HudPreset {
 
     /** Between a plate's edge and its content: wider than tall, so a capsule's ends have room. */
     private static final float PAD_X = 8f;
@@ -34,10 +45,9 @@ final class ApplePreset implements HudPreset {
      */
     private static final float TILE_SHARE = 0.3f;
 
-    /** A category well's tint, the room after it, and a list item's accent dot (radius). */
+    /** A category well's tint, and the room after it. */
     private static final float CATEGORY_WELL_FADE = 0.22f;
     private static final float MARKER_GAP = 6f;
-    private static final float LIST_DOT = 2f;
 
     /** Between rows. */
     private static final float GAP = 2f;
@@ -252,6 +262,36 @@ final class ApplePreset implements HudPreset {
                 glassTone.withAlpha(Math.round(tint * 255f)), plate.presence(), plate.cue());
     }
 
+    /**
+     * Chrome over the game in the HUD's own glass (the editor's toolbar,
+     * {@code hud/DESIGN.md} §7.1c): a capsule drawn as a plate would be, solid where
+     * plates are solid, else its shadow and then its glass, or the stand-in where no
+     * pass can run. Not measured against its backdrop, so at Auto it follows the Apple
+     * UI as a tile does.
+     */
+    public void chrome(HudPlate plate) {
+        HudStyle hud = HudStyle.get();
+        if (hud.reduceTransparency() || hud.increaseContrast()) {
+            HudTokens tokens = chromeTokens(plate.owner());
+            Color border = tokens.border();
+            solid(plate.x(), plate.y(), plate.width(), plate.height(), plate.height() / 2f,
+                    tokens.plate().fade(plate.presence()), border == null ? null : border.fade(plate.presence()));
+            return;
+        }
+        shadow(plate, 1f);
+        if (!glass(Glass.layer(), plate, 1f)) {
+            standIn(plate, 1f);
+        }
+    }
+
+    /** @return the tokens for chrome drawn by {@link #chrome}: its text and accent on that glass */
+    public HudTokens chromeTokens(String owner) {
+        HudStyle hud = HudStyle.get();
+        boolean contrast = hud.increaseContrast();
+        boolean solid = contrast || hud.reduceTransparency();
+        return new Tokens(hud.textSize().scale(), solid, contrast, light(owner, solid));
+    }
+
     /** The glass's solid stand-in, formed as far as the plate is. */
     @Override
     public void standIn(HudPlate plate, float scale) {
@@ -259,6 +299,12 @@ final class ApplePreset implements HudPreset {
         Color fill = light(plate.owner(), true) ? solid.light() : solid.dark();
         Render.roundRect(plate.x(), plate.y(), plate.width(), plate.height(), radius(plate, scale),
                 fill.fade(plate.presence()));
+    }
+
+    /** A capsule's half height, or a tile's corner: the same radius its glass and stand-in use. */
+    @Override
+    public float plateRadius(HudTokens tokens, HudPlate plate, float scale) {
+        return radius(plate, scale);
     }
 
     /** @return how thick a plate's glass is, 0 to 1, by its unscaled area (§4.4) */
@@ -353,19 +399,6 @@ final class ApplePreset implements HudPreset {
         Render.roundRect(left, top, well, well, WELL_RADIUS, colour.fade(CATEGORY_WELL_FADE));
         HudGlyphs.of(category).draw(left + WELL_PAD, top + WELL_PAD, line, colour);
         return PAD_X + well + MARKER_GAP;
-    }
-
-    @Override
-    public boolean marksListItems() {
-        return true;
-    }
-
-    /** A small dot in the accent: the module is on (§4.7). */
-    @Override
-    public void listMarker(Content into, HudTokens tokens) {
-        float line = tokens.font(TextRole.PRIMARY).getHeight();
-        Color accent = tokens.color(ColorRole.ACCENT);
-        into.custom(LIST_DOT * 2f, line, (x, y, w, h) -> Render.circle(x + w / 2f, y + h / 2f, LIST_DOT, accent));
     }
 
     @Override

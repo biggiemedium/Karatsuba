@@ -7,6 +7,7 @@ import dev.px.core.util.net.Http;
 import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
+import dev.px.karatsuba.adapter.asset.GameTextures;
 import dev.px.karatsuba.adapter.asset.RemoteImages;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.combat.Combat;
@@ -98,6 +99,9 @@ public final class MinecraftAdapter {
         // (an editable folder over the jar), F3+T reloads and the adapter's globals.
         // Nothing compiles until a shader is first drawn.
         Shaders.install(core);
+
+        // The game's own textures (effect icons) as NanoVG ones, dropped on a resource reload.
+        GameTextures.install();
 
         // Before start(): FontService resolves its default during service startup,
         // and throws if no provider is set by then.
@@ -195,6 +199,7 @@ public final class MinecraftAdapter {
     public static void shutdown() {
         Assets.dispose();
         RemoteImages.dispose();
+        GameTextures.dispose();
         SceneTexture.release();
         Silhouettes.release();
         if (render2D != null) {

@@ -120,9 +120,12 @@ public final class HudStyle extends SettingHolder {
             .describe("Briefly highlight an element when something that matters changes: ping turning bad, a module switched on");
     private final BooleanSetting avoidVanilla = bool("Avoid Vanilla HUD", true)
             .describe("Move elements out of the way of the hotbar, boss bars, effect icons and scoreboard while they show");
+    // Off: a hidden element is gone from the editor too, and comes back from its switch on the HUD page.
+    private final BooleanSetting dimHiddenInEditor = bool("Dim Hidden in Editor", false)
+            .describe("Keep hidden elements in the HUD editor, dimmed, so they can be moved and shown again from there");
 
     private final GroupSetting behaviour = group("Behaviour", true)
-            .containing(inScreens, hideWithF3, changeCues, avoidVanilla);
+            .containing(inScreens, hideWithF3, changeCues, avoidVanilla, dimHiddenInEditor);
 
     // ----------------------------------------------------------------- legacy
 
@@ -285,6 +288,11 @@ public final class HudStyle extends SettingHolder {
 
     public boolean avoidVanilla() {
         return avoidVanilla.isOn();
+    }
+
+    /** @return whether hidden elements stay in the HUD editor, dimmed; off, they are left out of it entirely */
+    public boolean dimHiddenInEditor() {
+        return dimHiddenInEditor.isOn();
     }
 
     // ----------------------------------------------------------------- legacy

@@ -10,8 +10,8 @@ import dev.px.core.render.Color;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.karatsuba.client.automation.Automation;
 import dev.px.karatsuba.client.automation.task.Task;
-import dev.px.karatsuba.client.hud.preset.ColorRole;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.ColorRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 import dev.px.karatsuba.client.automation.navigation.Trip;
 

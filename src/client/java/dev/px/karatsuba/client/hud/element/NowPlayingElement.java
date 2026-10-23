@@ -18,7 +18,7 @@ import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.karatsuba.adapter.asset.RemoteImages;
 import dev.px.karatsuba.client.hud.style.HudStyle;
-import dev.px.karatsuba.client.hud.preset.TextRole;
+import dev.px.karatsuba.client.hud.preset.role.TextRole;
 import dev.px.karatsuba.client.hud.style.StyledElement;
 
 import java.util.ArrayList;

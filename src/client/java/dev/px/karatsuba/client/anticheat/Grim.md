@@ -163,6 +163,21 @@ Scaffolding-block placements are exempt from RotationPlace and PositionPlace.
 
 ---
 
+## Holding packets (Blink)
+
+Read from 2.3.73's `checks/impl/timer` and its `config/en.yml` on 2026-10-22. Held packets let go together are read by the server in one go, so every check below runs over the whole batch at once.
+
+| Flag | What it flags | Karatsuba methods |
+|---|---|---|
+| **TimerA** (`Timer`) | Each tick packet adds 50 ms to a balance; flagged when the balance passes the server's clock. A pong arriving after a movement moves `lastMovementPlayerClock` to the send time of the transaction it answers, and the balance is never allowed below that minus `drift` (120 ms). Held **with** their pongs, in order, the balance only catches up to real time: latency, not timer | `adapter.network.PacketHold`: one queue, sent in order, one flush. Blink holds everything (`hold.everything()`) |
+| **TimerLimit** | Same balance, but `limitFallBehind` treats the clock as no older than `now − ping-abuse-limit-threshold` (1000 ms by default, -1 off). Once the oldest unanswered transaction is over that, the balance jumps to `now − 1120 ms` and every tick packet after it in the batch adds 50 ms, so a hold longer than about **1000 + 120 − ping ms** flags each extra tick, **with a setback** | `client.module.movement.BlinkModule.holdLimit()`: with Grim Safe on, each hold lasts at most `(Ping Limit + 120 − ping − 150) / 50` ticks (ping from the tab list). Blink always runs as bursts (Mode: Continuous until turned off, Fixed until Max Timeout): each hold is sent when it runs out and another starts a tick later; each new hold starts from a fresh clock, as the batch's last pongs answer recent transactions |
+| **NegativeTimer** | The balance more than 1200 ms (`drift`) behind `lastMovementPlayerClock`, while predictions are being checked. With setback | Never reached by a hold inside TimerLimit's budget |
+| **TickTimer** | See above: a flying packet before its `CLIENT_TICK_END`. A hold that took movement and not the tick end (Blink's old "Packets: Movement") delivers a run of flying packets with no tick end between: flagged on every one | Blink no longer holds by kind. `PacketHold.isSplitting()` makes `ActionService` and `DigService` wait while any module does |
+
+Not Grim, and **unverified** (from memory of the vanilla server, not read from this one): the vanilla server's "moved too quickly" counts at most 5 move packets a server tick (more is treated as 1), so a batch moving the player over about 10 blocks (17 gliding) from where the server tick began is set back. A hold within the TimerLimit budget on foot stays far inside that.
+
+---
+
 ## Breaking
 
 Read from the 2.3.73 bytecode on 2026-10-18. Grim gets every `PLAYER_DIGGING`

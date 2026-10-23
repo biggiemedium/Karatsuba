@@ -235,12 +235,30 @@ public final class HudEditorTests {
         Checks.check("with room to spare it sits outside the element",
                 published.getX() > dialBounds.getRight());
 
+        // Regression: the resize sized the element to the cursor, which on the handle is
+        // outside the corner, so a press with no movement grew a short element by ~16%.
+        editor.update(published.getCenterX(), published.getCenterY());
+        Checks.check("pressing the handle without moving does not scale",
+                Checks.eq(dial.getScale(), 1f));
+
         editor.update(dialBounds.getX() + 80f, dialBounds.getY() + 80f);
         Checks.check("dragging the handle scales the element", dial.getScale() > 1f);
         Checks.check("and the opposite corner stays put",
                 Checks.eq(HudLayoutTests.boundsOf(hud, "dial").getX(), dialBounds.getX()));
         editor.release();
         dial.setScale(1f);
+
+        // ---- hidden elements left out ---------------------------------------------------------------------
+        editor.select("dial");
+        editor.setShowsHidden(false);
+        dial.toggleHidden();
+        editor.update(0f, 0f);
+        Checks.check("with hidden elements left out, a hidden one is not in the view",
+                hiddenIn(editor.view()) == 0);
+        Checks.check("and cannot stay selected", editor.getSelectedId() == null);
+        dial.toggleHidden();
+        editor.setShowsHidden(true);
+        editor.update(0f, 0f);
 
         // ---- closing ---------------------------------------------------------------------------------------
         editor.select("dial");

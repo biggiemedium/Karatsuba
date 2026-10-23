@@ -64,7 +64,7 @@ import java.util.function.Supplier;
  *   <li>the <b>popover</b> Screen: menus and popovers, solid and elevated (step 14).</li>
  * </ol>
  * Two captures a frame: the backdrop, and the window for the sidebar and floating
- * controls. Popovers and the Edit HUD pill come later. Input goes the
+ * controls. Popovers come later. Input goes the
  * other way, popovers first, except that a content popup open still takes the
  * next press, so a press outside it closes it as before.
  *
@@ -101,7 +101,7 @@ public final class ClientGui implements Shell {
     private final History history = new History();
     private final SectionHost host;
     private final List<Section> sections;
-    /** Everything glass: the sidebar and the floating controls (‹ ›, later the Edit HUD pill), over the window. */
+    /** Everything glass: the sidebar and the floating ‹ › capsule, over the window. */
     private final List<GlassSurface> glass = new ArrayList<>();
     private final List<ToolbarDock> docks = new ArrayList<>();
 
@@ -154,7 +154,8 @@ public final class ClientGui implements Shell {
             widget.visibleWhen(() -> active == section && !section.fullscreen());
             Widget toolbar = section.toolbar();
             if (toolbar != null) {
-                ToolbarDock dock = barRoot.add(new ToolbarDock(), Align.CENTER, Align.START);
+                // At the bottom centre, as Control Center's edit controls are (§10.2b).
+                ToolbarDock dock = barRoot.add(new ToolbarDock(), Align.CENTER, Align.END);
                 dock.add(toolbar);
                 dock.visibleWhen(() -> active == section);
                 docks.add(dock);
@@ -358,14 +359,11 @@ public final class ClientGui implements Shell {
         // clearing as the window steps aside for the editor (§5.1).
         Materials.backdrop(Materials.layer(), width, height, presence * (1f - away));
 
-        // The full-screen section, under everything, fading in as the window goes.
+        // The full-screen section, under everything, fading in as the window goes. It fades
+        // itself: a glass pass refuses inside an alpha push, even one at full opacity (§1.4),
+        // so the editor draws its elements' glass first and its fade after.
         if (active.fullscreen() && away > 0f) {
-            Render.pushAlpha(away * presence);
-            try {
-                active.drawScreen(width, height);
-            } finally {
-                Render.popAlpha();
-            }
+            active.drawScreen(width, height, away * presence);
         }
 
         // The window, in its layers, fading and shrinking a little as it steps aside.
@@ -406,13 +404,16 @@ public final class ClientGui implements Shell {
             drawLayer(popovers, formed, s, cx, cy);
         }
 
-        // The toolbar, coming down from the top as the window goes.
+        // The toolbar, rising from the bottom as the window goes. Its glass first, outside the
+        // fade and the slide, which no pass may be drawn inside (§1.4).
         if (away > 0f && active.fullscreen()) {
             bar.update(mouseX, mouseY);
             float shown = active.toolbar() instanceof EditorToolbar editor ? editor.presence() : 1f;
+            float rise = (1f - away) * 8f;
+            active.drawToolbarGlass(away * shown * presence, rise);
             Render.pushAlpha(away * shown * presence);
             Render.pushTransform();
-            Render.translate(0f, -(1f - away) * 8f);
+            Render.translate(0f, rise);
             try {
                 bar.draw();
             } finally {

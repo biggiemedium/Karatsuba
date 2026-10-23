@@ -10,22 +10,33 @@ import dev.px.core.input.MouseButton;
 import dev.px.core.layout.Bounds;
 import dev.px.gui.Widget;
 import dev.px.karatsuba.client.config.AutoSave;
+import dev.px.karatsuba.client.hud.group.GroupEditing;
+import dev.px.karatsuba.client.hud.group.HudGroups;
+import dev.px.karatsuba.client.hud.style.HudStyle;
 import dev.px.karatsuba.client.gui.apple.shell.Section;
 import dev.px.karatsuba.client.gui.apple.shell.Shell;
 import dev.px.karatsuba.client.gui.apple.shell.rail.Glyph;
 import dev.px.karatsuba.client.gui.apple.shell.section.hud.HudSection;
+import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
 import dev.px.karatsuba.client.gui.apple.shell.widget.Caption;
-import dev.px.karatsuba.client.gui.apple.shell.widget.PillButton;
+import dev.px.karatsuba.client.hud.preset.glass.HudGlass;
+import dev.px.karatsuba.client.hud.preset.HudPlate;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
  * The HUD layout editor: the HUD drawn over the game, to be dragged into place.
  *
- * <p>A mode, so it says so twice over: the game is dimmed, every element that
- * can be moved has a dashed outline, and the toolbar reads "Editing HUD". The way
- * out is always in view (Done), and Escape first lets go of the selection and
+ * <p>A mode, so it says so: every element that can be moved has a dashed outline
+ * and a badge at its corner, and the glass toolbar sits at the bottom centre. The
+ * way out is always in view (Done), and Escape first lets go of the selection and
  * then leaves. Everything done here can be undone.
+ *
+ * <p>Each element's badge (Control Center's edit mode, {@code hud/DESIGN.md}
+ * §7.1c): a circular − hides a shown element, which then leaves the editor; with
+ * the HUD's Dim Hidden in Editor on it stays faint instead, with a + that shows it
+ * again. One press, one undo step.
  *
  * <p>Click an element to select it; drag to move it, or its corner to scale it;
  * the wheel scales too. Arrows nudge by a pixel, Shift by ten. Snapping to the
@@ -58,41 +69,37 @@ public final class LayoutSection implements Section {
     private final Caption placeholder = new Caption("");
     private final EditorToolbar toolbar = new EditorToolbar();
     private final LayoutHistory history = new LayoutHistory();
+    private final GroupEditing grouping = new GroupEditing();
 
     private boolean altHeld;
     private long lastScaleAt;
     private long lastNudgeAt;
     private long resetArmedAt;
 
+    /** Core's handles as they were before this editor opened, put back when it leaves; null while closed. */
+    private Set<HudEditor.Handle> coreHandles;
+    private float coreHandleSize;
+    private float coreHandleGap;
+
     public LayoutSection(Shell shell) {
         this.shell = shell;
         buildToolbar();
     }
 
+    /** The toolbar's tools (hud/DESIGN.md §7.1c): Undo, Redo, Snap, Reset All, Done. The selection's own reset is R. */
     private void buildToolbar() {
-        toolbar.add(new EditorToolbar.ModeLabel("Editing HUD"));
-        toolbar.add(new EditorToolbar.Divider());
-        toolbar.add(new PillButton(Glyph.UNDO, "Undo    Ctrl+Z", true, PillButton.Style.PLAIN,
-                null, history::canUndo, this::undo));
-        toolbar.add(new PillButton(Glyph.REDO, "Redo    Ctrl+Y", true, PillButton.Style.PLAIN,
-                null, history::canRedo, this::redo));
-        toolbar.add(new EditorToolbar.Divider());
-        toolbar.add(new PillButton(Glyph.SNAP, "Snap to edges and other elements (hold Alt to skip)", true,
-                PillButton.Style.TOGGLE, () -> snapping, null, () -> snapping = !snapping));
-        toolbar.add(new PillButton(Glyph.RESET, "Reset the selected element    R", true, PillButton.Style.PLAIN,
-                null, () -> editor().getSelected() != null, () -> change(() -> editor().resetSelected())));
-        toolbar.add(new PillButton(Glyph.RESET, "Reset all", false, PillButton.Style.PLAIN, null, null,
-                this::resetAll).labelledBy(() -> armed() ? "Click to reset all" : "Reset all"));
-        toolbar.add(new EditorToolbar.Divider());
-        toolbar.add(new EditorToolbar.Status(this::status));
-        toolbar.add(new PillButton(Glyph.CHECK, "Done", false, PillButton.Style.PRIMARY, null, null,
-                shell::returnFromFullscreen).tooltip("Back to the HUD    Esc"));
-        // The bar is fully rounded, so its buttons are too: corners would reach past its curved ends.
-        for (var child : toolbar.getChildren()) {
-            if (child instanceof PillButton button) {
-                button.rounded();
-            }
-        }
+        toolbar.tool(Glyph.UNDO, "Undo    Ctrl+Z", true, EditorToolbar.Tool.Kind.PLAIN,
+                null, history::canUndo, this::undo);
+        toolbar.tool(Glyph.REDO, "Redo    Ctrl+Y", true, EditorToolbar.Tool.Kind.PLAIN,
+                null, history::canRedo, this::redo);
+        toolbar.divider();
+        toolbar.tool(Glyph.SNAP, "Snap to edges and other elements (hold Alt to skip)", true,
+                EditorToolbar.Tool.Kind.TOGGLE, () -> snapping, null, () -> snapping = !snapping);
+        toolbar.tool(Glyph.RESET, "Reset All", false, EditorToolbar.Tool.Kind.PLAIN, null, null, this::resetAll)
+                .labelledBy(() -> armed() ? "Click to Reset All" : "Reset All");
+        toolbar.divider();
+        toolbar.tool(Glyph.CHECK, "Done", false, EditorToolbar.Tool.Kind.PRIMARY, null, null,
+                shell::returnFromFullscreen).tooltip("Back to the HUD    Esc");
     }
 
     // --------------------------------------------------------------- Section
@@ -130,6 +137,18 @@ public final class LayoutSection implements Section {
     @Override
     public void entered() {
         HudEditor editor = editor();
+        // Elements snap against one another as they are dragged, not only once dropped.
+        editor.setDragConstraint(grouping);
+        editor.setShowsHidden(HudStyle.get().dimHiddenInEditor());
+        // One handle, the grip at the bottom-right corner, on the corner itself: the dot drawn is
+        // the whole of what grabs. Core's editor is shared with the Classic UI, so its own
+        // handles come back when this one closes.
+        coreHandles = editor.getEnabledHandles();
+        coreHandleSize = editor.getHandleSize();
+        coreHandleGap = editor.getHandleGap();
+        editor.setEnabledHandles(EnumSet.of(HudEditor.Handle.BOTTOM_RIGHT));
+        editor.setHandleSize(Palette.GRIP_TARGET);
+        editor.setHandleGap(-Palette.GRIP_TARGET / 2f);
         if (!editor.isActive()) {
             editor.open();
         }
@@ -144,9 +163,16 @@ public final class LayoutSection implements Section {
     public void left() {
         history.commit();
         HudEditor editor = editor();
+        editor.setDragConstraint(null);
         HudSection.remember(editor.getSelectedId());
         if (editor.isActive()) {
             editor.close();
+        }
+        if (coreHandles != null) {
+            editor.setEnabledHandles(coreHandles);
+            editor.setHandleSize(coreHandleSize);
+            editor.setHandleGap(coreHandleGap);
+            coreHandles = null;
         }
         AutoSave.markDirty();
     }
@@ -164,13 +190,29 @@ public final class LayoutSection implements Section {
     // ---------------------------------------------------------------- frames
 
     @Override
-    public void drawScreen(float width, float height) {
+    public void drawScreen(float width, float height, float alpha) {
         HudEditor editor = editor();
         editor.setSnappingSuspended(!snapping || altHeld);
+        // Off by default: a hidden element is gone from the editor, not dimmed (HUD Settings, Behaviour).
+        editor.setShowsHidden(HudStyle.get().dimHiddenInEditor());
+        // An attached element pulled far enough leaves its group before Core moves it on.
+        grouping.moving(editor, Core.platform().getMouseX(), Core.platform().getMouseY());
         editor.update(Core.platform().getMouseX(), Core.platform().getMouseY());
         HudEditorView view = editor.view();
         toolbar.inTheWay(view.isInteracting() && nearToolbar(view));
-        EditorLook.draw(view, width, height, readoutOpacity(view));
+        Placement badgeHovered = view.isInteracting() ? null
+                : Badges.under(view, Core.platform().getMouseX(), Core.platform().getMouseY());
+        EditorLook.draw(view, width, height, readoutOpacity(view), alpha, badgeHovered);
+    }
+
+    /** The toolbar's capsule of HUD glass, where its renderer named it, outside every fade (§10.2b). */
+    @Override
+    public void drawToolbarGlass(float alpha, float shiftY) {
+        Bounds b = toolbar.glassBounds();
+        if (b != null) {
+            HudGlass.chrome(new HudPlate(EditorToolbar.OWNER, b.getX(), b.getY() + shiftY, b.getWidth(), b.getHeight(),
+                    true, alpha, 0f));
+        }
     }
 
     /** @return whether the dragged element is up where the toolbar is */
@@ -181,7 +223,8 @@ public final class LayoutSection implements Section {
             return false;
         }
         Bounds element = selected.shape().bounds();
-        return element.getY() < bar.getBottom() + 24f
+        // The toolbar is at the bottom: an element coming down to it is in the way.
+        return element.getBottom() > bar.getY() - 24f
                 && element.getRight() > bar.getX() - 24f && element.getX() < bar.getRight() + 24f;
     }
 
@@ -190,9 +233,17 @@ public final class LayoutSection implements Section {
     @Override
     public boolean press(float x, float y, MouseButton button) {
         HudEditor editor = editor();
+        // A badge first: its circle overhangs the element's corner, and pressing it hides
+        // or shows that element without selecting or dragging anything (§10.2b).
+        Placement badged = button == MouseButton.LEFT ? Badges.under(editor.view(), x, y) : null;
+        if (badged != null) {
+            change(() -> badged.getLayout().toggleHidden());
+            return true;
+        }
         if (button == MouseButton.LEFT) {
             history.begin();
             editor.press(x, y);
+            grouping.pressed(editor, x, y);
             return true;
         }
         if (button == MouseButton.RIGHT) {
@@ -210,6 +261,8 @@ public final class LayoutSection implements Section {
     public void release(float x, float y) {
         HudEditor editor = editor();
         editor.release();
+        // Dropped on or against another element: snapped to its side, in the same undo step.
+        grouping.released(editor);
         history.commit();
         AutoSave.markDirty();
     }
@@ -260,7 +313,7 @@ public final class LayoutSection implements Section {
             case DOWN -> nudge(0f, step);
             case L -> change(editor::toggleLockSelected);
             case H, DELETE -> change(editor::toggleHiddenSelected);
-            case R -> change(editor::resetSelected);
+            case R -> change(() -> HudGroups.resetLayout(editor.getSelectedId()));
             case PAGE_UP -> change(editor::bringSelectedToFront);
             case PAGE_DOWN -> change(editor::sendSelectedToBack);
             default -> {
@@ -307,7 +360,7 @@ public final class LayoutSection implements Section {
     private void resetAll() {
         if (armed()) {
             resetArmedAt = 0L;
-            change(Core.hud()::resetAll);
+            change(HudGroups::resetAll);
         } else {
             resetArmedAt = System.currentTimeMillis();
         }
@@ -315,18 +368,6 @@ public final class LayoutSection implements Section {
 
     private boolean armed() {
         return resetArmedAt != 0L && System.currentTimeMillis() - resetArmedAt < CONFIRM_MILLIS;
-    }
-
-    /** What the toolbar says about the selection: its name and scale, or how to start. */
-    private String status() {
-        Placement selected = editor().getSelected();
-        if (selected == null) {
-            return "Click an element to select it";
-        }
-        String state = selected.getLayout().isLocked() ? "  ·  locked"
-                : selected.getLayout().isHidden() ? "  ·  hidden" : "";
-        return selected.getElement().getDisplayName() + "  ·  "
-                + Math.round(selected.getLayout().getScale() * 100f) + "%" + state;
     }
 
     /** The scale readout by the selection: while resizing, and lingering after the wheel or a nudge. */

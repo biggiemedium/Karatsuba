@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.hud.preset;
+package dev.px.karatsuba.client.hud.preset.role;
 
 /**
  * A colour that is not text, by what it means ({@code hud/DESIGN.md} §3.2). Each

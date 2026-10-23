@@ -43,9 +43,8 @@ Screen. The host draws, bottom to top:
    blurred, like a macOS sheet's background (§5.1).
 2. **The window**: a solid surface, no pass.
 3. **Content Screen**: the cards, rows and controls, in the content column.
-4. **Glass passes**: the sidebar and the floating controls (‹ ›, later the Edit
-   HUD pill), frosting the window under them: one capture, taken over the window
-   and its content.
+4. **Glass passes**: the sidebar and the floating ‹ › capsule, frosting the
+   window under them: one capture, taken over the window and its content.
 5. **Control Screen**: the sidebar and the header.
 6. **Popover Screen**: menus and popovers, solid and elevated.
 
@@ -203,8 +202,7 @@ under it, the padding is too big for the parent. Fix the padding, don't clamp
 quietly.
 
 3.3 **Fully round (`h / 2`)** is only for pills: switches, steppers, segmented
-controls and their pill, the sidebar selection, the Edit HUD pill and the search
-field. A pill inside a pill uses `h / 2` of its own height,
+controls and their pill, the sidebar selection and the search field. A pill inside a pill uses `h / 2` of its own height,
 inset by its padding.
 
 3.4 **The first and last row's highlight follows the card's corners**
@@ -315,7 +313,7 @@ control layer that floats over content, never to the content itself.
 
 | | Liquid Glass | Solid |
 |---|---|---|
-| Where | the sidebar (one inset panel, radius = window radius − inset); small floating controls: the ‹ › capsule, the Edit HUD pill; HUD elements over the game | the window, cards, rows and every control in them, popovers and menus |
+| Where | the sidebar (one inset panel, radius = window radius − inset); small floating controls: the ‹ › capsule; HUD elements over the game and in the HUD editor | the window, cards, rows and every control in them, popovers and menus |
 | Looks like | blurred backdrop, rim lensing, specular rim, light tint, slight saturation | an opaque fill from the Palette; popovers add a soft shadow |
 
 Behind the open GUI the game is dimmed (`BACKDROP_DIM`) and blurred, like a macOS
@@ -427,8 +425,47 @@ modules and settings in the content pane. Enter opens the top result.
 
 ## 10. HUD
 
-10.1 **The Edit HUD pill** sits at the bottom centre of the window on glass, like
-Control Center's Edit Controls. It opens the Apple UI's own HUD editor.
+10.1 **Edit HUD…** is a push button (§2.5b) under the HUD page's card of elements,
+right-aligned like every standalone action. It opens the Apple UI's own HUD editor.
+It is not glass: a floating glass pill was built and taken out on 2026-10-23 at the
+developer's request.
+
+10.1b **The editor draws its elements' glass outside its fade.** The editor fades
+in as the window steps aside, and a pass refuses inside any alpha push, even one at
+full opacity (§1.4). So the shell hands a full-screen section its fade
+(`Section.drawScreen(width, height, alpha)`), and the editor draws the plates'
+glass first, formed by that amount (`HudGlass.behind(placements, presence)`, §6.5),
+then the elements inside the fade.
+
+10.2b **The editor's chrome** (`hud/DESIGN.md` §7.1c):
+- **The toolbar** is a capsule of the **HUD's** glass, not the GUI's, at the
+  bottom centre of the screen (`TOOLBAR_MARGIN` up), rising into place as the
+  window steps aside. It sits over the game with the elements, so it follows the
+  HUD's Glass, Appearance, Reduce Transparency and Increase Contrast
+  (`HudGlass.chrome`), and its tools take that glass's colours
+  (`HudGlass.chromeTokens`). It holds Undo, Redo, Snap, Reset All and Done, in
+  that order, divided into three groups. Tools have no fill of their own: a faint
+  tint under the cursor, Snap's glyph in the accent while on, and Done alone
+  filled with the accent. The selection's own reset stays on R. It fades nearly
+  away, glass and all, while an element is dragged near it.
+- **Badges:** every element has a circle overhanging its top-left corner
+  (`BADGE_SIZE`, kept on screen), Control Center's grey with a white − on a shown
+  element. A hidden element leaves the editor entirely, unless the HUD's Dim Hidden
+  in Editor is on (off by default): then it stays faint with a +. A press on a badge
+  hides or shows that element and nothing else (no selection, no drag), as one
+  undo step. Solid, never glass: it sits on an element's glass. It sits on the
+  first plate's top-left curve, so it meets a capsule's end as it does a tile's
+  corner.
+- **Outlines:** every element is ringed in white (`EDIT_OUTLINE`, brighter under
+  the cursor) just outside each of its plates, in the plate's own shape: a
+  capsule, a tile, a rounded rectangle, one ring per toast (`StyledElement.outlines`,
+  the preset's `plateRadius`). Never the bounding box. The selection is ringed in
+  the accent instead, with a glow of fading rings beyond it; fainter when locked.
+- **The scale grip** is a small white dot ringed in the accent, centred on the
+  element's bottom-right corner. It is the only handle (Core's other three corners
+  are switched off while this editor is open), and what is pressed is a square a
+  little larger than the dot. Scaling starts from where the grip was pressed, so
+  a press alone changes nothing.
 
 10.2 **In edit mode, HUD elements are glass tiles** with large concentric corners
 (`R_HUD_TILE`). Each one is dragged by its tile, with snap guides to screen
