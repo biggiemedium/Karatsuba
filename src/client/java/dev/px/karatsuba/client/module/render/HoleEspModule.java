@@ -74,7 +74,7 @@ public final class HoleEspModule extends ClientModule {
     private final NumberSetting<Integer> radius = integer("Radius", 8, 2, 24)
             .describe("Blocks out from the player, horizontally");
 
-    private final NumberSetting<Integer> depth = integer("Depth", 3, 1, 8)
+    private final NumberSetting<Integer> depth = integer("Depth", 6, 3, 20)
             .describe("Blocks up and down from the player's feet");
 
     // ------------------------------------------------------------------ holes

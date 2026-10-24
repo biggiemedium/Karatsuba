@@ -106,6 +106,30 @@ public final class OverlayStyle {
     /** How far the backdrop has pushed in when it rests: 4% larger. */
     public static final float DRIFT_SCALE = 1.04f;
 
+    // ------------------------------------------------------------------ chat
+    //
+    // Unlike the rest of this file, the chat is laid out in GUI units: it is the
+    // game's own input bar, at the game's own size, with the client's chrome on it.
+
+    /** The input bar rising into place as the chat opens. A small arrival. */
+    public static final float CHAT_RISE = 180f;
+
+    /**
+     * How far below its place the bar starts: its own 12 units plus the 2 under
+     * it, so it rises from just off the bottom edge.
+     */
+    public static final float CHAT_RISE_DISTANCE = 14f;
+
+    /** The outline round the bar while the line is a client command. */
+    public static final Color CHAT_COMMAND_OUTLINE = Color.WHITE;
+
+    /** That outline's thickness: a hairline. */
+    public static final float CHAT_OUTLINE_WIDTH = 1f;
+
+    /** The outline fading in as the line becomes a command, and out as it stops. */
+    public static final float CHAT_OUTLINE_IN = 120f;
+    public static final float CHAT_OUTLINE_OUT = 160f;
+
     private OverlayStyle() {
     }
 }

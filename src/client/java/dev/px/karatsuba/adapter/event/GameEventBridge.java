@@ -28,6 +28,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ServerInfo;
 
 /**
@@ -45,14 +47,27 @@ import net.minecraft.client.network.ServerInfo;
  */
 public final class GameEventBridge {
 
+    /** The installed bridge, for the one frame hook a mixin has to call: {@link #beforeChat}. */
+    private static GameEventBridge installed;
+
     private final MinecraftClient client = MinecraftClient.getInstance();
     private final WorldRender3D render3D;
+
+    /**
+     * The frame each layer was last drawn in, so a layer drawn early (under the
+     * chat) is not drawn again later in the same frame. The game builds one
+     * {@code DrawContext} per frame and hands the same one to the HUD and the
+     * screen, which makes it the frame's identity.
+     */
+    private DrawContext worldLayerDrawnIn;
+    private DrawContext topLayerDrawnIn;
 
     public GameEventBridge(WorldRender3D render3D) {
         this.render3D = render3D;
     }
 
     public void install() {
+        installed = this;
         installTicks();
         install2D();
         install3D();
@@ -84,6 +99,7 @@ public final class GameEventBridge {
         // The HUD renders before any screen does, so this fires with a screen open
         // too. The world layer is drawn here every time, which is what puts it
         // under the screen; the top layer only when no screen will draw it later.
+        // While playing, both were usually drawn already, under the chat.
         HudRenderCallback.EVENT.register((context, tickCounter) ->
                 renderFrame2D(context, true, client.currentScreen == null));
 
@@ -96,6 +112,34 @@ public final class GameEventBridge {
     }
 
     /**
+     * The chat is about to be drawn: the client's layers go first, so the chat
+     * sits over the HUD rather than under it. From {@code ChatHudMixin}.
+     *
+     * <p>The game draws the chat from the HUD pass while playing and from
+     * {@code ChatScreen} while typing, both after the callbacks above would have
+     * drawn, so whichever comes first this frame draws the layers here and the
+     * later callback finds them done. Only while playing or typing: under any
+     * other screen the chat is part of the HUD the screen covers, and the top
+     * layer still belongs over that screen.
+     */
+    public static void beforeChat(DrawContext context) {
+        GameEventBridge bridge = installed;
+        if (bridge == null) {
+            return;
+        }
+        Screen screen = bridge.client.currentScreen;
+        if (screen != null && !(screen instanceof ChatScreen)) {
+            return;
+        }
+        // Paint what the game drew before the chat, so it lands under the client's
+        // layers rather than being flushed over them once the frame ends.
+        context.draw();
+        // The world layer only while playing: with chat open it was drawn from the
+        // HUD pass, and with the HUD hidden (F1) there is none to draw.
+        bridge.renderFrame2D(context, screen == null, true);
+    }
+
+    /**
      * One 2D frame, in up to two layers.
      *
      * <ol>
@@ -104,14 +148,30 @@ public final class GameEventBridge {
      *       screen covers it like it covers the game's own HUD.</li>
      *   <li><b>Top layer</b> &mdash; Core's {@code Render2DEvent}, then the
      *       client's overlays: the HUD elements and the client's menus, which have
-     *       to stay visible over screens.</li>
+     *       to stay visible over screens. Under the chat, though, while playing or
+     *       typing in it; see {@link #beforeChat}.</li>
      * </ol>
      *
      * <p>The order is the only thing decided here, and it is the order they stack.
      * What an overlay is and what it draws is the client's; see
      * {@link dev.px.karatsuba.adapter.screen.Overlay}.
+     *
+     * <p>A layer already drawn this frame is skipped, so asking for it again from a
+     * later callback is safe.
      */
     private void renderFrame2D(DrawContext context, boolean worldLayer, boolean topLayer) {
+        worldLayer &= worldLayerDrawnIn != context;
+        topLayer &= topLayerDrawnIn != context;
+        if (!worldLayer && !topLayer) {
+            return;
+        }
+        if (worldLayer) {
+            worldLayerDrawnIn = context;
+        }
+        if (topLayer) {
+            topLayerDrawnIn = context;
+        }
+
         boolean capturing = OverlayHost.isCapturing();
 
         if (topLayer) {

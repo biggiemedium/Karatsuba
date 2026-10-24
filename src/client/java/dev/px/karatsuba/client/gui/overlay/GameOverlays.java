@@ -1,20 +1,22 @@
 package dev.px.karatsuba.client.gui.overlay;
 
+import dev.px.karatsuba.adapter.screen.ChatChrome;
 import dev.px.karatsuba.adapter.screen.LoadingScreen;
 import dev.px.karatsuba.adapter.screen.MenuPanorama;
 
 /**
  * The game overlays catalogue: the client's pictures in place of the game's own
- * full-screen ones.
+ * full-screen ones, and its chrome on the game's chat.
  *
  * <p>Same shape as {@code screen/Overlays}: write the screen in this folder, then
  * install it here. Each is a slot the adapter declares (one loading screen, one
- * menu panorama) rather than a list, so installing is what replaces the game's,
- * and leaving a line out puts the game's back.
+ * menu panorama, one chat) rather than a list, so installing is what replaces the
+ * game's, and leaving a line out puts the game's back.
  */
 public final class GameOverlays {
 
     private static final LoadingOverlay LOADING = new LoadingOverlay();
+    private static final ChatOverlay CHAT = new ChatOverlay();
 
     private GameOverlays() {
     }
@@ -26,5 +28,6 @@ public final class GameOverlays {
     public static void install() {
         LoadingScreen.install(LOADING);
         MenuPanorama.install(OverlayStyle.MENU_PANORAMA);
+        ChatChrome.install(CHAT);
     }
 }

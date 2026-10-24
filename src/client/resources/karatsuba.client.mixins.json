@@ -31,6 +31,8 @@
 		"render.BlockStateMixin",
 		"render.BossBarHudAccessor",
 		"render.CameraMixin",
+		"render.ChatHudMixin",
+		"render.ChatScreenMixin",
 		"render.ChunkOcclusionDataBuilderMixin",
 		"render.EntityRendererMixin",
 		"render.ClientWorldMixin",
