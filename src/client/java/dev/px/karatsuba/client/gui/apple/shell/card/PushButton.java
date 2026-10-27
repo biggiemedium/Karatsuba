@@ -25,6 +25,22 @@ public final class PushButton extends Widget {
         this.action = action;
     }
 
+    private boolean primary;
+
+    /**
+     * Makes this the default button: filled with the control accent, white words
+     * ({@code gui/apple/DESIGN.md} §4.4). One per group of buttons at most, and
+     * only for the action the group exists for.
+     */
+    public PushButton primary() {
+        this.primary = true;
+        return this;
+    }
+
+    public boolean isPrimary() {
+        return primary;
+    }
+
     public String label() {
         return label.get();
     }

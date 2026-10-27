@@ -34,6 +34,10 @@ public enum Glyph {
     SETTINGS,
     /** Two people: friends. */
     PEOPLE,
+    /** One person: an account. */
+    PERSON,
+    /** Three sheets stacked: profiles. */
+    LAYERS,
     /** A plus: add. */
     ADD,
     /** A cross: remove. */

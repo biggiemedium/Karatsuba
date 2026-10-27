@@ -69,7 +69,7 @@ public final class ServerElement extends StyledElement {
             row(body, "Software", "Paper via Velocity", tokens().text(TextRole.VALUE));
         }
         if (anticheat.isOn()) {
-            row(body, "Anticheat", "None detected", tokens().text(TextRole.SECONDARY));
+            row(body, "Anticheat", "Grim (likely)", tokens().color(ColorRole.FAIR));
         }
     }
 

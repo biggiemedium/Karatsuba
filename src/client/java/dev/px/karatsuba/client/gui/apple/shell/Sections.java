@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.gui.apple.shell;
 
 import dev.px.karatsuba.client.gui.apple.shell.frame.WindowFrame;
+import dev.px.karatsuba.client.gui.apple.shell.section.accounts.AccountsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.appearance.AppearanceSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.friends.FriendsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.gallery.GallerySection;
@@ -8,6 +9,7 @@ import dev.px.karatsuba.client.gui.apple.shell.section.home.HomeSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.modules.ModulesSection;
+import dev.px.karatsuba.client.gui.apple.shell.section.profiles.ProfilesSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.settings.SettingsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.themes.ThemesSection;
 
@@ -42,7 +44,11 @@ public final class Sections {
                 new AppearanceSection(),
                 new SettingsSection(shell, frame),
                 // TEMPORARY: every row type in cards, for PLAN.md step 8; removed in step 17.
-                new GallerySection()
+                new GallerySection(),
+                // After the temporary Gallery so every Ctrl+number keeps its section;
+                // Accounts and Profiles are reached from the top of the sidebar.
+                new AccountsSection(shell),
+                new ProfilesSection(shell)
         );
     }
 }

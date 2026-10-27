@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 /**
@@ -123,6 +124,9 @@ public final class ConfigService implements Service {
     private String activeProfile = DEFAULT_PROFILE;
     private boolean loaded;
     private boolean migrated;
+
+    /** Which profile sections a profile keeps itself; the rest are {@value #DEFAULT_PROFILE}'s. See {@link #setHolds}. */
+    private BiPredicate<String, String> holds = (profile, id) -> true;
 
     public ConfigService(CoreLogger logger, EventBus bus, Platform platform) {
         this.logger = Validate.notNull(logger, "logger");
@@ -286,6 +290,32 @@ public final class ConfigService implements Service {
 
     // ------------------------------------------------------------- profiles
 
+    /**
+     * Lets a profile keep only some of its sections, taking the rest from
+     * {@value #DEFAULT_PROFILE}.
+     *
+     * <p>{@code holds.test(profile, sectionId)} says whether {@code profile} keeps
+     * that section of its own. One it does not is read from, and saved to,
+     * {@value #DEFAULT_PROFILE} instead, so a profile of modules alone switches the
+     * modules and leaves the HUD as the default profile has it, and a HUD change
+     * made while it is active is kept there rather than lost. Shared sections are
+     * unaffected, and {@value #DEFAULT_PROFILE} always keeps everything.
+     *
+     * <p>Asked on every save and load, so whatever answers it can change its mind;
+     * a shared section is a natural place to keep the answer, since shared sections
+     * load before any profile does. Null restores the default: every profile keeps
+     * every section.
+     */
+    public synchronized void setHolds(BiPredicate<String, String> holds) {
+        this.holds = holds == null ? (profile, id) -> true : holds;
+    }
+
+    /** @return the profile {@code id} is read from and saved to while {@code profile} is the one in use */
+    public synchronized String ownerOf(String profile, String id) {
+        String name = sanitize(profile);
+        return DEFAULT_PROFILE.equals(name) || holds.test(name, id) ? name : DEFAULT_PROFILE;
+    }
+
     public synchronized String getActiveProfile() {
         return activeProfile;
     }
@@ -416,6 +446,7 @@ public final class ConfigService implements Service {
         if (!shared) {
             try {
                 Files.createDirectories(profileDir(profile));
+                Files.createDirectories(profileDir(DEFAULT_PROFILE));
             } catch (IOException e) {
                 logger.error("Could not create config profile folder for " + profile, e);
                 return;
@@ -424,7 +455,8 @@ public final class ConfigService implements Service {
         for (Map.Entry<String, ConfigSection> entry : sections.entrySet()) {
             ConfigLocation location = locationOf(entry.getKey());
             if (location.isShared() == shared) {
-                write(entry.getKey(), entry.getValue(), location, profile);
+                String owner = shared ? profile : ownerOf(profile, entry.getKey());
+                write(entry.getKey(), entry.getValue(), location, owner);
             }
         }
     }
@@ -461,7 +493,8 @@ public final class ConfigService implements Service {
         for (Map.Entry<String, ConfigSection> entry : new ArrayList<>(sections.entrySet())) {
             ConfigLocation location = locationOf(entry.getKey());
             if (location.isShared() == shared) {
-                loadSection(entry.getKey(), entry.getValue(), location, profile);
+                String owner = shared ? profile : ownerOf(profile, entry.getKey());
+                loadSection(entry.getKey(), entry.getValue(), location, owner);
             }
         }
     }

@@ -32,6 +32,9 @@ public final class PacketFields {
     /** Boolean. The packet overrules the client's own motion. Read by the timeline. */
     public static final String CORRECTION = "correction";
 
+    /** Boolean. The packet starts play on a new server, so its counters start over. Read by anticheat detection. */
+    public static final String CONNECTION_START = "connectionStart";
+
     /** Separates names inside {@link #CHANNELS}. */
     public static final String CHANNEL_SEPARATOR = ",";
 

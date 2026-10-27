@@ -146,6 +146,8 @@ public final class Palette {
     public static final Color ICON_INDIGO = rgb(0x5856D6);
     public static final Color ICON_PINK = rgb(0xFF2D55);
     public static final Color ICON_GREEN = rgb(0x34C759);
+    public static final Color ICON_CYAN = rgb(0x32ADE6);
+    public static final Color ICON_YELLOW = rgb(0xFFCC00);
     /** Appearance's tile: near-black, so it needs {@link #ICON_EDGE} to show in Dark. */
     public static final Color ICON_GRAPHITE = rgb(0x1C1C1E);
 
@@ -173,6 +175,8 @@ public final class Palette {
             case "automation" -> ICON_INDIGO;
             case "hud" -> ICON_PINK;
             case "friends" -> ICON_GREEN;
+            case "accounts" -> ICON_CYAN;
+            case "profiles" -> ICON_YELLOW;
             case "appearance" -> ICON_GRAPHITE;
             default -> ICON_GRAY;
         };
@@ -237,6 +241,9 @@ public final class Palette {
     public static final float SWITCH_WIDTH = 30f;
     public static final float SWITCH_HEIGHT = 16f;
     public static final float SWITCH_INSET = 2f;
+
+    /** A checkbox on a list setting's line: a small rounded square, filled with the accent when ticked. */
+    public static final float CHECKBOX_SIZE = 12f;
 
     /** A stepper: a capsule split into − and +. */
     public static final float STEPPER_WIDTH = 38f;
@@ -305,6 +312,12 @@ public final class Palette {
 
     /** An empty state's text column, centred in the content. */
     public static final float EMPTY_WIDTH = 260f;
+
+    /** A popover card that asks something of the person (the Microsoft sign-in card). */
+    public static final float SHEET_WIDTH = 300f;
+
+    /** The tile a sign-in code sits on, tall enough for {@link #code()}. */
+    public static final float CODE_TILE_HEIGHT = 40f;
 
     /** The widest the content column gets; it centres in any room beyond (§2.4). Search fields included. */
     public static final float CONTENT_MAX_WIDTH = 600f;
@@ -390,6 +403,11 @@ public final class Palette {
     /** The page title in the header: semibold. */
     public static Font heading() {
         return Assets.fontFile(FONT.semibold(), baseSize() + 4f);
+    }
+
+    /** A code a person reads off the screen and types elsewhere (a sign-in code): large, semibold. */
+    public static Font code() {
+        return Assets.fontFile(FONT.semibold(), baseSize() + 9f);
     }
 
     /** Asides and examples: the body size, italic. */

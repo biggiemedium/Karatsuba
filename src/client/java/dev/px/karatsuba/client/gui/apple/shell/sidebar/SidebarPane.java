@@ -13,9 +13,11 @@ import dev.px.karatsuba.client.gui.apple.shell.frame.GlassSurface;
 import dev.px.karatsuba.client.gui.apple.shell.frame.SmoothScroll;
 import dev.px.karatsuba.client.gui.apple.shell.frame.WindowFrame;
 import dev.px.karatsuba.client.gui.apple.shell.rail.Glyph;
+import dev.px.karatsuba.client.gui.apple.shell.section.accounts.AccountsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.friends.FriendsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.modules.ModulesSection;
+import dev.px.karatsuba.client.gui.apple.shell.section.profiles.ProfilesSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.settings.SettingsSection;
 import dev.px.karatsuba.client.gui.apple.shell.section.appearance.AppearanceSection;
 import dev.px.karatsuba.client.gui.apple.shell.style.Animations;
@@ -28,9 +30,9 @@ import java.util.List;
 
 /**
  * The sidebar: a glass pane floating inside the window's left edge
- * ({@code gui/apple/DESIGN.md} §2.2). A search field at the top, then the module
- * categories, then HUD and Friends, then Appearance and Settings, each group set
- * apart by room rather than a line.
+ * ({@code gui/apple/DESIGN.md} §2.2). A search field at the top, then Settings,
+ * Accounts and Profiles, then the module categories, then HUD and Friends, then
+ * Appearance, each group set apart by room rather than a line.
  *
  * <p>Holds its size, as the window does: as tall as the window less its inset
  * above and below, with the entries scrolling if they do not fit. Below
@@ -74,9 +76,18 @@ public final class SidebarPane extends Container implements GlassSurface {
         scroll.grow(1f);
         Column list = scroll.add(new Column().gap(1f));
 
+        // The client itself, who it plays as and what it plays with: first, as System
+        // Settings leads with the account.
+        // No gap above: the search is already room enough.
+        List<SidebarEntry> top = new ArrayList<>();
+        section(list, top, shell, SettingsSection.ID, "settings", "Settings", Glyph.SETTINGS);
+        section(list, top, shell, AccountsSection.ID, "accounts", "Accounts", Glyph.PERSON);
+        section(list, top, shell, ProfilesSection.ID, "profiles", "Profiles", Glyph.LAYERS);
+
         // The things you work on: the module categories.
         ModulesSection modules = (ModulesSection) shell.section(ModulesSection.ID);
         List<SidebarEntry> categories = new ArrayList<>();
+        list.add(new SidebarGap(categories));
         if (modules != null) {
             for (Category category : ModulesSection.categories()) {
                 categories.add(entry(list, category.getName(), category.getName(),
@@ -95,11 +106,10 @@ public final class SidebarPane extends Container implements GlassSurface {
         section(list, around, shell, HudSection.ID, "hud", "HUD", Glyph.HUD);
         section(list, around, shell, FriendsSection.ID, "friends", "Friends", Glyph.PEOPLE);
 
-        // The GUI itself: the Apple UI's own look, and the client's settings.
-        List<SidebarEntry> client = new ArrayList<>();
-        list.add(new SidebarGap(client));
-        section(list, client, shell, AppearanceSection.ID, "appearance", "Appearance", Glyph.THEMES);
-        section(list, client, shell, SettingsSection.ID, "settings", "Settings", Glyph.SETTINGS);
+        // The GUI itself: the Apple UI's own look.
+        List<SidebarEntry> look = new ArrayList<>();
+        list.add(new SidebarGap(look));
+        section(list, look, shell, AppearanceSection.ID, "appearance", "Appearance", Glyph.THEMES);
     }
 
     private SidebarEntry entry(Column list, String id, String label, Glyph glyph,

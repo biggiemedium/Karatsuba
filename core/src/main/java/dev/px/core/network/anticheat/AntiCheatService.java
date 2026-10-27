@@ -87,6 +87,9 @@ public final class AntiCheatService implements Service {
     private volatile List<Detection> detections = Collections.emptyList();
     private Subscription packets;
 
+    /** Whether the describer has marked a packet {@code asConnectionStart}; until it does, joins are read off the event. */
+    private volatile boolean marksConnections;
+
     public AntiCheatService(CoreLogger logger, EventBus bus, NetworkService network, ServerService server) {
         this.logger = Validate.notNull(logger, "logger");
         this.bus = Validate.notNull(bus, "bus");
@@ -224,6 +227,10 @@ public final class AntiCheatService implements Service {
 
         @Override
         public void onInbound(PacketDescription packet, long nanos) {
+            if (packet.isConnectionStart()) {
+                marksConnections = true;
+                transactions.startConnection();
+            }
             Long id = packet.getLong(PacketFields.TRANSACTION);
             if (id != null) {
                 transactions.record(nanos, id);
@@ -240,10 +247,18 @@ public final class AntiCheatService implements Service {
             }
         }
 
+        /**
+         * The event arrives on the game thread, a tick or more after the network
+         * thread has already handed over the new server's first transactions. So
+         * when the describer marks connection starts, those are where the history
+         * starts over, and a join here only restarts the timer.
+         */
         @Subscribe
         private void onServer(ServerChangeEvent event) {
-            if (event.isJoin() || event.isLeave() || event.isBrandChanged()) {
+            if (event.isLeave() || (!marksConnections && (event.isJoin() || event.isBrandChanged()))) {
                 transactions.reset();
+            }
+            if (event.isJoin() || event.isLeave() || event.isBrandChanged()) {
                 timer.reset();
             }
             evaluate();

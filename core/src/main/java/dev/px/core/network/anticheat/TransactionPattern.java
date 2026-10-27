@@ -3,6 +3,7 @@ package dev.px.core.network.anticheat;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -24,7 +25,7 @@ public final class TransactionPattern {
 
     /** Nothing seen. */
     public static final TransactionPattern NONE =
-            new TransactionPattern(0, 0, 0d, Order.UNKNOWN, Sign.UNKNOWN, 0L, 0L);
+            new TransactionPattern(0, 0, 0d, Order.UNKNOWN, Sign.UNKNOWN, 0L, 0L, List.of());
 
     /** Transactions since the tracker was last reset. */
     private final long count;
@@ -47,8 +48,17 @@ public final class TransactionPattern {
     /** Highest id in the sample, or 0 when ids are unknown. */
     private final long highestId;
 
+    /**
+     * The first ids the server sent on this connection, oldest first, up to
+     * {@link TransactionTracker#START_SAMPLE}. Where a counter starts is what
+     * tells apart anticheats that count the same way. Empty when the start was
+     * not seen: the describer gives no packet {@code asConnectionStart}, or the
+     * history was reset mid-connection.
+     */
+    private final List<Long> startIds;
+
     TransactionPattern(long count, int sampled, double ratePerSecond, Order order, Sign sign,
-                       long lowestId, long highestId) {
+                       long lowestId, long highestId, List<Long> startIds) {
         this.count = count;
         this.sampled = sampled;
         this.ratePerSecond = ratePerSecond;
@@ -56,6 +66,7 @@ public final class TransactionPattern {
         this.sign = sign;
         this.lowestId = lowestId;
         this.highestId = highestId;
+        this.startIds = startIds;
     }
 
     /** @return whether ids go up or down by one, the mark of a counter rather than inventory clicks */
@@ -68,8 +79,8 @@ public final class TransactionPattern {
         if (count == 0) {
             return "TransactionPattern(none)";
         }
-        return String.format(Locale.ROOT, "TransactionPattern(%d at %.1f/s, %s, %s, %d..%d)",
-                count, ratePerSecond, order, sign, lowestId, highestId);
+        return String.format(Locale.ROOT, "TransactionPattern(%d at %.1f/s, %s, %s, %d..%d, start %s)",
+                count, ratePerSecond, order, sign, lowestId, highestId, startIds.isEmpty() ? "unseen" : startIds);
     }
 
     public enum Order {

@@ -188,6 +188,9 @@ public final class Karatsuba {
         // section for action binds, so without this a rebind lasts until restart.
         BindsSection.install();
 
+        // Sign-in progress from the adapter onto Accounts.signIn(), for the GUI's card.
+        dev.px.karatsuba.client.account.Accounts.install();
+
         // Notes and sightings for each friend, beside Core's list of them.
         FriendRecords.install();
 
@@ -197,6 +200,9 @@ public final class Karatsuba {
 
         // The Apple UI's own look settings, apart from Client Settings.
         dev.px.karatsuba.client.gui.apple.shell.style.Appearance.install(core);
+
+        // What each profile includes, and Core told to route by it. Before start().
+        dev.px.karatsuba.client.config.Profiles.install();
 
         // Before start(), which is the first load: one file per section.
         ConfigLayout.install();

@@ -96,7 +96,7 @@ public final class AccountCommand extends Command {
             throw new CommandException("No account called " + name);
         }
         context.reply("Forgot the saved sign-in for " + name
-                + ChatColor.GRAY + " - the next login will open a browser");
+                + ChatColor.GRAY + " - the next login will ask for a code");
     }
 
     /**
@@ -120,7 +120,7 @@ public final class AccountCommand extends Command {
         if (account.getType() == AccountType.OFFLINE) {
             return "offline";
         }
-        String state = Accounts.isRemembered(account) ? "signed in before" : "needs a browser";
+        String state = Accounts.isRemembered(account) ? "signed in before" : "needs a code";
         return account.getEmail() == null ? state : account.getEmail() + ", " + state;
     }
 

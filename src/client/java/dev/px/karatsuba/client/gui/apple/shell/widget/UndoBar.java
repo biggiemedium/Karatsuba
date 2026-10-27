@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.gui.apple.shell.section.friends;
+package dev.px.karatsuba.client.gui.apple.shell.widget;
 
 import dev.px.core.input.MouseButton;
 import dev.px.gui.Widget;
@@ -7,9 +7,10 @@ import dev.px.karatsuba.client.gui.apple.shell.style.Animations;
 import java.util.function.Supplier;
 
 /**
- * "Removed Steve · Undo", at the top of the list for a few seconds after a
- * removal, and held while the cursor rests on it. One at a time: a second
- * removal replaces the first. Ctrl+Z does the same.
+ * "Removed Steve · Undo", at the top of a page for a few seconds after something
+ * was taken away without asking ({@code gui/apple/DESIGN.md} §9.4), and held while
+ * the cursor rests on it. One at a time: a second removal replaces the first. The
+ * section's Ctrl+Z does the same. Friends and Accounts use it.
  */
 public final class UndoBar extends Widget {
 
@@ -20,21 +21,21 @@ public final class UndoBar extends Widget {
     private final Runnable undo;
     private long shownAt;
 
-    UndoBar(Supplier<String> message, Runnable undo) {
+    public UndoBar(Supplier<String> message, Runnable undo) {
         this.message = message;
         this.undo = undo;
         visibleWhen(this::showing);
     }
 
-    void show() {
+    public void show() {
         shownAt = System.nanoTime();
     }
 
-    void hide() {
+    public void hide() {
         shownAt = 0L;
     }
 
-    boolean showing() {
+    public boolean showing() {
         if (shownAt == 0L) {
             return false;
         }

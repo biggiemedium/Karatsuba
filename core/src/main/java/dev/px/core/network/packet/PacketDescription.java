@@ -160,6 +160,21 @@ public final class PacketDescription {
         return Boolean.TRUE.equals(fields.get(PacketFields.CORRECTION));
     }
 
+    /**
+     * The packet that starts play on a server: a fresh login, or a proxy moving
+     * the player to another one. Anticheat detection starts its transaction
+     * history here, in arrival order with the transactions, so the first ids a
+     * server numbers from are never lost to the game thread catching up.
+     */
+    public PacketDescription asConnectionStart() {
+        return with(PacketFields.CONNECTION_START, true);
+    }
+
+    /** @return whether the describer said this packet starts play on a server */
+    public boolean isConnectionStart() {
+        return Boolean.TRUE.equals(fields.get(PacketFields.CONNECTION_START));
+    }
+
     // ------------------------------------------------------------- reading
 
     /** @return the field as a long, or null when it is absent or not a number */

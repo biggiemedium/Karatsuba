@@ -1,10 +1,13 @@
 package dev.px.karatsuba.client.gui.apple.shell.look;
 
+import dev.px.core.Core;
 import dev.px.core.layout.Align;
+import dev.px.core.layout.Bounds;
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
 import dev.px.core.render.Render;
 import dev.px.core.render.font.Font;
+import dev.px.gui.Widget;
 
 import java.util.Locale;
 
@@ -213,5 +216,31 @@ final class Shapes {
 
     static float lerp(float from, float to, float t) {
         return from + (to - from) * t;
+    }
+
+    /**
+     * A player's monogram: their initial in white on a neutral circle, as Contacts
+     * draws one; a green dot at its corner while {@code present} (a friend online,
+     * the account in use), always beside words that say so (§4.2).
+     */
+    static void avatar(float x, float y, float size, String name, boolean present, Font font) {
+        float r = size / 2f;
+        Render.circle(x + r, y + r, r, AVATAR.get());
+        String initial = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
+        Render.text(font, initial, x + r - font.widthOf(initial) / 2f, y + r - font.getHeight() / 2f, Color.WHITE);
+        if (present) {
+            float dot = Math.max(2.5f, size * 0.15f);
+            float cx = x + size - dot;
+            float cy = y + size - dot;
+            Render.circle(cx, cy, dot + 1.2f, CARD.get());
+            Render.circle(cx, cy, dot, PRESENCE);
+        }
+    }
+
+    /** @return whether the cursor is over the widget's named part */
+    static boolean lit(Widget widget, String part) {
+        Bounds bounds = widget.part(part);
+        return bounds != null && widget.isHovered()
+                && bounds.contains(Core.platform().getMouseX(), Core.platform().getMouseY());
     }
 }

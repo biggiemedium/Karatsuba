@@ -295,8 +295,11 @@ public final class MinecraftPacketDescriber implements PacketDescriber {
             return PacketDescription.of("PlayerRespawnS2CPacket", MinecraftPacketKind.RESPAWN);
         }
         if (packet instanceof GameJoinS2CPacket join) {
+            // Also sent when a proxy moves the player to another server, whose
+            // anticheat numbers its transactions afresh.
             return PacketDescription.of("GameJoinS2CPacket", MinecraftPacketKind.RESPAWN)
-                    .with("entity", join.playerEntityId());
+                    .with("entity", join.playerEntityId())
+                    .asConnectionStart();
         }
         if (packet instanceof KeepAliveS2CPacket keepAlive) {
             return PacketDescription.of("KeepAliveS2CPacket", MinecraftPacketKind.TRANSACTION)

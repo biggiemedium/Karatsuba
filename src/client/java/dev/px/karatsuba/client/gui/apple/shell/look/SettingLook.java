@@ -23,6 +23,7 @@ import dev.px.karatsuba.client.gui.apple.shell.setting.FieldRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.InfoRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.ItemRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.LinkRow;
+import dev.px.karatsuba.client.gui.apple.shell.setting.ListRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.MultiChoiceRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.OptionsRow;
 import dev.px.karatsuba.client.gui.apple.shell.setting.RangeRow;
@@ -35,6 +36,7 @@ import dev.px.karatsuba.client.gui.apple.shell.setting.ValueRow;
 
 import java.util.function.Consumer;
 
+import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.checkbox;
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.lerp;
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.number;
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.raised;
@@ -91,6 +93,49 @@ final class SettingLook {
         look.register(WidgetRenderer.of(ToggleRow.class, (row, c) -> {
             float knob = row.knob();
             line(row, c, r -> r.custom("switch", SWITCH_WIDTH, SWITCH_HEIGHT, (x, y, w, h) -> toggle(x, y, w, h, knob)));
+        }));
+
+        // A list setting: its name and "3 of 5", then a line per option with a checkbox.
+        // The card lights the option under the cursor (CardLook), so its corners follow the card's.
+        look.register(WidgetRenderer.of(ListRow.class, (row, c) -> {
+            boolean enabled = row.isEnabled();
+            c.align(Align.STRETCH).column(column -> {
+                column.align(Align.STRETCH).column(head -> {
+                    head.align(Align.STRETCH).padding(CELL_INSET, row.isDetailed() ? 5f : 0f, CELL_INSET, 0f)
+                            .row(top -> {
+                                top.height(CELL_HEIGHT).gap(GAP_CONTROL).align(Align.CENTER)
+                                        .text(text(), row.name(), enabled ? LABEL.get() : LABEL_TERTIARY.get())
+                                        .fill();
+                                reset(top, row, 0f);
+                                top.text(text(), row.summary(), LABEL_SECONDARY.get());
+                            });
+                    if (row.isDetailed() && !row.description().isEmpty()) {
+                        head.paragraph(caption(), row.description(), LABEL_SECONDARY.get()).space(0f, 5f);
+                    }
+                });
+                java.util.List<String> options = row.options();
+                Color label = enabled ? LABEL.get() : LABEL_TERTIARY.get();
+                for (int i = 0; i < options.size(); i++) {
+                    String option = options.get(i);
+                    String part = ListRow.part(i);
+                    float tick = row.tick(option);
+                    column.row(line -> line.name(part).height(CELL_HEIGHT).padding(CELL_INSET, 0f)
+                            .gap(GAP_CONTROL).align(Align.CENTER)
+                            // A hairline above every option, from the line's leading edge, as between rows.
+                            .backdrop((x, y, w, h) -> Render.rect(x + CELL_INSET, y, w - CELL_INSET, 1f, SEPARATOR.get()))
+                            .custom(CHECKBOX_SIZE, CHECKBOX_SIZE, (x, y, w, h) -> {
+                                if (enabled) {
+                                    checkbox(x, y, w, h, tick);
+                                } else {
+                                    Render.roundRectOutline(x, y, w, h, 2f, 1f, LABEL_TERTIARY.get());
+                                    if (tick > 0f) {
+                                        Shapes.tick(x + 2f, y + 2.5f, w - 4f, h - 5f, LABEL_TERTIARY.get());
+                                    }
+                                }
+                            })
+                            .text(text(), row.label(option), label));
+                }
+            });
         }));
 
         look.register(WidgetRenderer.of(SwitchRow.class, (row, c) -> {

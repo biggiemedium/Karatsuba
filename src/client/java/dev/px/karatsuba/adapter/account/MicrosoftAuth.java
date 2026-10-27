@@ -110,9 +110,97 @@ public final class MicrosoftAuth {
     /** How long to keep polling if the service does not say. */
     private static final long DEFAULT_EXPIRY_SECONDS = 900L;
 
+    /** How often a cancel is noticed while waiting between polls. */
+    private static final long CANCEL_CHECK_MILLIS = 250L;
+
     private static volatile String clientId = DEFAULT_CLIENT_ID;
 
+    /** Who hears about a sign-in's progress; nobody until the client says. */
+    private static volatile Listener listener = Listener.NONE;
+
+    /** Set to stop a sign-in waiting for a person; cleared by {@link #clearCancel} before the next. */
+    private static volatile boolean cancelled;
+
     private MicrosoftAuth() {
+    }
+
+    /**
+     * What a person has to do to finish a sign-in: type {@code userCode} at
+     * {@code verificationUri} before {@code expiresAt}.
+     *
+     * @param openUri the page to open for them: the same page with the code already
+     *        filled in when Microsoft offers one, else {@code verificationUri}
+     * @param expiresAt epoch millis
+     */
+    public record Prompt(String userCode, String verificationUri, String openUri, long expiresAt) {
+    }
+
+    /** How far a sign-in has got once the person has approved it. */
+    public enum Stage {
+        /** Trading Microsoft's token for an Xbox one. */
+        XBOX,
+        /** Trading the Xbox token for a Minecraft one. */
+        MINECRAFT,
+        /** Asking for the name and UUID to play as. */
+        PROFILE
+    }
+
+    /**
+     * Hears about a sign-in as it goes, so the client can show it.
+     *
+     * <p>This class shows nothing itself: whether the code goes in a card, a
+     * notification or chat, and whether the page is opened, is the client's to
+     * decide. Called on the {@code ThreadService} worker running the sign-in.
+     */
+    public interface Listener {
+
+        Listener NONE = new Listener() {
+        };
+
+        /** The code is ready and the sign-in is waiting for the person. */
+        default void prompt(Prompt prompt) {
+        }
+
+        /** The person approved, and the chain has reached {@code stage}. Also during a silent refresh. */
+        default void stage(Stage stage) {
+        }
+    }
+
+    /** @param listener who hears about sign-ins; null for nobody */
+    public static void setListener(Listener listener) {
+        MicrosoftAuth.listener = listener == null ? Listener.NONE : listener;
+    }
+
+    /** Stops a sign-in waiting for a person; it fails with "Sign-in was cancelled". */
+    public static void cancel() {
+        cancelled = true;
+    }
+
+    /** Forgets a cancel, before a new sign-in starts. */
+    public static void clearCancel() {
+        cancelled = false;
+    }
+
+    /** @return whether the last sign-in was cancelled rather than failing */
+    public static boolean wasCancelled() {
+        return cancelled;
+    }
+
+    /**
+     * Opens {@code uri} in the person's browser, on the game thread: handing a URI
+     * to the OS from a pool thread is the kind of thing that works until the one
+     * platform where it does not.
+     */
+    public static void open(String uri) {
+        GameThread.run(() -> {
+            try {
+                Util.getOperatingSystem().open(URI.create(uri));
+            } catch (RuntimeException failure) {
+                // A headless or locked-down desktop cannot open a browser; the code
+                // and the address are still on screen to type by hand.
+                Core.log().warn("Could not open " + uri + "; open it by hand");
+            }
+        });
     }
 
     /**
@@ -144,7 +232,7 @@ public final class MicrosoftAuth {
     /**
      * Runs the whole chain, blocking until the user finishes or it expires.
      *
-     * <p>This is the one that opens a browser. Prefer {@link #refresh} when a
+     * <p>This is the one that waits for a person to enter a code. Prefer {@link #refresh} when a
      * token has been kept, and fall back to this when it is refused.
      *
      * @throws IOException on a transport failure, a rejection, or a timeout. The
@@ -169,7 +257,11 @@ public final class MicrosoftAuth {
                 ? device.get("verification_uri_complete").getAsString()
                 : verificationUri;
 
-        promptUser(userCode, verificationUri, openUri);
+        if (cancelled) {
+            throw new IOException("Sign-in was cancelled");
+        }
+        listener.prompt(new Prompt(userCode, verificationUri, openUri,
+                System.currentTimeMillis() + expirySeconds * 1000L));
 
         return complete(pollForTokens(deviceCode, intervalSeconds, expirySeconds));
     }
@@ -206,9 +298,11 @@ public final class MicrosoftAuth {
     private static Login complete(JsonObject tokens) throws IOException {
         String msaToken = tokens.get("access_token").getAsString();
 
+        listener.stage(Stage.XBOX);
         JsonObject xbl = authenticateWithXbox(msaToken);
         String xstsToken = authorizeWithXsts(xbl.get("Token").getAsString());
         String userHash = userHashOf(xbl);
+        listener.stage(Stage.MINECRAFT);
         String minecraftToken = loginWithXbox(userHash, xstsToken);
 
         // Present for MBI_SSL, and for Azure because its scope asks for
@@ -218,6 +312,7 @@ public final class MicrosoftAuth {
                 ? tokens.get("refresh_token").getAsString()
                 : null;
 
+        listener.stage(Stage.PROFILE);
         return new Login(profileOf(minecraftToken), refreshToken);
     }
 
@@ -229,37 +324,6 @@ public final class MicrosoftAuth {
                 + "&scope=" + encode(flow.scope())
                 + flow.deviceCodeParams();
         return object(Http.post(flow.deviceCodeUrl(), body, FORM));
-    }
-
-    /**
-     * Shows the user their code and opens the page for them.
-     *
-     * <p>On the game thread for both: the clipboard is a GLFW window call, and
-     * handing a URI to the OS from a pool thread is the kind of thing that works
-     * until the one platform where it does not.
-     */
-    private static void promptUser(String userCode, String verificationUri, String openUri) {
-        Core.notifications().info("Sign in to Microsoft",
-                "Enter " + userCode + " at " + verificationUri + " (copied to your clipboard)");
-
-        GameThread.run(() -> {
-            // Chat as well as the notification, because a notification times out
-            // and a sign-in does not: the code is good for fifteen minutes and the
-            // player may well have looked away. On the game thread with the rest,
-            // because the chat HUD is no safer to touch from a worker than the
-            // clipboard is.
-            Core.platform().printMessage("Sign in at " + verificationUri
-                    + " with code " + userCode + " (copied to your clipboard)");
-
-            Core.platform().setClipboard(userCode);
-            try {
-                Util.getOperatingSystem().open(URI.create(openUri));
-            } catch (RuntimeException failure) {
-                // A headless or locked-down desktop cannot open a browser, and that
-                // is not a failed login: the code and the URL are already on screen.
-                Core.log().warn("Could not open the sign-in page; enter the code manually");
-            }
-        });
     }
 
     /**
@@ -281,6 +345,9 @@ public final class MicrosoftAuth {
         long waitMillis = intervalSeconds * 1000L;
 
         while (System.currentTimeMillis() < deadline) {
+            if (cancelled) {
+                throw new IOException("Sign-in was cancelled");
+            }
             try {
                 return object(Http.post(flow().tokenUrl(), body, FORM));
             } catch (IOException pending) {
@@ -293,11 +360,16 @@ public final class MicrosoftAuth {
                     throw pending;
                 }
             }
-            try {
-                Thread.sleep(waitMillis);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Sign-in was cancelled");
+            // In short slices, so a cancel is noticed in a quarter of a second
+            // rather than at the next poll.
+            long wakeAt = System.currentTimeMillis() + waitMillis;
+            while (!cancelled && System.currentTimeMillis() < wakeAt) {
+                try {
+                    Thread.sleep(Math.min(CANCEL_CHECK_MILLIS, Math.max(1L, wakeAt - System.currentTimeMillis())));
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Sign-in was cancelled");
+                }
             }
         }
         throw new IOException("Sign-in expired before it was completed");

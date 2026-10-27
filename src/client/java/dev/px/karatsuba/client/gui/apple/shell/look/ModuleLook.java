@@ -31,6 +31,7 @@ public final class ModuleLook {
         FieldLook.register(look);
         ThemeLook.register(look);
         FriendsLook.register(look);
+        AccountsLook.register(look);
         HomeLook.register(look);
         return look;
     }

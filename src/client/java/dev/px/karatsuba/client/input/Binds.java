@@ -4,11 +4,11 @@ import dev.px.core.Core;
 import dev.px.karatsuba.client.automation.Automation;
 import dev.px.core.input.Bind;
 import dev.px.core.input.Key;
-import dev.px.karatsuba.client.gui.stable.AccountsScreen;
+import dev.px.karatsuba.client.gui.apple.shell.section.accounts.AccountsSection;
+import dev.px.karatsuba.client.gui.apple.shell.section.profiles.ProfilesSection;
 import dev.px.karatsuba.client.gui.stable.shell.section.hud.HudSection;
 import dev.px.karatsuba.client.gui.stable.shell.section.layout.LayoutSection;
 import dev.px.karatsuba.client.gui.stable.shell.section.settings.SettingsSection;
-import dev.px.karatsuba.client.gui.stable.ProfilesScreen;
 import dev.px.karatsuba.client.screen.Overlays;
 
 /**
@@ -69,12 +69,13 @@ public final class Binds {
         input.register("HUD Elements", Bind.of(HUD_ELEMENTS), () -> Overlays.active().open(HudSection.ID));
         input.register("Client Settings", Bind.of(CLIENT_SETTINGS), () -> Overlays.active().open(SettingsSection.ID));
 
-        // Unbound by default: a screen most people open from the GUI, not a key.
-        input.register("Profiles", Bind.NONE, () -> Overlays.clickGui().open(new ProfilesScreen()));
+        // Unbound by default: pages most people open from the GUI, not a key. Only the
+        // Apple UI has them, so these open it whichever interface is active.
+        input.register("Profiles", Bind.NONE, () -> Overlays.apple().open(ProfilesSection.ID));
 
         // Also unbound: switching accounts is rare enough that a key would be one
         // more thing to press by accident mid-game.
-        input.register("Accounts", Bind.NONE, () -> Overlays.clickGui().open(new AccountsScreen()));
+        input.register("Accounts", Bind.NONE, () -> Overlays.apple().open(AccountsSection.ID));
 
         // Unbound, like the screens above: one press ends whatever task is running,
         // which is worth a key for anyone running tasks and a trap for anyone not.

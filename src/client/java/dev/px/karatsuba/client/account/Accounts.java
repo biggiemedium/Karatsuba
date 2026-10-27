@@ -4,6 +4,7 @@ import dev.px.core.Core;
 import dev.px.core.account.Account;
 import dev.px.core.account.AccountType;
 import dev.px.core.account.AuthResult;
+import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.concurrent.GameThread;
 import dev.px.karatsuba.client.config.AutoSave;
@@ -55,13 +56,22 @@ import java.util.Optional;
 public final class Accounts {
 
     /**
-     * Whether a sign-in is already running.
+     * Where the name a Microsoft account plays as is kept, once a sign-in has said it.
+     *
+     * <p>The account's own name is only the label it was saved under (usually an
+     * email); the in-game name is not known until Microsoft hands over the profile.
+     * Kept so the list can tell which saved account the game is playing as.
+     */
+    private static final String IN_GAME_NAME = "inGameName";
+
+    /**
+     * The sign-in running now, or the last one; null before any.
      *
      * <p>One at a time, deliberately. Two concurrent Microsoft logins would each
-     * open a browser and race to swap the session, and the one that lost would
-     * leave the player signed in as somebody they did not pick.
+     * want a code entered and race to swap the session, and the one that lost
+     * would leave the player signed in as somebody they did not pick.
      */
-    private static volatile boolean signingIn;
+    private static volatile SignIn current;
 
     private Accounts() {
     }
@@ -112,9 +122,73 @@ public final class Accounts {
         if (found.isEmpty()) {
             return false;
         }
-        found.get().setMeta(MinecraftAuthProvider.REFRESH_TOKEN, null);
-        AutoSave.markDirty();
+        forget(found.get());
         return true;
+    }
+
+    /**
+     * Drops {@code account}'s stored sign-in, handing it back sealed so it can be
+     * put back with {@link #keep} if the player undoes the forget.
+     *
+     * @return what was dropped, or null if nothing was kept
+     */
+    public static KeptSignIn forget(Account account) {
+        String token = account.getMeta(MinecraftAuthProvider.REFRESH_TOKEN, null);
+        account.setMeta(MinecraftAuthProvider.REFRESH_TOKEN, null);
+        AutoSave.markDirty();
+        return token == null ? null : new KeptSignIn(token);
+    }
+
+    /** Puts back a sign-in {@link #forget(Account)} dropped: an undo. */
+    public static void keep(Account account, KeptSignIn kept) {
+        if (kept == null) {
+            return;
+        }
+        account.setMeta(MinecraftAuthProvider.REFRESH_TOKEN, kept.token);
+        AutoSave.markDirty();
+    }
+
+    /**
+     * A sign-in that was forgotten, held only for as long as it can be undone.
+     *
+     * <p>Sealed on purpose: nothing outside this class can read the credential
+     * in it, so a screen holding one for its undo strip cannot draw it.
+     */
+    public static final class KeptSignIn {
+
+        private final String token;
+
+        private KeptSignIn(String token) {
+            this.token = token;
+        }
+    }
+
+    /**
+     * Saves {@code account} again after a {@link #remove}, sign-in and all: an undo.
+     *
+     * @throws IllegalArgumentException if another account took its name meanwhile
+     */
+    public static Account restore(Account account) {
+        return remember(account);
+    }
+
+    /**
+     * @return the name {@code account} plays as: an offline account's own name, the
+     *         name a Microsoft account's last sign-in gave, or null before its first
+     */
+    public static String inGameName(Account account) {
+        return account.isOffline() ? account.getName() : account.getMeta(IN_GAME_NAME, null);
+    }
+
+    /** @return whether the game is playing as {@code account} now */
+    public static boolean isInUse(Account account) {
+        String name = inGameName(account);
+        return name != null && name.equalsIgnoreCase(current());
+    }
+
+    /** @return the saved account the game is playing as now, if it is one */
+    public static Optional<Account> inUse() {
+        return all().stream().filter(Accounts::isInUse).findFirst();
     }
 
     /** @return whether this account has a sign-in kept, so logging in needs no browser */
@@ -146,63 +220,147 @@ public final class Accounts {
 
     // ------------------------------------------------------------- signing in
 
+    /**
+     * Hears the adapter's sign-in reports and puts them on {@link #signIn()}.
+     * Before the first sign-in; at boot.
+     *
+     * <p>The adapter shows nothing itself, so this is where a person is told the
+     * code when no GUI is open: a notification and a chat line, with the address
+     * and the code to type. Nothing is copied and no page is opened for them; the
+     * GUI's sign-in card does both, at a press.
+     */
+    public static void install() {
+        MicrosoftAuth.setListener(new MicrosoftAuth.Listener() {
+            @Override
+            public void prompt(MicrosoftAuth.Prompt prompt) {
+                GameThread.run(() -> prompted(prompt));
+            }
+
+            @Override
+            public void stage(MicrosoftAuth.Stage stage) {
+                GameThread.run(() -> {
+                    SignIn now = current;
+                    if (now != null) {
+                        now.reached(stage);
+                    }
+                });
+            }
+        });
+    }
+
+    /** @return the sign-in running now, or the last one, until another starts; null before any */
+    public static SignIn signIn() {
+        return current;
+    }
+
     /** @return whether a sign-in is in flight */
     public static boolean isSigningIn() {
-        return signingIn;
+        SignIn now = current;
+        return now != null && !now.isOver();
+    }
+
+    /** @return whether the sign-in in flight is {@code account}'s */
+    public static boolean isSigningIn(Account account) {
+        SignIn now = current;
+        return now != null && !now.isOver() && now.account() == account;
     }
 
     /**
      * Signs in and swaps the session.
      *
-     * <p>Returns immediately; everything visible happens later, through
-     * notifications. A Microsoft account with nothing kept will open a browser and
-     * wait for a person, so there is no useful value to return and no point
-     * blocking for one.
+     * <p>Returns immediately with the sign-in, which says how it goes from then on:
+     * a Microsoft account with nothing kept waits for a person to enter a code, so
+     * there is no result to wait for here.
+     *
+     * @return the sign-in started, or null if one was already running
      */
-    public static void login(Account account) {
+    public static SignIn login(Account account) {
         if (account == null) {
-            return;
+            return null;
         }
-        if (signingIn) {
+        if (isSigningIn()) {
             Notices.warn(Source.CLIENT, "Accounts", "A sign-in is already running");
+            return null;
+        }
+        SignIn signIn = new SignIn(account);
+        current = signIn;
+        MicrosoftAuth.clearCancel();
+        Notices.info(Source.CLIENT, "Accounts", "Signing in as " + account.getName());
+
+        Core.accounts().login(account, GameThread.marshal(result -> complete(signIn, result)));
+        return signIn;
+    }
+
+    /** Stops the sign-in waiting for a person. Its card closes; nothing is signed in. */
+    public static void cancelSignIn() {
+        SignIn now = current;
+        if (now != null && !now.isOver()) {
+            MicrosoftAuth.cancel();
+            now.finish(SignIn.Step.CANCELLED, "");
+        }
+    }
+
+    /** Puts the sign-in's code on the clipboard: only when asked, never on its own. */
+    public static void copyCode() {
+        SignIn now = current;
+        if (now != null && now.hasPrompt()) {
+            Core.platform().setClipboard(now.rawCode());
+        }
+    }
+
+    /** Opens the page to enter the code on, in the person's browser: only when asked. */
+    public static void openSignInPage() {
+        SignIn now = current;
+        if (now != null && now.hasPrompt() && !now.isOver()) {
+            MicrosoftAuth.open(now.page());
+        }
+    }
+
+    /** The code is ready: shown on the card, and told in words for when no GUI is open. */
+    private static void prompted(MicrosoftAuth.Prompt prompt) {
+        SignIn now = current;
+        if (now == null || now.isOver()) {
             return;
         }
-        signingIn = true;
-        Notices.info(Source.CLIENT, "Accounts", announce(account));
-
-        Core.accounts().login(account, GameThread.marshal(result -> complete(account, result)));
+        now.prompted(prompt);
+        // Chat as well as the notification: a notification times out and a code
+        // does not, and the player may have looked away.
+        Notices.info(Source.CLIENT, "Sign in to Microsoft", "Enter " + now.code() + " at " + now.address());
+        Core.platform().printMessage("Sign in to Microsoft: enter " + now.code() + " at " + now.address()
+                + " (or open Accounts in the GUI)");
     }
 
     /**
      * Applies the result, on the game thread.
      *
-     * <p>The flag is cleared first and unconditionally: a sign-in that failed has
-     * still finished, and leaving it set would lock the client out of trying
+     * <p>The sign-in is finished first and unconditionally: one that failed has
+     * still ended, and leaving it running would lock the client out of trying
      * again.
      */
-    private static void complete(Account account, AuthResult result) {
-        signingIn = false;
-
+    private static void complete(SignIn signIn, AuthResult result) {
+        Account account = signIn.account();
         if (!result.isSuccessful()) {
-            Notices.error(Source.CLIENT, "Accounts", result.getMessage());
+            if (MicrosoftAuth.wasCancelled()) {
+                signIn.finish(SignIn.Step.CANCELLED, "");
+                Notices.info(Source.CLIENT, "Accounts", "Sign-in cancelled");
+            } else {
+                signIn.finish(SignIn.Step.FAILED, result.getMessage());
+                Notices.error(Source.CLIENT, "Accounts", result.getMessage());
+            }
             return;
         }
         Core.accounts().applySession(result.getSession());
-        Notices.success(Source.CLIENT, "Accounts", "Signed in as " + result.getSession().getUsername());
-
-        // Two things worth keeping changed during that call and neither posts a
-        // setting change: the last-used timestamp Core stamps on success, and the
-        // refresh token the provider wrote back.
-        AutoSave.markDirty();
-    }
-
-    private static String announce(Account account) {
-        if (account.getType() != AccountType.MICROSOFT) {
-            return "Signing in as " + account.getName();
+        String name = result.getSession().getUsername();
+        if (!account.isOffline()) {
+            account.setMeta(IN_GAME_NAME, name);
         }
-        return isRemembered(account)
-                ? "Signing in as " + account.getName()
-                : "Signing in as " + account.getName() + "; a browser will open";
+        signIn.finish(SignIn.Step.DONE, name);
+        Notices.success(Source.CLIENT, "Accounts", "Signed in as " + name);
+
+        // Three things worth keeping changed during that call and none posts a
+        // setting change: the last-used timestamp Core stamps on success, the
+        // refresh token the provider wrote back, and the name in game.
+        AutoSave.markDirty();
     }
 
     /**

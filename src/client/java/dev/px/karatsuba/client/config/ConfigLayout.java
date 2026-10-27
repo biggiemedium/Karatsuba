@@ -39,6 +39,7 @@ import dev.px.core.config.ConfigService;
  *     friends.json
  *     accounts.enc              encrypted: saved accounts and their sign-ins
  *     spotify.enc               encrypted: the Spotify Client ID and sign-in
+ *     profile-parts.json        what each profile includes; the rest is default's (see Profiles)
  *     profile.json              which profile was active last (Core's own)
  *   legacy/                     single-file profiles from before the split, kept as they were
  * </pre>
@@ -88,6 +89,8 @@ public final class ConfigLayout {
         config.place(FriendRecords.ID, ConfigLocation.shared(FriendRecords.ID));
         config.place("accounts", ConfigLocation.shared("accounts"));
         config.place(SpotifySettings.ID, ConfigLocation.shared(SpotifySettings.ID));
+        // What each profile includes: read before any profile is, so it can route the load.
+        config.place(Profiles.ID, ConfigLocation.shared(Profiles.ID));
 
         // Accounts hold refresh tokens: whoever has one can play as that account.
         // Sealed with a key only this computer's user can open; see MachineKey.

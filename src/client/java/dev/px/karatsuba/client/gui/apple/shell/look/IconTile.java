@@ -190,6 +190,27 @@ final class IconTile {
                     Render.circle(x(0.36f), y(1.06f), g * 0.40f, white);
                     Render.popClip();
                 }
+                case PERSON -> {
+                    // One person: a head over shoulders, the shoulders a large circle cut at the foot.
+                    Render.circle(cx, y(0.28f), g * 0.20f, white);
+                    Render.pushClip(gx - 1f, gy, g + 2f, g * 0.94f);
+                    Render.circle(cx, y(1.02f), g * 0.42f, white);
+                    Render.popClip();
+                }
+                case LAYERS -> {
+                    // Three sheets stacked, the top one whole and the two under it showing
+                    // as bands below it, each parted from the one above by a cut.
+                    float sheet = g * 0.40f;
+                    float r = g * 0.10f;
+                    for (int i = 2; i >= 0; i--) {
+                        float top = gy + g * 0.08f + i * g * 0.22f;
+                        if (i < 2) {
+                            Render.roundRect(gx - OVERLAP, top - cut(), g + OVERLAP * 2f, sheet + cut() * 2f, r + cut(),
+                                    tile(top + sheet / 2f));
+                        }
+                        Render.roundRect(gx, top, g, sheet, r, white);
+                    }
+                }
                 case THEMES -> {
                     // A circle, light and dark: its left half solid, its right half a ring.
                     float r = g * 0.48f;

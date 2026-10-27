@@ -140,6 +140,19 @@ final class Glyphs {
                 Render.circle(x + s * 0.36f, y + s * 1.02f, s * 0.36f, colour);
                 Render.popClip();
             }
+            case LAYERS -> {
+                // Three sheets stacked: the top one in outline, the edges of two under it.
+                Render.roundRectOutline(x + s * 0.08f, y + s * 0.12f, s * 0.84f, s * 0.36f, s * 0.08f, STROKE, colour);
+                Render.line(x + s * 0.08f, y + s * 0.64f, x + s * 0.92f, y + s * 0.64f, STROKE, colour);
+                Render.line(x + s * 0.08f, y + s * 0.84f, x + s * 0.92f, y + s * 0.84f, STROKE, colour);
+            }
+            case PERSON -> {
+                // One person: a head, and shoulders cut off at the foot of the square.
+                Render.circle(cx, y + s * 0.32f, s * 0.19f, colour);
+                Render.pushClip(x, y + s * 0.58f, s, s * 0.42f);
+                Render.circle(cx, y + s * 1.04f, s * 0.40f, colour);
+                Render.popClip();
+            }
             case ADD -> {
                 Render.line(cx, y + s * 0.15f, cx, y + s * 0.85f, STROKE * 1.2f, colour);
                 Render.line(x + s * 0.15f, cy, x + s * 0.85f, cy, STROKE * 1.2f, colour);

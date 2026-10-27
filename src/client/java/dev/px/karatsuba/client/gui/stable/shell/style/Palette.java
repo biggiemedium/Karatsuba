@@ -86,6 +86,10 @@ public final class Palette {
     public static final float GAP_SECTION = 12f;
     public static final float INSET = 8f;
 
+    /** A checkbox on a list setting's line, and how far its options sit in from the setting's name. */
+    public static final float CHECKBOX_SIZE = 10f;
+    public static final float LIST_INDENT = 12f;
+
     public static final float SIDEBAR_WIDTH = 116f;
     public static final float LIST_WIDTH = 156f;
 

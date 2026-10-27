@@ -36,8 +36,8 @@ Never recompute a hit area by hand.
 call. Input reads the last update's layout.
 
 1.5 **New UI goes on the shell, never on the legacy click GUI**
-(`dev.px.gui.legacy`) or `client/gui/component`. Profiles and Accounts are still
-legacy and are due to move.
+(`dev.px.gui.legacy`). The legacy Profiles and Accounts screens are gone: their
+pages are the Apple UI's (`gui/apple/DESIGN.md` §2.6c, §2.6d), and Classic has none yet.
 
 1.6 **Extend, don't fork.**
 - A new section implements `Section` and gets one line in `Sections`. It never
@@ -249,4 +249,4 @@ These break the rules today. Don't copy them; fix them when you're nearby.
   - `EditorLook` guides
 - Literal durations: `ClientGui` fullscreen `Motion(250f, 200f, ...)`, `AnchorRow`
   `Motion(160f, ...)`.
-- Profiles and Accounts screens are still on the legacy GUI.
+- Classic has no Accounts or Profiles section; their binds open the Apple UI's pages.

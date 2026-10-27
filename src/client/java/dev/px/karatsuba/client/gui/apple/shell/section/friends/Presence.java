@@ -2,11 +2,9 @@ package dev.px.karatsuba.client.gui.apple.shell.section.friends;
 
 import dev.px.core.Core;
 import dev.px.karatsuba.adapter.game.player.PlayerList;
+import dev.px.karatsuba.client.gui.apple.shell.widget.Times;
 import dev.px.karatsuba.client.social.FriendRecords;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,8 +18,6 @@ import java.util.Set;
  * colour alone.
  */
 final class Presence {
-
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ROOT);
 
     private final Set<String> online = new HashSet<>();
     private final List<String> onlineNames = new ArrayList<>();
@@ -83,25 +79,11 @@ final class Presence {
     static String added(String name) {
         long added = FriendRecords.of(name).added();
         return added <= 0L ? "Before this was recorded"
-                : DATE.format(Instant.ofEpochMilli(added).atZone(ZoneId.systemDefault()));
+                : Times.date(added);
     }
 
     /** "just now", "5 min ago", "3 h ago", "2 days ago", then the date. */
     static String ago(long epochMillis) {
-        long seconds = Math.max(0L, (System.currentTimeMillis() - epochMillis) / 1000L);
-        if (seconds < 60L) {
-            return "just now";
-        }
-        if (seconds < 3600L) {
-            return seconds / 60L + " min ago";
-        }
-        if (seconds < 86400L) {
-            return seconds / 3600L + " h ago";
-        }
-        long days = seconds / 86400L;
-        if (days < 30L) {
-            return days == 1L ? "yesterday" : days + " days ago";
-        }
-        return DATE.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()));
+        return Times.ago(epochMillis);
     }
 }

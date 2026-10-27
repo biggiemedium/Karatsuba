@@ -20,7 +20,9 @@ import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
 import dev.px.karatsuba.client.gui.apple.shell.widget.EmptyState;
 import dev.px.karatsuba.client.gui.apple.shell.widget.FieldMessage;
 import dev.px.karatsuba.client.gui.apple.shell.widget.PageIntro;
+import dev.px.karatsuba.client.gui.apple.shell.widget.UndoBar;
 import dev.px.karatsuba.client.social.FriendRecords;
+import dev.px.karatsuba.client.social.NameRules;
 
 import java.util.ArrayList;
 import java.util.Comparator;

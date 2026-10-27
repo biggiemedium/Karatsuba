@@ -6,6 +6,7 @@ import dev.px.core.layout.Bounds;
 import dev.px.core.layout.Content;
 import dev.px.core.layout.Draw;
 import dev.px.core.math.Range;
+import dev.px.core.render.Color;
 import dev.px.core.render.Render;
 import dev.px.gui.render.WidgetRenderer;
 import dev.px.gui.render.WidgetRendererRegistry;
@@ -19,6 +20,7 @@ import dev.px.karatsuba.client.gui.stable.shell.setting.ControlRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.FieldRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.InfoRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.ItemRow;
+import dev.px.karatsuba.client.gui.stable.shell.setting.ListRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.MultiChoiceRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.RangeRow;
 import dev.px.karatsuba.client.gui.stable.shell.setting.SliderRow;
@@ -49,6 +51,48 @@ final class SettingLook {
         look.register(WidgetRenderer.of(ToggleRow.class, (row, c) -> {
             float knob = row.knob();
             line(row, c, r -> r.custom("switch", 18f, 10f, (x, y, w, h) -> toggle(x, y, w, h, knob)));
+        }));
+
+        // A list setting: its name and "3 of 5", then a line per option with a checkbox,
+        // each line lit on its own under the cursor.
+        look.register(WidgetRenderer.of(ListRow.class, (row, c) -> {
+            boolean enabled = row.isEnabled();
+            int lit = row.litIndex();
+            float light = row.light();
+            Color label = enabled ? TEXT : TEXT_FAINT;
+            c.align(Align.STRETCH).column(column -> {
+                column.align(Align.STRETCH).padding(INSET, row.isDetailed() ? 5f : 0f, INSET, 0f)
+                        .backdrop(rowBackdrop(0f, row.isDetailed() && row.isModified()))
+                        .row(top -> {
+                            top.height(ROW_HEIGHT).gap(INSET).align(Align.CENTER)
+                                    .text(body(), row.name(), label)
+                                    .fill();
+                            reset(top, row, 0f);
+                            top.text(body(), row.summary(), TEXT_MUTED);
+                        });
+                under(column, row);
+                java.util.List<String> options = row.options();
+                for (int i = 0; i < options.size(); i++) {
+                    String option = options.get(i);
+                    float tick = row.tick(option);
+                    float hover = i == lit ? light : 0f;
+                    String part = ListRow.part(i);
+                    column.row(line -> line.name(part).height(ROW_HEIGHT).padding(INSET + LIST_INDENT, 0f, INSET, 0f)
+                            .gap(INSET).align(Align.CENTER)
+                            .backdrop(rowBackdrop(hover, false))
+                            .custom(CHECKBOX_SIZE, CHECKBOX_SIZE, (x, y, w, h) -> {
+                                if (enabled) {
+                                    checkbox(x, y, w, h, tick);
+                                } else {
+                                    Render.roundRectOutline(x, y, w, h, 2f, 1f, TEXT_FAINT);
+                                    if (tick > 0f) {
+                                        Shapes.tick(x + 2f, y + 2.5f, w - 4f, h - 5f, TEXT_FAINT);
+                                    }
+                                }
+                            })
+                            .text(body(), row.label(option), label));
+                }
+            });
         }));
 
         look.register(WidgetRenderer.of(SliderRow.class, (row, c) -> {

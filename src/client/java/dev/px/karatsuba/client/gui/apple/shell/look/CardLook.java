@@ -12,6 +12,7 @@ import dev.px.karatsuba.client.gui.apple.shell.card.CardActions;
 import dev.px.karatsuba.client.gui.apple.shell.card.CardHeader;
 import dev.px.karatsuba.client.gui.apple.shell.card.CardPage;
 import dev.px.karatsuba.client.gui.apple.shell.card.PushButton;
+import dev.px.karatsuba.client.gui.apple.shell.setting.ListRow;
 
 import java.util.List;
 
@@ -43,6 +44,14 @@ final class CardLook {
                         && row.isSelected()) {
                     // The row open beside the list: a neutral highlight, never the accent.
                     highlight(x, b.getY(), w, b.getHeight(), i == 0, i == rows.size() - 1, SELECTED.get());
+                } else if (rows.get(i) instanceof ListRow list) {
+                    // A list lights one of its options, never itself; the last follows the card's corners.
+                    Bounds option = list.litOption();
+                    float light = list.light();
+                    if (option != null && light > 0.01f) {
+                        highlight(x, option.getY(), w, option.getHeight(), false,
+                                i == rows.size() - 1 && list.litIsLast(), faded(HOVER_TINT.get(), light));
+                    }
                 } else if (lit > 0.01f) {
                     highlight(x, b.getY(), w, b.getHeight(), i == 0, i == rows.size() - 1,
                             faded(HOVER_TINT.get(), lit));
@@ -69,6 +78,21 @@ final class CardLook {
         look.register(WidgetRenderer.of(PushButton.class, (button, c) -> {
             boolean pressed = button.isPressed();
             boolean focused = button.isFocused();
+            if (button.isPrimary()) {
+                // The default button: the control accent, white words, the same shadow (§4.4).
+                Color fill = pressed ? accentControl().lerp(Color.BLACK, 0.12f) : accentControl();
+                c.row(r -> r.height(BUTTON_HEIGHT).padding(10f, 0f).align(Align.CENTER)
+                        .backdrop((x, y, w, h) -> {
+                            Render.roundRect(x, y + 0.75f, w, h, R_BUTTON, SHADOW);
+                            Render.roundRect(x, y, w, h, R_BUTTON, button.isEnabled() ? fill : faded(fill, 0.45f));
+                            if (focused) {
+                                Render.roundRectOutline(x - 1.5f, y - 1.5f, w + 3f, h + 3f, R_BUTTON + 1.5f, 2f,
+                                        accent().withAlpha(150));
+                            }
+                        })
+                        .text(text(), button.label(), Color.WHITE));
+                return;
+            }
             c.row(r -> r.height(BUTTON_HEIGHT).padding(10f, 0f).align(Align.CENTER)
                     .backdrop((x, y, w, h) -> {
                         raised(x, y, w, h, R_BUTTON, pressed ? BUTTON_PRESSED.get() : BUTTON.get());

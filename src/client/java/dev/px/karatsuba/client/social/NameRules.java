@@ -1,13 +1,13 @@
-package dev.px.karatsuba.client.gui.apple.shell.section.friends;
+package dev.px.karatsuba.client.social;
 
 /**
  * What a Minecraft username may be: 3 to 16 letters, numbers and underscores.
  *
- * <p>Checked here, without asking Mojang, so adding a friend never waits on the
- * network and never tells Mojang whom you are looking up. Messages say what is
- * wrong and how to put it right, never just "invalid".
+ * <p>Checked here, without asking Mojang, so adding a friend or an offline
+ * account never waits on the network and never tells Mojang whom you are looking
+ * up. Messages say what is wrong and how to put it right, never just "invalid".
  */
-final class NameRules {
+public final class NameRules {
 
     private static final int MIN = 3;
     private static final int MAX = 16;
@@ -16,7 +16,7 @@ final class NameRules {
     }
 
     /** @return what is wrong with {@code name}, or null if it could be a username */
-    static String problem(String name) {
+    public static String problem(String name) {
         if (name.isEmpty()) {
             return "Enter a username";
         }
@@ -36,7 +36,7 @@ final class NameRules {
         return null;
     }
 
-    static boolean valid(String name) {
+    public static boolean valid(String name) {
         return problem(name) == null;
     }
 }

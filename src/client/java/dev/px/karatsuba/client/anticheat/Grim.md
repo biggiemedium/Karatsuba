@@ -34,6 +34,39 @@ Minecraft; `client.*` may not. `core:` means the vendored Core library.
 
 ---
 
+## Transactions: how to recognise Grim
+
+Read from the 2.3.73 bytecode on 2026-10-27 (`GrimPlayer`, `TickRunner`,
+`ClientVersionSetter`, `PacketEntityReplication`, `AbstractTickEndEvent`). This is
+the fingerprint `core: network/anticheat` would match; not yet confirmed in game.
+
+| What | Bytecode | So the client sees |
+|---|---|---|
+| **Packet** | `GrimPlayer.sendTransaction(boolean)`: `WrapperPlayServerPing(id)` on 1.17+ servers, `WindowConfirmation(0, id, false)` before | `CommonPingS2CPacket`, which the describer already gives `withTransaction` |
+| **Ids** | `id = (short) (-1 * (transactionIDCounter.getAndIncrement() & 0x7FFF))`, counter a new `AtomicInteger(0)` per `GrimPlayer` | **0, -1, -2 … -32767, then 0 again**: steps of exactly -1, never positive, never below -32767. Starts at 0 on every join (a new connection is a new `GrimPlayer`) |
+| **Idle rate** | `TickRunner` runs `ClientVersionSetter.tick()` async at a fixed rate of 1 tick; it calls `pollData()`, which sends one when `lastTransSent + 80 < currentTimeMillis()` | **A floor of one every ~100 ms (~10/s)** whatever the player does, on wall-clock time, so a lagging server does not slow it. Starts once the first event ping has set `lastTransSent` |
+| **Event pings** | `sendTransaction()` around: velocity and explosions (`KnockbackHandler`, `ExplosionHandler`), teleports and setbacks, world border, abilities, game state, respawn, own metadata, entity replication, block changes (`BasePacketWorldReader`, `CompensatedWorld`), camera, mount and dismount | Extra pings on top of the floor, in bursts around those packets: more than 10/s in a busy area, about 10/s standing alone |
+| **End-of-tick ping** | `AbstractTickEndEvent.onEndOfTick` sends one per tick, but only if `Reach.enable-post-packet` (default **false**; the dev server's is false) | Usually absent. A server that turns it on sends at least 20/s |
+| **Who gets them** | Only in `PLAY` state. `grim.exempt` defaults to `false`, so ops are **not** exempt. A player with Grim disabled stops getting pings 15 s after their clock falls behind | The dev player, opped, gets the full stream |
+| **Brand, channels** | `ClientBrand` only *reads* the client's `minecraft:brand`; no Grim class writes a brand or registers a `grim:` channel | **No name to match.** Grim can only be recognised by its transactions, so a detection is `LIKELY` at most |
+
+What this means for `core: TransactionTracker` and `client.anticheat.AntiCheats`:
+
+- **Signature:** decrementing, every id in `[-32767, 0]`, about 10/s or more. No
+  other evidence is available, and a fork or copy would look the same.
+- **Zero is the problem.** The first id after a join, and every id after a wrap,
+  is `0`, which the tracker counts as positive. Any sample that includes it reads
+  `Sign.MIXED`, not `NEGATIVE`. Match on "never positive" (`highestId <= 0`), not
+  on `Sign.NEGATIVE`.
+- **`LIKELY_RATE = 10` is exactly Grim's idle floor.** A player standing alone
+  sits at about 10/s and can flip between `POSSIBLE` and `LIKELY` as scheduler
+  jitter moves it. Put the generic threshold below the floor (e.g. 8), or let the
+  numbering decide instead of the rate.
+- **The wrap:** -32767 → 0 is one odd step in thousands, which the 80% majority
+  already ignores. At ~10/s it takes about 55 minutes to get there.
+
+---
+
 ## Post: tick order
 
 | Flag | What it flags | Karatsuba methods |

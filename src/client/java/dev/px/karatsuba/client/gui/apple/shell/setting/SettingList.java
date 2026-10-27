@@ -22,6 +22,7 @@ import dev.px.karatsuba.client.gui.apple.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.apple.shell.style.Palette;
 import dev.px.karatsuba.client.setting.ChoiceSetting;
 import dev.px.karatsuba.client.setting.ItemSetting;
+import dev.px.karatsuba.client.setting.ListSetting;
 import dev.px.karatsuba.client.setting.SettingLabels;
 
 import java.util.ArrayList;
@@ -207,6 +208,9 @@ public final class SettingList {
         }
         if (setting instanceof ChoiceSetting choice) {
             return ChoiceRow.of(choice);
+        }
+        if (setting instanceof ListSetting list) {
+            return new ListRow(list);
         }
         if (setting instanceof ItemSetting items) {
             return new ItemRow(items);

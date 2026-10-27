@@ -44,6 +44,7 @@ public final class ConfigStorageTests {
         layout();
         placement();
         profiles();
+        partialProfiles();
         lateRegistration();
         safety();
         encryption();
@@ -178,6 +179,38 @@ public final class ConfigStorageTests {
         Checks.check("a profile name never leaves the profiles folder",
                 !Files.exists(again.data.resolve("escape")) && !Files.exists(again.file("escape"))
                         && again.config.getProfileDirectory("..").getParent().equals(again.config.getProfilesDirectory()));
+    }
+
+    /** A profile that keeps only some sections, the rest the default profile's. */
+    private static void partialProfiles() {
+        Rig rig = new Rig("partial");
+        Box mode = rig.config.register(new Box("mode"));
+        Box layout = rig.config.register(new Box("layout"));
+        rig.config.setHolds((profile, id) -> !profile.equals("pvp") || id.equals("mode"));
+        rig.start();
+        rig.config.load();
+        mode.value = "default-mode";
+        layout.value = "default-layout";
+        rig.config.save();
+
+        mode.value = "pvp-mode";
+        rig.config.saveAs("pvp");
+        Checks.check("a profile writes only the sections it keeps",
+                Files.exists(rig.file("profiles/pvp/mode.json")) && !Files.exists(rig.file("profiles/pvp/layout.json")));
+        Checks.checkEquals("the rest are the default profile's", "default", rig.config.ownerOf("pvp", "layout"));
+
+        layout.value = "changed-on-pvp";
+        rig.config.save();
+        rig.config.load("default");
+        Checks.checkEquals("a change to a section it does not keep is saved to the default profile",
+                "changed-on-pvp", layout.value);
+        Checks.checkEquals("and loading default leaves its own sections alone", "default-mode", mode.value);
+
+        rig.config.load("pvp");
+        Checks.check("switching to it loads what it keeps, and the default profile's rest",
+                "pvp-mode".equals(mode.value) && "changed-on-pvp".equals(layout.value));
+        Checks.checkEquals("the default profile keeps everything, whatever the predicate says", "default",
+                rig.config.ownerOf("default", "mode"));
     }
 
     private static void lateRegistration() {

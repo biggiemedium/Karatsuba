@@ -2,6 +2,9 @@ package dev.px.core.network.anticheat;
 
 import dev.px.core.util.Validate;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Keeps the most recent inbound transactions and reads a
  * {@link TransactionPattern} off them.
@@ -26,13 +29,18 @@ public final class TransactionTracker {
     /** Fewer ids than this say nothing about order. */
     private static final int MIN_FOR_ORDER = 4;
 
+    /** How many of the first ids after {@link #startConnection()} are kept, for signatures that read where a counter starts. */
+    public static final int START_SAMPLE = 8;
+
     private final long[] nanos;
     private final long[] ids;
     private final boolean[] hasId;
+    private final List<Long> startIds = new ArrayList<>(START_SAMPLE);
 
     private int cursor;
     private int size;
     private long count;
+    private boolean startKnown;
 
     public TransactionTracker() {
         this(DEFAULT_SAMPLE);
@@ -56,16 +64,28 @@ public final class TransactionTracker {
         cursor = (cursor + 1) % nanos.length;
         size = Math.min(size + 1, nanos.length);
         count++;
+        if (id != null && startIds.size() < START_SAMPLE) {
+            startIds.add(id);
+        }
     }
 
     public synchronized long getCount() {
         return count;
     }
 
+    /** Forgets everything, including where the counter started: the next ids are not known to be its first. */
     public synchronized void reset() {
         cursor = 0;
         size = 0;
         count = 0L;
+        startIds.clear();
+        startKnown = false;
+    }
+
+    /** Forgets everything because a new connection starts here, so the next ids are the counter's first. */
+    public synchronized void startConnection() {
+        reset();
+        startKnown = true;
     }
 
     public synchronized TransactionPattern pattern() {
@@ -119,9 +139,10 @@ public final class TransactionTracker {
             havePrevious = true;
         }
 
+        List<Long> start = startKnown ? List.copyOf(startIds) : List.<Long>of();
         if (withIds == 0) {
             return new TransactionPattern(count, size, rate, TransactionPattern.Order.UNKNOWN,
-                    TransactionPattern.Sign.UNKNOWN, 0L, 0L);
+                    TransactionPattern.Sign.UNKNOWN, 0L, 0L, start);
         }
 
         TransactionPattern.Order order = TransactionPattern.Order.UNKNOWN;
@@ -138,6 +159,6 @@ public final class TransactionTracker {
                 : anyNegative ? TransactionPattern.Sign.NEGATIVE
                 : TransactionPattern.Sign.POSITIVE;
 
-        return new TransactionPattern(count, size, rate, order, sign, lowest, highest);
+        return new TransactionPattern(count, size, rate, order, sign, lowest, highest, start);
     }
 }

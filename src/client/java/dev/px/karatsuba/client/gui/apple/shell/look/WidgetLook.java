@@ -16,8 +16,11 @@ import dev.px.karatsuba.client.gui.apple.shell.widget.NavItem;
 import dev.px.karatsuba.client.gui.apple.shell.widget.PageIntro;
 import dev.px.karatsuba.client.gui.apple.shell.widget.SectionHeader;
 import dev.px.karatsuba.client.gui.apple.shell.widget.SectionTitle;
+import dev.px.karatsuba.client.gui.apple.shell.widget.UndoBar;
 
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.chevron;
+import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.lit;
+import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.raised;
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.toggle;
 import static dev.px.karatsuba.client.gui.apple.shell.look.Shapes.trailing;
 import static dev.px.karatsuba.client.gui.apple.shell.style.Palette.*;
@@ -137,6 +140,28 @@ final class WidgetLook {
                                         Render.roundRect(x, y, w, h, R_BUTTON, fill);
                                     })
                                     .text(text(), empty.button(), Color.WHITE))));
+        }));
+
+        // "Removed Steve · Undo": a solid strip at the top of a page, rising into place.
+        look.register(WidgetRenderer.of(UndoBar.class, (bar, c) -> {
+            float arrival = bar.arrival();
+            boolean lit = lit(bar, "undo");
+            c.align(Align.STRETCH).row(r -> r.height(CELL_HEIGHT + 4f).padding(CELL_INSET, 0f, CELL_INSET - 4f, 0f)
+                    .gap(GAP_CONTROL).align(Align.CENTER)
+                    .backdrop((x, y, w, h) -> {
+                        float lift = (1f - arrival) * 6f;
+                        Render.shadow(x, y + lift + 1f, w, h, R_CARD, faded(SHADOW, arrival));
+                        Render.roundRect(x, y + lift, w, h, R_CARD, faded(POPOVER.get(), arrival));
+                    })
+                    .text(text(), bar.message(), faded(LABEL.get(), arrival))
+                    .fill()
+                    .row(undo -> undo.name("undo").height(BUTTON_HEIGHT).padding(10f, 0f).align(Align.CENTER)
+                            .backdrop((x, y, w, h) -> {
+                                if (arrival > 0.99f) {
+                                    raised(x, y, w, h, R_BUTTON, lit ? BUTTON_PRESSED.get() : BUTTON.get());
+                                }
+                            })
+                            .text(text(), "Undo", faded(LABEL.get(), arrival))));
         }));
 
         // A page's sentence about itself, flush with the cards under it.

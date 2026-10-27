@@ -552,6 +552,19 @@ public final class NetworkTests {
         Checks.checkEquals("but the rate is still measured", 10f, (float) unnumbered.pattern().getRatePerSecond());
         unnumbered.reset();
         Checks.checkEquals("a reset tracker has nothing", TransactionPattern.NONE, unnumbered.pattern());
+
+        Checks.check("a start not seen is not guessed", countdown.pattern().getStartIds().isEmpty());
+        TransactionTracker fresh = new TransactionTracker();
+        fresh.record(0L, -500L);
+        fresh.startConnection();
+        for (int i = 0; i < 12; i++) {
+            fresh.record(ms(i * 100L), (long) -i);
+        }
+        Checks.checkEquals("a new connection keeps its first ids, and only those",
+                List.of(0L, -1L, -2L, -3L, -4L, -5L, -6L, -7L), fresh.pattern().getStartIds());
+        fresh.reset();
+        fresh.record(0L, -20L);
+        Checks.check("a plain reset forgets that it saw the start", fresh.pattern().getStartIds().isEmpty());
     }
 
     private static void anticheat() {

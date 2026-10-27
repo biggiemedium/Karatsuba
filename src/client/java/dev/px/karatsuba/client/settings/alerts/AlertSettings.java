@@ -78,13 +78,17 @@ public final class AlertSettings extends ClientSection {
         Notices.info(Source.SERVER, "Server", event.getCurrent().getHost() + " runs " + name);
     }
 
-    /** Only when the verdict changes, not the evidence; see {@link AntiCheats#verdictChanged}. */
+    /**
+     * Only when the verdict changes, not the evidence; see {@link AntiCheats#verdictChanged}.
+     * On a join that is once, about a second in, when the first transactions have been read.
+     */
     private void onAntiCheatChanged(AntiCheatChangeEvent event) {
         if (!anticheat.isOn()) {
             return;
         }
         Optional<Detection> verdict = AntiCheats.verdictChanged(event);
-        verdict.ifPresent(detection -> Notices.warn(Source.SERVER, "Anticheat", detection.getName() + " ("
-                + detection.getConfidence().name().toLowerCase(Locale.ROOT) + ")"));
+        String host = Core.server().getInfo().getHost();
+        verdict.ifPresent(detection -> Notices.warn(Source.SERVER, "Anticheat", host + " runs " + detection.getName()
+                + " (" + detection.getConfidence().name().toLowerCase(Locale.ROOT) + ")"));
     }
 }

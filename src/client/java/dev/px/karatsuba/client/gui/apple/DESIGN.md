@@ -72,10 +72,11 @@ sidebar. Client Settings never shows them.
 
 2.2 **The sidebar, top to bottom:**
 - A search field.
-- The module categories as rows (Combat, Movement, Building, Mining, Inventory,
-  Render, Utility, Automation).
+- Settings, Accounts and Profiles.
+- A gap, then the module categories as rows (Combat, Movement, Building, Mining,
+  Inventory, Render, Utility, Automation).
 - A gap, then HUD and Friends.
-- A gap, then Appearance and Settings.
+- A gap, then Appearance.
 
 Each row is a coloured icon tile (`ICON_SIZE`, white filled glyph, §4.7) plus a
 label. No divider lines: groups are separated by space alone. The selected row
@@ -105,6 +106,7 @@ there is nowhere to go). Content starts below it.
 - a value and a slider (a number with many values, or a range with two knobs);
 - a segmented control;
 - a row of options (circles, swatches);
+- a list of checkboxes (a list setting, below);
 - a value and a ›.
 
 A row that opens a page ends with ›, and the whole row is the target. Every row
@@ -119,6 +121,13 @@ is `CELL_HEIGHT` whatever its control, or more when it has a secondary line, wit
   lighter pill sliding 180ms ease-out; unselected labels secondary.
 - **Slider:** thin track, accent fill, a white elongated knob with a shadow.
 - **Pop-up:** the value and small up/down chevrons, no box.
+- **Checklist** (a list setting, `ListSetting`): the name and a summary ("3 of 5",
+  "All") on the first line, then one line per option, `CELL_HEIGHT` tall, with a
+  `CHECKBOX_SIZE` box at its leading edge and the option's label. Ticked is the
+  accent with a tick (`onAccent`); unticked a neutral outline. A press anywhere
+  on a line ticks it; Up and Down move between lines. The card lights the line
+  under the cursor, not the whole list, and hairlines part the lines as they
+  part rows. A list that may not go empty refuses to untick its last line.
 - **Choosing one of several cards** (the Themes grid): click the card; an accent
   ring and a tick mark the one chosen. No switches on cards.
 - **A list whose row opens a detail pane** (the module list): the switch alone
@@ -166,6 +175,74 @@ System Settings way.
 - **The sidebar search searches friends**, by name, alias or note. It also lists
   matching players on this server, and offers a name that could be a player but
   is not a friend yet ("Add"). Enter opens the friend it names, or adds that name.
+
+2.6c **Accounts is pages too**, like Friends.
+- **The list page:** a first card for who the game is playing as now: a large
+  monogram, the name in game, and the saved account that is, or "Not a saved
+  account". It is a heading, never a control. Then a "Saved" card of accounts,
+  most recently used first. Each row has the account's monogram (with the
+  presence dot on the one in use), its name, a few words on how it signs in ("In
+  use", "Signs in without a code", "Asks for a code to sign in", "Offline"), and
+  a ›. The whole row opens its page. "Add Account…" sits below the last card. With
+  none saved, an empty state takes the page ("No accounts saved" / "Add Account…").
+- **An account's page:** a first card with a large monogram, its name, and what
+  kind it is. Then Account (Type, Email for a Microsoft account, Name in Game once
+  a sign-in has said it, Last Used), and for a Microsoft account Sign-In (Saved
+  Sign-In, with Forget while one is kept). "Remove Account" and "Sign In" sit below
+  the last card, Sign In last. While any sign-in runs it reads "Signing In…" and
+  does nothing, except "Show Code…" while this account's code waits behind a
+  closed card.
+- **Signing in never holds the GUI.** It returns at once; the outcome arrives as a
+  notification, and the page's words follow it.
+- **The Microsoft sign-in card.** Sign In on an account with no kept sign-in opens
+  a popover card (`SignInCard`, `SHEET_WIDTH`, solid, `R_POPOVER`, centred) before
+  Microsoft has even answered; a kept sign-in that is refused opens it when the
+  code arrives. It holds a title, one sentence ("Enter this code at
+  microsoft.com/link, then approve the sign-in."), the code large (`Palette.code()`)
+  in fours on a neutral tile, and a status line that follows the sign-in: "Waiting
+  for you · Expires in 14:32", "Approved. Signing in to Xbox…", and so on. Under it,
+  Copy Code on the left, Cancel and "Open microsoft.com…" (the default button) on
+  the right; then Done, or Close and Try Again.
+  - **Nothing happens on its own.** The code is copied only by Copy Code, which
+    reads "Copied" for two seconds; microsoft.com opens only from its button.
+    Never a silent clipboard write, never a browser opened unasked.
+  - **Closing is not cancelling.** Escape or a press outside hides the card and
+    the sign-in keeps waiting; Cancel stops it.
+  - With no GUI open, the code goes to a notification and a chat line, in words.
+- **Remove and Forget ask nothing** (9.4). Remove pops back to the list, which
+  shows "Removed main · Undo" at its top; Forget shows "Forgot the sign-in for
+  main · Undo" at the top of the account's page. Ctrl+Z undoes either.
+- **The Add Account page:** a sentence saying what each kind needs, a card with
+  Type (Microsoft / Offline, segmented) and the Email or Username field, the
+  problem under it on Enter (never per keystroke), and "Add Account" below.
+  Adding opens the new account's page. A name already saved opens that account
+  instead.
+- **No credential is ever drawn**, not even in part: a saved sign-in shows as
+  "Kept" or "None".
+- The sidebar search filters the sidebar here; Accounts does not own it.
+
+2.6d **Profiles is pages too**, like Accounts.
+- **What a profile is:** a set of settings that switches together. It includes
+  some or all of five parts (Modules, HUD, Appearance, Keybinds, Client Settings);
+  what it leaves out comes from Default, which always includes everything. Every
+  page that lets you choose says so in one sentence.
+- **The list page:** a sentence saying what profiles are, then a card of profiles,
+  Default first. Each row is the name, then in secondary text "In use · " for the
+  one in use and what it includes ("Modules, HUD", "Everything"), and a ›. The whole
+  row opens its page. "New Profile…" sits below the card.
+- **A profile's page:** a sentence, then a card holding one checklist, "Includes",
+  of the five parts. It can be changed only on the profile in use, never on Default;
+  otherwise it shows dimmed with a line under it saying why. Below the card,
+  "Delete Profile" (never on Default) and "Switch to Profile" (reading "In Use",
+  and doing nothing, while it is).
+- **Delete asks nothing** (9.4): it pops back to the list, which shows "Deleted
+  pvp · Undo" at its top; Ctrl+Z does the same. A profile in use switches to
+  Default first.
+- **The New Profile page:** a sentence saying it saves what is on now and switches
+  to it, a card with the Name field, the problem under it on Enter, then the
+  Includes checklist with every part ticked, and "Create Profile" below. A name
+  already taken opens that profile instead. The checklist never goes empty.
+- The sidebar search filters the sidebar here; Profiles does not own it.
 
 2.7 **The window must work at its minimum size.** Below `SIDEBAR_COLLAPSE_WIDTH`
 the sidebar shows icons only, with labels as tooltips. Secondary text stays
@@ -219,8 +296,9 @@ that keeps the same value in both). No code picks a colour by appearance itself;
 it asks the Palette.
 
 4.2 **Neutral greys for everything** except the accent, the sidebar icons and the
-presence dot (`PRESENCE`, green, on a monogram while that player is online, and
-never without the words saying where they are). Monograms (`AVATAR`) are neutral.
+presence dot (`PRESENCE`, green, on a monogram while that player is online, or
+on the account in use, and never without the words saying where they are or
+"In use"). Monograms (`AVATAR`) are neutral.
 The neutral set, per appearance (Dark Mode follows the HIG: elevated surfaces get
 lighter, never translucent):
 
@@ -285,6 +363,8 @@ follow too.
   | Automation | `ICON_INDIGO` | #5856D6 |
   | HUD | `ICON_PINK` | #FF2D55 |
   | Friends | `ICON_GREEN` | #34C759 |
+  | Accounts | `ICON_CYAN` | #32ADE6 |
+  | Profiles | `ICON_YELLOW` | #FFCC00 |
   | Appearance | `ICON_GRAPHITE` | #1C1C1E |
   | Settings | `ICON_GRAY` | #8E8E93 |
 
