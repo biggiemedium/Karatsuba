@@ -74,6 +74,8 @@ public final class Action {
     private int priority = ClaimPriority.NORMAL;
     private boolean rotate;
     private boolean anyFace;
+    /** {@link Kind#CLICK}: only in a tick whose attack, from the same owner, was sent first. */
+    private boolean afterAttack;
     private Direction facing;
     private Consumer<Outcome> then;
     private Consumer<PlacementResult> settled;
@@ -207,6 +209,21 @@ public final class Action {
      */
     public Action anyFace() {
         this.anyFace = true;
+        return this;
+    }
+
+    /**
+     * A click that only works once this owner's attack has gone out: placing a
+     * crystal on the base of the one being broken, which the server frees when it
+     * handles the attack. Sent only in a tick whose attack is this owner's and was
+     * sent; otherwise it waits.
+     *
+     * <p>The client still sees the broken entity when the click goes, so its own
+     * check of the item can fail where the server's will not: such a click is
+     * reported {@link Outcome#REFUSED} although the packet went out.
+     */
+    public Action afterAttack() {
+        this.afterAttack = true;
         return this;
     }
 

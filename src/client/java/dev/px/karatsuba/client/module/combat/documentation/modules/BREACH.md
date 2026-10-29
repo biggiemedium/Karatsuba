@@ -1,9 +1,19 @@
-# Breach plan
+# Breach (planned)
 
-Started 2026-10-22. Breach is our name for "city": mine the block that stands between an
-enemy and a crystal, picked by the real damage that crystal would do once the block is gone.
-The reference was spidermod's AutoCity/CityESP: four feet-ring obsidian, "could a crystal go
-past it", mine the nearest. Do one step per pass, check it, tick it here, then stop.
+Breach is our name for "city": mine the block that stands between an enemy and a
+crystal, so a crystal can reach them.
+
+**Status:** step 1 of 4 done. `client/combat/breach/` (`BreachFinder`,
+`Assessment`, `Breach`, `Scenario`) is built and was probed against the Fake
+Player. There's no module, plan or task yet.
+
+Started 2026-10-22. The reference was spidermod's AutoCity/CityESP: four feet-ring
+obsidian, "could a crystal go past it", mine the nearest. Do one step per pass,
+check it, tick it here, then stop.
+
+Before building steps 2–4, read [../README.md](../README.md)'s checklist and
+[PLACEMENT.md](../knowledge/PLACEMENT.md): the crystal at the end of the plan is
+the same break-and-place problem as Crystal Aura's.
 
 ## Decisions (user, 2026-10-22)
 

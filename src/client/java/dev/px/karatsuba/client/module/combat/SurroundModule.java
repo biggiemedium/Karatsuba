@@ -1,5 +1,6 @@
 package dev.px.karatsuba.client.module.combat;
 
+import dev.px.combat.place.Clicks;
 import dev.px.combat.place.Plan;
 import dev.px.combat.place.PlacementPlanner;
 import dev.px.combat.place.Shapes;
@@ -11,6 +12,7 @@ import dev.px.core.event.impl.Render3DEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
+import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
 import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
@@ -29,8 +31,11 @@ import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.adapter.world.PlacementSync;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.Action;
+import dev.px.karatsuba.client.service.action.Outcome;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,8 +66,16 @@ import java.util.Set;
  *
  * <h2>Crystals in the way</h2>
  * A crystal touching a surround cell stops the block going in. With
- * {@code Break Crystals} on, it is broken first &mdash; unless the explosion
- * would do more to you than {@code Max Self Damage} or leave you within a heart.
+ * {@code Break Crystals} on, one in your reach is broken &mdash; unless the
+ * explosion would do more to you than {@code Max Self Damage} or leave you within
+ * a heart &mdash; and its cell's block goes out behind the attack in the same
+ * tick: the server handles the attack first, so the cell is already free there
+ * ({@code CombatKit.asIfGone}, {@code Action.afterAttack}). The attack aims at
+ * the nearest point of the crystal, or at the click when one look meets both well
+ * inside reach. A crystal hit is inhibited in the kit's log, so it is never hit
+ * twice and no longer blocks a cell; a block the client refused only because it
+ * still shows that crystal is waited for, not clicked again. See
+ * {@code documentation/modules/SURROUND.md}.
  *
  * <h2>Only from the ground</h2>
  * Nothing is placed while you are in the air: mid-jump, the cells beside your
@@ -73,6 +86,16 @@ public final class SurroundModule extends ClientModule {
 
     private static final String OBSIDIAN = "obsidian";
     private static final String ENDER_CHEST = "ender_chest";
+
+    /** Ticks past the round trip a block that went out unseen is waited for, for jitter. */
+    private static final int PENDING_SLACK = 3;
+
+    /**
+     * Blocks inside the reach a look shared by an attack and a click must meet the
+     * crystal by: room for the server's look to differ a little from the one aimed.
+     * As Crystal Aura's; see documentation/knowledge/AIMING.md.
+     */
+    private static final double AIM_MARGIN = 0.25d;
 
     private final EnumSetting<Block> block = enumOf("Block", Block.OBSIDIAN)
             .describe("What to surround with");
@@ -126,6 +149,13 @@ public final class SurroundModule extends ClientModule {
     private CombatKit<?> kit;
     private PlacementPlanner strictPlanner;
     private PlacementPlanner vanillaPlanner;
+    /** For asking whether a cell still takes a block. */
+    private Clicks clicks;
+
+    private long tick;
+
+    /** Cells whose block went out though the client refused it, and the tick: see {@link #place}. */
+    private final Map<Vec3i, Long> sent = new HashMap<>();
 
     /** The cells your feet were in when it was switched on. */
     private Set<Vec3i> start = new HashSet<>();
@@ -140,6 +170,9 @@ public final class SurroundModule extends ClientModule {
         kit = Combat.kit();
         strictPlanner = kit.planner(kit.strictStyle()).build();
         vanillaPlanner = kit.planner(kit.vanillaStyle()).build();
+        clicks = kit.clicks(kit.strictStyle());
+        tick = 0;
+        sent.clear();
         start = new HashSet<>();
         Tracked<?> self = Core.entities().getSelf();
         if (self != null) {
@@ -153,10 +186,15 @@ public final class SurroundModule extends ClientModule {
     protected void onDisable() {
         missing.clear();
         start.clear();
+        sent.clear();
     }
 
     @Subscribe(stage = Stage.PRE)
     private void onTick(TickEvent event) {
+        tick++;
+        if (clicks != null) {
+            forgetSent();
+        }
         Tracked<?> self = Core.entities().getSelf();
         if (kit == null || self == null || !Players.present()) {
             display = "";
@@ -181,10 +219,13 @@ public final class SurroundModule extends ClientModule {
 
         List<Vec3i> cells = Shapes.around(box);
         PlacementPlanner planner = strict.isOn() ? strictPlanner : vanillaPlanner;
-        Plan plan = planner.plan(Players.eyePosition(), cells, Players.serverRotation());
+        Vec3 eye = Players.eyePosition();
+        // A cell whose block went out unseen is the server's until it answers.
+        List<Vec3i> plannable = cells.stream().filter(cell -> !sent.containsKey(cell)).toList();
+        Plan seen = planner.plan(eye, plannable, Players.serverRotation());
 
         List<Vec3i> open = cells.stream()
-                .filter(cell -> plan.getSkipped().get(cell) != Plan.Skip.FILLED)
+                .filter(cell -> seen.getSkipped().get(cell) != Plan.Skip.FILLED)
                 .toList();
         showMissing(open);
 
@@ -199,22 +240,65 @@ public final class SurroundModule extends ClientModule {
         }
         display = open.size() + " left";
 
-        if (breakCrystals.isOn()) {
-            breakCrystalIn(plan.getSkipped());
-        }
-        if (plan.getSteps().isEmpty()) {
-            return;
-        }
+        // A crystal in a cell is broken, and the cell planned as if it were gone, so
+        // its block can go out behind the attack in the same tick.
+        Tracked<?> crystal = breakCrystals.isOn() ? crystalIn(seen.getSkipped(), eye) : null;
+        Plan plan = crystal == null ? seen
+                : kit.asIfGone(crystal.get(), () -> planner.plan(eye, plannable, Players.serverRotation()));
 
         String item = item();
-        if (item == null) {
-            display = "No " + (block.get() == Block.OBSIDIAN ? "obsidian" : "ender chests");
+        if (plan.getSteps().isEmpty() || item == null) {
+            if (item == null) {
+                display = "No " + (block.get() == Block.OBSIDIAN ? "obsidian" : "ender chests");
+            }
+            if (crystal != null) {
+                breakCrystal(crystal, null);
+            }
             return;
         }
         Plan.Step step = plan.getSteps().get(0);
-        Services.actions().submit(this, Action.click(step.getClick())
+        boolean behind = crystal != null && Box.block(step.getCell().getX(), step.getCell().getY(),
+                step.getCell().getZ()).intersects(crystal.getBox());
+        if (crystal != null) {
+            breakCrystal(crystal, behind ? sharedLook(crystal.getBox(), step.getClick().getHit()) : null);
+        }
+        place(step, item, behind);
+    }
+
+    /**
+     * Places one block. Behind an attack on a crystal in its cell, it goes only
+     * once that attack has.
+     *
+     * <p>The client still shows that crystal when the click goes, so it refuses
+     * the block and shows nothing, though the packet went and the server, having
+     * handled the attack first, places it. Such a cell is left alone until the
+     * server's block arrives, rather than clicked again every tick.
+     */
+    private void place(Plan.Step step, String item, boolean behind) {
+        Vec3i cell = step.getCell();
+        Action click = Action.click(step.getClick())
                 .holding(item)
-                .priority(ClaimPriority.HIGHEST));
+                .priority(ClaimPriority.HIGHEST);
+        if (behind) {
+            click.afterAttack();
+        }
+        Services.actions().submit(this, click.then(outcome -> {
+            // Attack callbacks run first: a crystal hit this tick no longer counts as blocking.
+            if (outcome == Outcome.REFUSED && !kit.blocking().any(Box.block(cell.getX(), cell.getY(), cell.getZ()))) {
+                sent.put(cell, tick);
+            }
+        }));
+    }
+
+    /** Forgets cells the server has answered for, or never did. */
+    private void forgetSent() {
+        int due = pendingTicks();
+        sent.entrySet().removeIf(entry -> tick - entry.getValue() > due || !clicks.isReplaceable(entry.getKey()));
+    }
+
+    /** One round trip, rounded up, and a little for jitter: how long the server's answer is waited for. */
+    private static int pendingTicks() {
+        return (int) Math.ceil(Core.lag().getPing() / 50d) + PENDING_SLACK;
     }
 
     @Subscribe
@@ -235,32 +319,68 @@ public final class SurroundModule extends ClientModule {
     // ------------------------------------------------------------- crystals
 
     /**
-     * Breaks the first crystal standing in a cell the planner had to leave out
-     * for someone being in it, if breaking it is safe.
+     * @return a crystal standing in a cell the planner had to leave out for
+     *         someone being in it, within your reach and safe to break; null when
+     *         none is. One already hit no longer blocks a cell, so it is never
+     *         offered twice
      */
-    private void breakCrystalIn(Map<Vec3i, Plan.Skip> skipped) {
+    private Tracked<?> crystalIn(Map<Vec3i, Plan.Skip> skipped, Vec3 eye) {
+        double reach = Players.entityReach();
         for (Map.Entry<Vec3i, Plan.Skip> entry : skipped.entrySet()) {
             if (entry.getValue() != Plan.Skip.OCCUPIED) {
                 continue;
             }
             Vec3i cell = entry.getKey();
             Box room = Box.block(cell.getX(), cell.getY(), cell.getZ());
-            Tracked<?>[] found = { null };
+            List<Tracked<?>> inside = new ArrayList<>(2);
             kit.crystals().forEachWithin(room.getCenter(), 2d, crystal -> {
-                if (found[0] == null && crystal.getBox().intersects(room)) {
-                    found[0] = crystal;
+                if (crystal.getBox().intersects(room)) {
+                    inside.add(crystal);
                 }
             });
-            if (found[0] != null && safeToBreak(kit, found[0])) {
-                int id = kit.id(found[0].get());
-                if (id >= 0) {
-                    Services.actions().submit(this, Action.attack(id)
-                            .aimAt(found[0].getBox().getCenter())
-                            .priority(ClaimPriority.HIGHEST));
+            for (Tracked<?> crystal : inside) {
+                if (crystal.getBox().distanceTo(eye) <= reach && safeToBreak(kit, crystal)) {
+                    return crystal;
                 }
-                return;
             }
         }
+        return null;
+    }
+
+    /**
+     * Attacks a crystal: at {@code look} when given, one look shared with the
+     * click behind it; otherwise at the point of its box nearest the eyes, which
+     * the action service aims at. Never its centre, which at the edge of reach a
+     * look meets past the reach. Once sent it is inhibited in the kit's log, so
+     * nothing hits it again while the server answers.
+     */
+    private void breakCrystal(Tracked<?> crystal, Vec3 look) {
+        int id = kit.id(crystal.get());
+        if (id < 0) {
+            return;
+        }
+        Action attack = Action.attack(id).priority(ClaimPriority.HIGHEST);
+        if (look != null) {
+            attack.aimAt(look);
+        }
+        Services.actions().submit(this, attack.then(outcome -> {
+            if (outcome == Outcome.SENT) {
+                kit.log().attacked(crystal.get(), pendingTicks());
+            }
+        }));
+    }
+
+    /**
+     * @return {@code click} when a look at it meets {@code crystal} at least
+     *         {@link #AIM_MARGIN} inside your reach, so one look serves the attack
+     *         and the click; null when it does not
+     */
+    private static Vec3 sharedLook(Box crystal, Vec3 click) {
+        // From where the server will hold the look: the eyes after this tick's move.
+        Vec3 eye = Players.eyePosition().add(Players.velocity());
+        double along = crystal.clip(eye, click);
+        return !Double.isNaN(along) && along * eye.distanceTo(click) <= Players.entityReach() - AIM_MARGIN
+                ? click : null;
     }
 
     /** @return whether the crystal's explosion leaves you under the cap and above a heart */

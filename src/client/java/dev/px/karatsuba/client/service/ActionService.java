@@ -120,6 +120,14 @@ public final class ActionService implements Service {
     private static final double AIM_INSET = 0.1d;
 
     /**
+     * Closer than this, in blocks, the nearest point of a hitbox is no direction to
+     * look in, and the attack aims at the box's centre instead. More than a tick of
+     * walking or sprinting moves the eyes (about 0.2 to 0.3 blocks), so the look is
+     * not undone by the move before the server holds it. A tuning knob.
+     */
+    private static final double MIN_AIM_DISTANCE = 0.5d;
+
+    /**
      * How near, in degrees, the server's rotation must be to an exact look before a
      * use goes out. Mouse sensitivity rounds every rotation, so exact equality is
      * too much to ask.
@@ -309,7 +317,14 @@ public final class ActionService implements Service {
         return aim == null ? null : Players.eyePosition().add(Players.velocity()).rotationTo(aim);
     }
 
-    /** Where to look for an action: its own aim, else inside the target's hitbox, nearest the eyes. */
+    /**
+     * Where to look for an action: its own aim, else inside the target's hitbox,
+     * nearest the eyes &mdash; or its centre when the eyes are in or almost in the
+     * box (a crystal beside you reaches a block out from its base). The nearest
+     * point is then the eyes themselves, and a look toward it is no direction at
+     * all: straight up or down on a yaw snapped to 90&deg;, which the server may
+     * not take as a hit and no player sends.
+     */
     private static Vec3 aimOf(Action action) {
         if (action.getAim() != null) {
             return action.getAim();
@@ -320,7 +335,9 @@ public final class ActionService implements Service {
                 return null;
             }
             double inset = Math.min(AIM_INSET, Math.min(box.getWidth(), box.getHeight()) / 4d);
-            return box.inset(inset).closestPoint(Players.eyePosition());
+            Vec3 eye = Players.eyePosition();
+            Vec3 nearest = box.inset(inset).closestPoint(eye);
+            return nearest.distanceTo(eye) < MIN_AIM_DISTANCE ? box.getCenter() : nearest;
         }
         return null;
     }
@@ -365,7 +382,10 @@ public final class ActionService implements Service {
         } else {
             attacked = attack == null ? null : execute(attack.getValue());
             if (click != null) {
-                clicked = attacked == Outcome.SENT && !profile.sameTick()
+                // A click on room the attack frees goes only behind that owner's own sent attack.
+                boolean freed = !click.getValue().isAfterAttack()
+                        || (attacked == Outcome.SENT && attack.getOwner() == click.getOwner());
+                clicked = !freed || (attacked == Outcome.SENT && !profile.sameTick())
                         ? Outcome.WAITING
                         : execute(click.getValue());
             }

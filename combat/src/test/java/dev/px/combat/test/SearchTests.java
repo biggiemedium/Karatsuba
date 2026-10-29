@@ -90,6 +90,8 @@ public final class SearchTests {
         filters();
         breaking();
         timing();
+        hurtWindowLog();
+        hurtWindow();
         spawning();
         scoring();
         aiming();
@@ -647,6 +649,72 @@ public final class SearchTests {
         Checks.check("what was dealt is recorded against the target", search.getLog().dealtTo(arena.enemy) == 0d);
         search.attacked(search.findBreak().getCrystal());
         Checks.check("for the rest of the tick", search.getLog().dealtTo(arena.enemy) > 0d);
+    }
+
+    /** The log's replay of the game's hurt cooldown, without a search. */
+    private static void hurtWindowLog() {
+        dev.px.combat.search.timing.AttackLog log = new dev.px.combat.search.timing.AttackLog();
+        Object target = new Object();
+        log.dealt(target, 8d);
+        Checks.check("a hit opens a window: the next must beat it", log.dealtTo(target, 10) == 8d
+                && log.cooldownLeft(target, 10) == 10);
+        log.newTick();
+        log.newTick();
+        log.newTick();
+        log.dealt(target, 10d);
+        Checks.check("a harder hit inside it raises what the next must beat",
+                log.dealtTo(target, 10) == 10d);
+        Checks.check("without restarting it", log.cooldownLeft(target, 10) == 7);
+        Checks.check("a window of one tick is the one-explosion-a-tick rule",
+                log.dealtTo(target, 1) == 10d && log.dealtTo(target) == 10d);
+        log.newTick();
+        Checks.check("which forgets it next tick", log.dealtTo(target) == 0d && log.dealtTo(target, 10) == 10d);
+        for (int i = 0; i < 5; i++) {
+            log.newTick();
+        }
+        Checks.check("the window is open to its last tick", log.dealtTo(target, 10) == 10d
+                && log.cooldownLeft(target, 10) == 1);
+        log.newTick();
+        Checks.check("and closes ten ticks after the hit that opened it",
+                log.dealtTo(target, 10) == 0d && log.cooldownLeft(target, 10) == 0);
+        log.dealt(target, 5d);
+        Checks.check("where the next hit lands in full and opens a new one", log.dealtTo(target, 10) == 5d
+                && log.cooldownLeft(target, 10) == 10);
+    }
+
+    /** A search with a hurt window: breaks wait for it, places do not. */
+    private static void hurtWindow() {
+        Arena arena = new Arena();
+        Crystal strong = arena.crystal(2, 0, 0);
+        Crystal weak = arena.crystal(4, 0, 1);
+        arena.refresh();
+        CrystalSearch<Fighter> search = arena.search(b -> b.hurtWindow(() -> 10)
+                .thresholds(Thresholds.<Fighter>builder().inhibit(() -> 1).build()));
+        CrystalSearch<Fighter> fresh = arena.search(b -> b);
+        search.tick();
+
+        BreakOption<Fighter> first = search.findBreak();
+        Checks.check("(the strong crystal first)", first != null && first.getCrystal().get() == strong);
+        search.attacked(first.getCrystal());
+        search.tick();
+        search.tick();
+        BreakOption<Fighter> inside = search.findBreak();
+        Checks.check("inside the window neither the weaker crystal nor the same hit again lands anything",
+                inside == null && fresh.findBreak() != null);
+        PlaceOption<Fighter> held = search.findPlace();
+        PlaceOption<Fighter> free = fresh.findPlace();
+        Checks.check("placing is not held back by it, a placed crystal can wait (" + free + ")", free != null
+                && held != null && held.getX() == free.getX() && held.getY() == free.getY() && held.getZ() == free.getZ()
+                && held.getDamage() == free.getDamage());
+        for (int i = 0; i < 7; i++) {
+            search.tick();
+        }
+        Checks.check("still nothing on the ninth tick", search.findBreak() == null);
+        search.tick();
+        BreakOption<Fighter> after = search.findBreak();
+        Checks.check("on the tenth it lands in full again, the strongest first",
+                after != null && after.getCrystal().get() == strong);
+        Checks.check("(and the weak one would too)", weak != null);
     }
 
     private static void spawning() {

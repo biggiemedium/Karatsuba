@@ -17,7 +17,10 @@ import dev.px.core.event.impl.Render3DEvent;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.math.Box;
+import dev.px.core.math.Vec2;
+import dev.px.core.math.Vec3;
 import dev.px.core.math.Vec3i;
+import dev.px.core.movement.rotation.RotationRequest;
 import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
@@ -38,8 +41,13 @@ import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.action.Action;
+import dev.px.karatsuba.client.service.action.ActionProfile;
 import dev.px.karatsuba.client.service.action.Outcome;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Places end crystals where they hurt an enemy most and breaks them, built on
@@ -71,12 +79,70 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * <h2>Breaking on spawn</h2>
  * With {@code Instant} on, a crystal is judged the moment its spawn reaches the
  * client ({@link CrystalSpawnEvent}) rather than on the next tick, and the break
- * goes out at the end of the tick it arrives in.
+ * goes out at the start of the next tick, before anything else that tick
+ * &mdash; if the rotation the server already has hits it. That is why the head
+ * stays on a crystal still on its way while there is nothing else to do.
+ *
+ * <h2>Break and replace</h2>
+ * A crystal worth breaking is broken together with its replacement: the place is
+ * searched as if that crystal were already gone ({@code CombatKit.asIfGone}),
+ * since the server handles the attack before the click. When the look at the
+ * place's click meets the crystal well inside the reach, the attack aims there
+ * too, so one rotation serves both and the two go out in one tick (with the
+ * Interaction settings' Same Tick on). A place that needs the broken crystal gone
+ * goes only behind that attack ({@code Action.afterAttack}). A crystal already
+ * hit no longer blocks its base either. See {@code documentation/modules/CRYSTAL_AURA.md}.
+ *
+ * <h2>Hurt Sync</h2>
+ * For 10 ticks after a hit lands in full, a player takes only what a new hit
+ * beats it by. With {@code Hurt Sync} on, the search remembers our hits on each
+ * target ({@code hurtWindow}, from {@code kit.hurtCooldown()}) and judges a break
+ * by what it would land, so a crystal that would land nothing is left standing
+ * and broken the tick the window closes, the look already held on it. The next
+ * crystal is not placed with that break but timed to arrive as the window closes,
+ * aimed at where the target is then; one that has gone stale stops counting
+ * toward Max Crystals. {@code Sync Margin} waits 11 ticks rather than 10, for a
+ * hit that reaches the server a tick early. Off, only the one-explosion-a-tick
+ * rule applies, as before.
+ *
+ * <h2>Max Crystals</h2>
+ * How many crystals may be out, placed and not yet broken. At 1 the aura places,
+ * waits for it, then breaks and replaces in one tick, rather than turning between
+ * several bases while the first is on its way. While that many are out the place
+ * search is skipped, which is most of a tick's work.
  */
 @ModuleInfo(name = "Crystal Aura", description = "Places and breaks end crystals", category = "Combat")
 public final class CrystalAuraModule extends ClientModule {
 
     private static final String CRYSTAL = "end_crystal";
+
+    /** Ticks past the round trip a placed crystal is waited for, for jitter. */
+    private static final int PENDING_SLACK = 3;
+
+    /** Ticks a crystal that has shown up still counts toward Max Crystals while it waits to be broken. */
+    private static final int BREAK_GRACE = 6;
+
+    /** How far, in blocks, a crystal may stand from where one was placed and still be that one. */
+    private static final double SAME_CRYSTAL = 0.5d;
+
+    /**
+     * Blocks inside the reach a shared look must meet the crystal by: room for the
+     * look the server holds to differ a little from the one aimed (mouse rounding,
+     * the move). A tuning knob.
+     */
+    private static final double AIM_MARGIN = 0.25d;
+
+    /** How far inside a crystal's box a held look aims, so it lands inside rather than on an edge, as the action service does. */
+    private static final double BODY_INSET = 0.1d;
+
+    /** Closer than this, a held look aims at the box's centre instead: as {@code ActionService}'s own aim. */
+    private static final double MIN_AIM_DISTANCE = 0.5d;
+
+    /** Ticks the crystals-a-second figure is averaged over: three seconds. */
+    private static final int RATE_WINDOW = 60;
+
+    /** Ticks the last target is still shown after its last crystal: twenty seconds. */
+    private static final int TARGET_MEMORY = 400;
 
     // ---------------------------------------------------------------- targets
 
@@ -106,8 +172,12 @@ public final class CrystalAuraModule extends ClientModule {
             .describe("Ticks between this module's placements")
             .visibleWhen(place);
 
+    private final NumberSetting<Integer> maxCrystals = integer("Max Crystals", 1, 1, 3)
+            .describe("Crystals out at once, placed and not yet broken; 1 places the next as the last is broken")
+            .visibleWhen(place);
+
     private final GroupSetting placing = group("Placing", true)
-            .containing(place, placeRange, placeDelay);
+            .containing(place, placeRange, placeDelay, maxCrystals);
 
     // ------------------------------------------------------------------ break
 
@@ -138,8 +208,18 @@ public final class CrystalAuraModule extends ClientModule {
             .describe("Only break crystals this module placed")
             .visibleWhen(breaks);
 
+    private final BooleanSetting hurtSync = bool("Hurt Sync", true)
+            .describe("Time breaks to the target's hurt cooldown: for 10 ticks after a hit, a player only takes what"
+                    + " a new hit beats it by, so a crystal is held and broken when it lands in full instead of wasted")
+            .visibleWhen(breaks);
+
+    private final BooleanSetting syncMargin = bool("Sync Margin", true)
+            .describe("Wait 11 ticks instead of 10, so a hit that reaches the server a tick early to lag is never"
+                    + " blocked by the cooldown; costs about 5% of the hit rate")
+            .visibleWhen(() -> breaks.isOn() && hurtSync.isOn());
+
     private final GroupSetting breaking = group("Breaking", true)
-            .containing(breaks, breakRange, breakDelay, minAge, inhibit, instant, ownOnly);
+            .containing(breaks, breakRange, breakDelay, minAge, inhibit, instant, ownOnly, hurtSync, syncMargin);
 
     // ----------------------------------------------------------------- damage
 
@@ -222,9 +302,12 @@ public final class CrystalAuraModule extends ClientModule {
             .describe("Milliseconds the slide to a new base takes")
             .visibleWhen(() -> render.isOn() && interpolate.isOn());
 
+    private final BooleanSetting showRate = bool("Show Crystals/s", true)
+            .describe("Show the last target and crystals broken a second, instead of the damage");
+
     private final GroupSetting appearance = group("Appearance", false)
             .containing(render, renderColor, fill, fillOpacity, thickness, linger, animations, interpolate,
-                    moveTime);
+                    moveTime, showRate);
 
     // ------------------------------------------------------------------ state
 
@@ -242,7 +325,23 @@ public final class CrystalAuraModule extends ClientModule {
     private Vec3i placedOn;
     private long placedAt;
 
+    /** Crystals placed and not yet broken, oldest first: what {@link #maxCrystals} counts. */
+    private final List<Out> out = new ArrayList<>();
+
     private String display = "";
+
+    /** Whether the last tick found no crystals to place with: said whatever the display shows. */
+    private boolean noCrystals;
+
+    /** The ticks crystals were broken on, within the last {@link #RATE_WINDOW}, oldest first. */
+    private final ArrayDeque<Long> broken = new ArrayDeque<>();
+
+    /** The target last acted against: whose hurt window Hurt Sync times the next crystal to. */
+    private Tracked<?> watched;
+
+    /** Who a crystal last went out against, and when; null before the first. */
+    private String lastTarget;
+    private long lastTargetAt;
 
     /** Whether the face-place key is held down. */
     private boolean faceHeld;
@@ -267,23 +366,42 @@ public final class CrystalAuraModule extends ClientModule {
     private void onTick(TickEvent event) {
         tick++;
         updateBoxes();
+        while (!broken.isEmpty() && tick - broken.peekFirst() >= RATE_WINDOW) {
+            broken.pollFirst();
+        }
+        noCrystals = false;
         if (search == null || !Players.present()) {
             display = "";
             return;
         }
-        if (!Inventories.hotbarHas(CRYSTAL) && !Inventories.offhandHolds(CRYSTAL)) {
+        if (!hasCrystals()) {
+            noCrystals = true;
             display = "No crystals";
             return;
         }
 
-        BreakOption<?> hit = breaks.isOn() && tick - lastBreak >= breakDelay.getInt() ? search.findBreak() : null;
-        if (hit != null && (!ownOnly.isOn() || hit.isOwn())) {
-            submitBreak(hit);
-        }
+        forgetOut();
 
-        PlaceOption<?> spot = place.isOn() && tick - lastPlace >= placeDelay.getInt() ? search.findPlace() : null;
-        if (spot != null && spot.getClick() != null) {
-            submitPlace(spot);
+        BreakOption<?> hit = null;
+        boolean searched = breaks.isOn() && tick - lastBreak >= breakDelay.getInt();
+        if (searched) {
+            hit = search.findBreak();
+        }
+        if (hit != null && ownOnly.isOn() && !hit.isOwn()) {
+            hit = null;
+        }
+        if (hit == null && searched) {
+            forgetStale();
+        }
+        PlaceOption<?> spot = placeAfter(hit);
+        if (hit != null) {
+            submitBreak(hit, spot);
+        }
+        if (spot != null) {
+            submitPlace(spot, hit);
+        }
+        if (hit == null && spot == null) {
+            watchPending();
         }
 
         display = spot != null ? describe(spot.getTarget(), spot.getDamage())
@@ -291,16 +409,50 @@ public final class CrystalAuraModule extends ClientModule {
                 : "";
     }
 
-    /** Judged the moment it spawns: break it on this tick rather than the next. */
+    /**
+     * Judged the moment it spawns, and its replacement with it: both go out at the
+     * start of the next tick, under the look that placed it.
+     */
     @Subscribe
     private void onSpawn(CrystalSpawnEvent event) {
-        if (search == null || !breaks.isOn() || !instant.isOn() || tick - lastBreak < breakDelay.getInt()) {
+        if (search == null || !Players.present() || !breaks.isOn() || !instant.isOn()
+                || tick - lastBreak < breakDelay.getInt()) {
             return;
         }
         BreakOption<?> now = search.spawned(event.getCrystal());
-        if (now != null && (!ownOnly.isOn() || now.isOwn())) {
-            submitBreak(now);
+        if (now == null || (ownOnly.isOn() && !now.isOwn())) {
+            return;
         }
+        PlaceOption<?> spot = hasCrystals() ? placeAfter(now) : null;
+        submitBreak(now, spot);
+        if (spot != null) {
+            submitPlace(spot, now);
+        }
+    }
+
+    /**
+     * Where to place this tick, if anywhere: with a break going out, searched as
+     * if that crystal were already gone, so its base can take the next one at once.
+     * Not searched at all while {@link #maxCrystals} are out, the crystal being
+     * broken aside.
+     */
+    private PlaceOption<?> placeAfter(BreakOption<?> breaking) {
+        if (!place.isOn() || tick - lastPlace < placeDelay.getInt()) {
+            return null;
+        }
+        if (hurtSync.isOn() && waitToPlace(breaking)) {
+            return null;
+        }
+        int counted = out.size();
+        if (breaking != null && outAt(breaking.getCrystal().getPosition()) != null) {
+            counted--;
+        }
+        if (counted >= maxCrystals.getInt()) {
+            return null;
+        }
+        PlaceOption<?> spot = breaking == null ? search.findPlace()
+                : kit.asIfGone(breaking.getCrystal().get(), search::findPlace);
+        return spot != null && spot.getClick() != null ? spot : null;
     }
 
     /** Core reports presses and releases, not what is held, so the face-place key is followed here. */
@@ -355,41 +507,225 @@ public final class CrystalAuraModule extends ClientModule {
 
     @Override
     public String getDisplayInfo() {
-        return display;
+        if (!showRate.isOn() || noCrystals) {
+            return display;
+        }
+        if (lastTarget == null || tick - lastTargetAt > TARGET_MEMORY) {
+            return "None";
+        }
+        double perSecond = broken.size() / (RATE_WINDOW / 20d);
+        return lastTarget + " " + String.format("%.1f", perSecond);
     }
 
     // ------------------------------------------------------------- actions
 
-    private void submitBreak(BreakOption<?> option) {
+    /**
+     * Attacks a crystal. With a place going out too, the attack aims at the
+     * place's click when that look also meets the crystal within reach: one
+     * rotation then serves both, and the two go out in the same tick.
+     */
+    private void submitBreak(BreakOption<?> option, PlaceOption<?> then) {
         Tracked<?> crystal = option.getCrystal();
         int id = kit.id(crystal.get());
         if (id < 0) {
             return;
         }
         Services.actions().submit(this, Action.attack(id)
-                .aimAt(option.getAim())
+                .aimAt(breakAim(option, then))
                 .priority(ClaimPriority.HIGH)
                 .then(outcome -> {
                     if (outcome == Outcome.SENT && search != null) {
                         search.attacked(crystal);
                         lastBreak = tick;
+                        out.remove(outAt(crystal.getPosition()));
+                        broken.addLast(tick);
+                        sentAgainst(option.getTarget());
                     }
                 }));
     }
 
-    private void submitPlace(PlaceOption<?> option) {
-        Services.actions().submit(this, Action.click(option.getClick())
+    /**
+     * Places a crystal. On the base of the crystal being broken, it goes only
+     * behind that attack.
+     *
+     * <p>The client's refusal of a place means nothing when all that stands in its
+     * room is a crystal we already hit: the click went out regardless, and the
+     * server, which handled the attack first, places it. The client just still
+     * shows the dead crystal. Such a place is counted as placed, or it would be
+     * placed again every tick until the removal arrives.
+     */
+    private void submitPlace(PlaceOption<?> option, BreakOption<?> breaking) {
+        boolean behind = needsBreak(option, breaking);
+        Action click = Action.click(option.getClick())
                 .holding(CRYSTAL)
                 .anyFace()
-                .priority(ClaimPriority.HIGH)
+                .priority(ClaimPriority.HIGH);
+        if (behind) {
+            click.afterAttack();
+        }
+        Services.actions().submit(this, click
                 .then(outcome -> {
-                    if (outcome == Outcome.SENT && search != null) {
+                    // Attack callbacks run first, so a crystal hit this tick is already inhibited here.
+                    boolean went = outcome == Outcome.SENT
+                            || (outcome == Outcome.REFUSED && !kit.everything().any(roomOf(option)));
+                    if (went && search != null) {
                         search.placed(option);
                         lastPlace = tick;
                         placedOn = Vec3i.of(option.getX(), option.getY(), option.getZ());
                         placedAt = tick;
+                        out.add(new Out(kit.crystalRules().position(option.getX(), option.getY(), option.getZ()),
+                                kit.crystalRules().box(option.getX(), option.getY(), option.getZ()),
+                                option.getClick().getHit(), tick));
+                        sentAgainst(option.getTarget());
                     }
                 }));
+    }
+
+    /** Remembers who a crystal just went out against, for the display. */
+    private void sentAgainst(Tracked<?> target) {
+        lastTarget = kit.name(target.get());
+        lastTargetAt = tick;
+        watched = target;
+    }
+
+    /**
+     * The place's click, when the look there also meets the crystal well inside
+     * the reach; otherwise null, and the action service aims at the point of the
+     * crystal's box nearest the eyes. Never the crystal's centre: at the edge of
+     * reach a look at the centre meets the box only just inside it, or past it,
+     * and the attack waits on a look that never lands.
+     */
+    private Vec3 breakAim(BreakOption<?> option, PlaceOption<?> then) {
+        return then == null ? null : sharedLook(option.getCrystal().getBox(), then.getClick().getHit());
+    }
+
+    /**
+     * @return {@code click} when a look at it meets {@code crystal} at least
+     *         {@link #AIM_MARGIN} inside the break reach, so one look serves the
+     *         attack and the click; null when it does not
+     */
+    private Vec3 sharedLook(Box crystal, Vec3 click) {
+        // From where the server will hold the look: the eyes after this tick's move.
+        Vec3 eye = Players.eyePosition().add(Players.velocity());
+        double along = crystal.clip(eye, click);
+        double reach = Math.min(breakRange.getDouble(), Players.entityReach()) - AIM_MARGIN;
+        return !Double.isNaN(along) && along * eye.distanceTo(click) <= reach ? click : null;
+    }
+
+    /** Whether placing on this base needs the crystal being broken out of the way first. */
+    private static boolean needsBreak(PlaceOption<?> spot, BreakOption<?> breaking) {
+        return breaking != null && roomOf(spot).intersects(breaking.getCrystal().getBox());
+    }
+
+    /** The room the game wants empty to place on this base: its footprint, two blocks up from its top (EndCrystalItem). */
+    private static Box roomOf(PlaceOption<?> spot) {
+        return Box.of(spot.getX(), spot.getY() + 1, spot.getZ(), spot.getX() + 1, spot.getY() + 3, spot.getZ() + 1);
+    }
+
+    /**
+     * Keeps the head on the newest crystal still on its way, while there is
+     * nothing to do, so the server's look already hits it when it spawns and the
+     * instant break needs no turn. On the place's click when that look meets the
+     * crystal well inside the reach, so its replacement needs none either;
+     * otherwise on the point of the crystal's box nearest the eyes, since the
+     * break matters more.
+     */
+    private void watchPending() {
+        ActionProfile profile = Services.actions().getProfile();
+        if (out.isEmpty() || !profile.rotate()) {
+            return;
+        }
+        // Held while it counts, not just while it is on its way: under Hurt Sync a
+        // crystal that has shown up waits for the cooldown, and the break that
+        // ends the wait needs no turn either.
+        Out newest = out.get(out.size() - 1);
+        Vec3 eye = Players.eyePosition().add(Players.velocity());
+        Vec3 shared = sharedLook(newest.body, newest.click);
+        Vec3 aim = shared != null ? shared : newest.body.inset(BODY_INSET).closestPoint(eye);
+        if (aim.distanceTo(eye) < MIN_AIM_DISTANCE) {
+            // The eyes are in the box: the nearest point is the eyes, no direction at all
+            // (log 5 held (-990, 0) and the server did not take the instant break).
+            aim = newest.body.getCenter();
+        }
+        Vec2 look = eye.rotationTo(aim);
+        Core.rotations().request(this, RotationRequest.at(look)
+                .priority(ClaimPriority.NORMAL)
+                .step(profile.turnSpeed())
+                .mode(profile.rotationMode()));
+    }
+
+    /**
+     * Lets go of crystals that no longer count toward {@link #maxCrystals}: never
+     * broken in time, or due by now and not there (refused, or someone else
+     * broke it).
+     */
+    private void forgetOut() {
+        int due = pendingTicks();
+        // Long enough to sit out the hurt cooldown: a held crystal still counts while it waits.
+        int grace = Math.max(BREAK_GRACE, hurtWindow());
+        out.removeIf(crystal -> tick - crystal.placedAt > due + grace
+                || (tick - crystal.placedAt > due && !standing(crystal.at)));
+    }
+
+    /**
+     * Under Hurt Sync, whether to hold off placing: a crystal placed now would
+     * stand through the target's cooldown while they move, and be worth nothing
+     * by the time it may be broken. So no replacement goes out with a break (that
+     * hit opens a new window), and otherwise the next is placed only once the
+     * window is about as short as a crystal takes to show up, so it arrives as
+     * the window closes, aimed at where the target is then.
+     */
+    private boolean waitToPlace(BreakOption<?> breaking) {
+        if (breaking != null) {
+            return true;
+        }
+        return watched != null && kit.log().cooldownLeft(watched.get(), judgedWindow()) > arrivalTicks();
+    }
+
+    /**
+     * Ticks from deciding to place until the crystal shows up: sent at the start
+     * of the next tick, a round trip, and the server's tick before it sends the spawn.
+     */
+    private static int arrivalTicks() {
+        return (int) Math.ceil(Core.lag().getPing() / 50d) + 2;
+    }
+
+    /**
+     * Under Hurt Sync, stops counting crystals of ours that have shown up and are
+     * not worth breaking once the target's window has closed: placed for where the
+     * target was, they would hold the Max Crystals slot while nothing else is placed.
+     * Called after a break search that found nothing.
+     */
+    private void forgetStale() {
+        if (!hurtSync.isOn() || watched == null || kit.log().cooldownLeft(watched.get(), judgedWindow()) > 0) {
+            return;
+        }
+        out.removeIf(crystal -> standing(crystal.at));
+    }
+
+    /** @return the crystal out at {@code position}, or null */
+    private Out outAt(Vec3 position) {
+        for (Out crystal : out) {
+            if (crystal.at.distanceTo(position) <= SAME_CRYSTAL) {
+                return crystal;
+            }
+        }
+        return null;
+    }
+
+    /** @return whether a crystal stands at {@code position} */
+    private boolean standing(Vec3 position) {
+        boolean[] found = { false };
+        kit.crystals().forEachWithin(position, SAME_CRYSTAL, crystal -> {
+            if (crystal.getPosition().distanceTo(position) <= SAME_CRYSTAL) {
+                found[0] = true;
+            }
+        });
+        return found[0];
+    }
+
+    private static boolean hasCrystals() {
+        return Inventories.hotbarHas(CRYSTAL) || Inventories.offhandHolds(CRYSTAL);
     }
 
     // ---------------------------------------------------------------- search
@@ -440,12 +776,46 @@ public final class CrystalAuraModule extends ClientModule {
                 .thresholds(thresholds)
                 .placeDelay(() -> predict.isOn() ? pingTicks() + breakDelay.getInt() + 1 : 0)
                 .useDelay(() -> predict.isOn() ? pingTicks() : 0)
+                .pendingTicks(CrystalAuraModule::pendingTicks)
+                .hurtWindow(this::judgedWindow)
                 .build();
+    }
+
+    /**
+     * {@link #hurtWindow} as the search must judge it. A hit is logged on the tick
+     * its attack is sent, and a break decided now is sent at the start of the next
+     * tick, so judged on the full window it would go out a tick after the window
+     * closed (12 ticks apart at 11, in log 5). One tick less, it goes out the tick
+     * the window closes.
+     */
+    private int judgedWindow() {
+        return Math.max(1, hurtWindow() - 1);
+    }
+
+    /**
+     * The targets' hurt cooldown the search times breaks to: the game's, a tick
+     * longer with {@link #syncMargin}; 1 without {@link #hurtSync}, which is the
+     * one-explosion-a-tick rule alone.
+     */
+    private int hurtWindow() {
+        if (!hurtSync.isOn() || kit == null) {
+            return 1;
+        }
+        return kit.hurtCooldown() + (syncMargin.isOn() ? 1 : 0);
     }
 
     /** One-way latency in ticks, rounded up: how long until the server acts on what is sent now. */
     private static int pingTicks() {
         return (int) Math.ceil(Core.lag().getPing() / 2d / 50d);
+    }
+
+    /**
+     * How long a placed crystal is waited for: the round trip, rounded up, and a
+     * little for jitter. The search's default is a fixed half second, which a
+     * high ping outlasts.
+     */
+    private static int pendingTicks() {
+        return (int) Math.ceil(Core.lag().getPing() / 50d) + PENDING_SLACK;
     }
 
     private String describe(Tracked<?> target, double damage) {
@@ -458,11 +828,31 @@ public final class CrystalAuraModule extends ClientModule {
         lastBreak = Long.MIN_VALUE / 2;
         placedOn = null;
         placement.clear();
+        out.clear();
+        watched = null;
+        broken.clear();
+        lastTarget = null;
+        noCrystals = false;
         display = "";
     }
 
     public enum Priority {
         CLOSEST,
         LOWEST_HEALTH
+    }
+
+    /** A crystal placed and not yet broken: where it will stand, its box, the click that placed it, and when. */
+    private static final class Out {
+        final Vec3 at;
+        final Box body;
+        final Vec3 click;
+        final long placedAt;
+
+        Out(Vec3 at, Box body, Vec3 click, long placedAt) {
+            this.at = at;
+            this.body = body;
+            this.click = click;
+            this.placedAt = placedAt;
+        }
     }
 }

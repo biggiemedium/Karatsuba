@@ -26,6 +26,12 @@ import java.util.Map;
  *       the highest explosion damage a target takes in a tick. So once one
  *       explosive is set off this tick, another only helps against a target if it
  *       hits that target harder &mdash; whatever kind it is.
+ *   <li><b>The hurt cooldown.</b> The same rule over longer: in current Java a hit
+ *       starts a window (10 ticks for a player), and until it closes another hit
+ *       deals only what it beats the highest so far by, without restarting it.
+ *       Hits are remembered for {@link #HISTORY} ticks, and
+ *       {@link #dealtTo(Object, int)} replays them under any window; a window of
+ *       1 is the one-tick rule above.
  * </ul>
  *
  * <ul>
@@ -55,7 +61,8 @@ public final class AttackLog {
 
     /** The tick each inhibited explosive becomes free again. */
     private final Map<Object, Long> freeAt = new HashMap<>();
-    private final Map<Object, Double> dealt = new HashMap<>();
+    /** Each target's hits, oldest first, one a tick at most: for the hurt cooldown, {@link #dealtTo(Object, int)}. */
+    private final Map<Object, List<Hit>> hits = new HashMap<>();
     /** Placed, not yet shown: the room each takes up, and the tick its wait runs out. */
     private final List<Pending> pending = new ArrayList<>();
     /** Explosives that showed up where you placed them, and the tick they are forgotten. */
@@ -79,10 +86,17 @@ public final class AttackLog {
         return log;
     }
 
-    /** Starts the next tick: forgets this tick's damage, and inhibits that have run out. */
+    /** Starts the next tick: forgets hits older than {@link #HISTORY}, and inhibits that have run out. */
     public void newTick() {
         tick++;
-        dealt.clear();
+        Iterator<List<Hit>> each = hits.values().iterator();
+        while (each.hasNext()) {
+            List<Hit> list = each.next();
+            list.removeIf(hit -> tick - hit.tick >= HISTORY);
+            if (list.isEmpty()) {
+                each.remove();
+            }
+        }
         Iterator<Long> times = freeAt.values().iterator();
         while (times.hasNext()) {
             if (times.next() <= tick) {
@@ -164,18 +178,75 @@ public final class AttackLog {
         return free != null && tick < free;
     }
 
-    /** Records that {@code target} will take {@code damage} this tick, keeping the highest. */
+    /**
+     * Records that {@code target} will take {@code damage} this tick, keeping the
+     * highest. Kept for {@link #HISTORY} ticks, for {@link #dealtTo(Object, int)}.
+     */
     public void dealt(Object target, double damage) {
-        Double already = dealt.get(target);
-        if (already == null || damage > already) {
-            dealt.put(target, damage);
+        Validate.notNull(target, "target");
+        List<Hit> list = hits.get(target);
+        if (list == null) {
+            list = new ArrayList<>(4);
+            hits.put(target, list);
+        }
+        Hit last = list.isEmpty() ? null : list.get(list.size() - 1);
+        if (last != null && last.tick == tick) {
+            last.damage = Math.max(last.damage, damage);
+        } else {
+            list.add(new Hit(tick, damage));
         }
     }
 
     /** @return the highest damage {@code target} takes this tick so far; 0 if none */
     public double dealtTo(Object target) {
-        Double already = dealt.get(target);
-        return already == null ? 0d : already;
+        return dealtTo(target, 1);
+    }
+
+    /**
+     * What a new hit on {@code target} now must beat to land anything, under a
+     * hurt cooldown of {@code window} ticks: the game's rule that a hit starts a
+     * window, and until it closes another hit deals only what it beats the
+     * highest so far by, without restarting it. 1 is a single tick: only the
+     * highest explosion of a tick lands.
+     *
+     * @param window ticks from a hit that starts a window to the first tick a hit
+     *        lands in full again; at most {@link #HISTORY}
+     * @return the highest damage of the window open now; 0 when none is open
+     */
+    public double dealtTo(Object target, int window) {
+        Hit open = openWindow(target, window);
+        return open == null ? 0d : open.damage;
+    }
+
+    /**
+     * @return ticks until a hit on {@code target} lands in full again, under a
+     *         cooldown of {@code window} ticks; 0 when it would now
+     */
+    public int cooldownLeft(Object target, int window) {
+        Hit open = openWindow(target, window);
+        return open == null ? 0 : (int) (open.tick + window - tick);
+    }
+
+    /**
+     * Replays the hits remembered on {@code target} the way the game takes them:
+     * the window open now, as its start tick and the highest damage in it, or
+     * null when none is.
+     */
+    private Hit openWindow(Object target, int window) {
+        List<Hit> list = hits.get(target);
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        int length = Math.max(1, Math.min(window, HISTORY));
+        Hit open = null;
+        for (Hit hit : list) {
+            if (open == null || hit.tick - open.tick >= length) {
+                open = new Hit(hit.tick, hit.damage);      // lands in full: a new window
+            } else if (hit.damage > open.damage) {
+                open.damage = hit.damage;                  // inside it: only the excess, and no restart
+            }
+        }
+        return tick - open.tick < length ? open : null;
     }
 
     public long getTick() {
@@ -185,7 +256,7 @@ public final class AttackLog {
     /** Forgets everything: leaving a world, say. */
     public void clear() {
         freeAt.clear();
-        dealt.clear();
+        hits.clear();
         pending.clear();
         own.clear();
     }
@@ -200,6 +271,23 @@ public final class AttackLog {
 
     /** How far, in blocks, an explosive may show up from where it was placed and still be the one placed. */
     private static final double ARRIVAL_SLACK = 0.5d;
+
+    /**
+     * Ticks a hit is remembered: longer than any hurt cooldown asked about. The
+     * game's is 10 ticks.
+     */
+    public static final int HISTORY = 40;
+
+    /** One tick's highest hit on a target. */
+    private static final class Hit {
+        final long tick;
+        double damage;
+
+        Hit(long tick, double damage) {
+            this.tick = tick;
+            this.damage = damage;
+        }
+    }
 
     private static final class Pending {
         final Box room;

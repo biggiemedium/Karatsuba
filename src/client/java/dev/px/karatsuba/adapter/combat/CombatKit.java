@@ -27,6 +27,7 @@ import dev.px.core.world.BlockView;
 import dev.px.core.world.Obstructions;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * The combat library, wired to this game: every rule its README asks a client
@@ -114,10 +115,28 @@ public interface CombatKit<E> {
     /**
      * Any entity, and you: what stops an end crystal being placed. The game
      * refuses a crystal over any entity at all, dropped items included.
+     *
+     * <p>Except a crystal already broken: one attacked and still inhibited in
+     * {@link #log()}, or the one {@link #asIfGone} names. An end crystal dies on
+     * any hit, and the server handles the attack before a click sent after it, so
+     * its base is free again long before the client hears it was removed.
      */
     Obstructions everything();
 
-    /** Entities a placed block may not go into, and you: what stops a block, bed or anchor. */
+    /**
+     * Runs {@code search} as if {@code crystal} were already broken: it stands in
+     * the way of no placement, crystal or block ({@link #everything()},
+     * {@link #blocking()}). For deciding where to place in the same tick as
+     * breaking it, so the placement goes out with the attack.
+     *
+     * @param crystal the game's crystal entity, as a search hands it out
+     */
+    <T> T asIfGone(Object crystal, Supplier<T> search);
+
+    /**
+     * Entities a placed block may not go into, and you: what stops a block, bed or
+     * anchor. A crystal already broken does not count, as for {@link #everything()}.
+     */
     Obstructions blocking();
 
     /** Other players and you: who can stand in a hole and fill it. */
@@ -191,6 +210,13 @@ public interface CombatKit<E> {
 
     /** Where a target will be: Core's prediction while it is reliable, where they are otherwise. */
     Lookahead<E> lookahead();
+
+    /**
+     * Ticks after a hit lands in full before another can: the game's hurt
+     * cooldown, inside which a hit deals only what it beats the last by. For a
+     * search's {@code hurtWindow}.
+     */
+    int hurtCooldown();
 
     /**
      * A crystal search with rules, entities, crystals, vitals, the shared log and

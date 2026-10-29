@@ -134,6 +134,12 @@ import java.util.function.Supplier;
  * Searches that share an {@link AttackLog} share this knowledge, whatever their
  * explosives.
  *
+ * <p>With a {@link Settings#hurtWindow hurt window} the same holds against a
+ * target for that many ticks after a hit, as the game's hurt cooldown does: an
+ * option is judged and ranked by what it lands, its damage less the window's
+ * highest hit so far, while {@link Option#getDamage()} stays what the explosion
+ * itself would do. You keep the one-tick rule.
+ *
  * <h2>Cost</h2>
  *
  * <p>With R the place range, P the spots per cell (1 for a crystal, up to 4 for
@@ -189,6 +195,7 @@ public final class ExplosiveSearch<E> {
     private final IntSupplier placeDelay;
     private final IntSupplier useDelay;
     private final IntSupplier pendingTicks;
+    private final IntSupplier hurtWindow;
     /** Null when nobody is listening. */
     private final SearchListener<E> listener;
     private final boolean pruning;
@@ -217,6 +224,7 @@ public final class ExplosiveSearch<E> {
         this.placeDelay = settings.placeDelay;
         this.useDelay = settings.useDelay;
         this.pendingTicks = settings.pendingTicks;
+        this.hurtWindow = settings.hurtWindow;
         this.listener = settings.listener;
         this.pruning = settings.pruning;
         this.filters = Collections.unmodifiableList(new ArrayList<>(settings.filters));
@@ -577,7 +585,9 @@ public final class ExplosiveSearch<E> {
             }
             stats.evaluated++;
             double damage = blast.model.damage(origin, blast.explosive, info.at, world);
-            Trigger trigger = judge(damage, counted ? log.dealtTo(info.target.get()) : 0d, info);
+            // Under the target's hurt cooldown only what beats the window's highest hit lands.
+            double dealt = counted ? log.dealtTo(info.target.get(), context.hurtWindow) : 0d;
+            Trigger trigger = judge(damage, dealt, info);
             if (trigger == null) {
                 report(bounds != null, subject, origin, info, damage, self, null, Judgement.Verdict.TOO_WEAK);
                 continue;
@@ -604,7 +614,7 @@ public final class ExplosiveSearch<E> {
                 report(bounds != null, subject, origin, info, damage, self, trigger, Judgement.Verdict.SELF_CAP);
                 continue;
             }
-            double value = score.score(damage, self);
+            double value = score.score(damage - dealt, self);
             if (!better(value - aimCost, self, best)) {
                 report(bounds != null, subject, origin, info, damage, self, trigger, Judgement.Verdict.OUTRANKED);
                 continue;
@@ -645,23 +655,27 @@ public final class ExplosiveSearch<E> {
     }
 
     /**
-     * @return whether an option passes the target's thresholds, and why; null if not
-     * @param dealt what the target already takes this tick: an option only helps if it does more
+     * @return whether an option passes the target's thresholds, and why; null if not.
+     *         Judged on what lands: {@code damage} less what the target already
+     *         takes in its open hurt window
+     * @param dealt what the target already takes, this tick or within its hurt
+     *        window: an option only helps by what it does more
      */
     private Trigger judge(double damage, double dealt, TargetInfo<E> info) {
-        if (damage <= dealt || damage <= 0d) {
+        double lands = damage - dealt;
+        if (lands <= 0d || damage <= 0d) {
             return null;
         }
-        if (info.lethalNeed <= damage) {
+        if (info.lethalNeed <= lands) {
             return Trigger.LETHAL;
         }
-        if (damage >= info.minimum) {
+        if (lands >= info.minimum) {
             return Trigger.MINIMUM;
         }
-        if (damage >= info.facePlace) {
+        if (lands >= info.facePlace) {
             return Trigger.FACEPLACE;
         }
-        if (damage >= info.armourBreak) {
+        if (lands >= info.armourBreak) {
             return Trigger.ARMOUR_BREAK;
         }
         return null;
@@ -836,6 +850,8 @@ public final class ExplosiveSearch<E> {
         final double protectedMargin;
         /** Whether any protection threshold is on, so there is anything to check. */
         final boolean guarding;
+        /** The targets' hurt cooldown, in ticks, read once a search: 1 for the one-tick rule. */
+        final int hurtWindow;
 
         Context(Tracked<? extends E> self, Tracked<? extends E> selfAt, List<TargetInfo<E>> targets,
                 List<Guard<E>> guards) {
@@ -851,6 +867,7 @@ public final class ExplosiveSearch<E> {
             this.protectedMargin = thresholds.protectedMargin();
             this.guarding = !guards.isEmpty()
                     && (protectedCap < Double.POSITIVE_INFINITY || !Double.isNaN(protectedMargin));
+            this.hurtWindow = Math.max(1, Math.min(AttackLog.HISTORY, ExplosiveSearch.this.hurtWindow.getAsInt()));
         }
 
         boolean suicidal(double selfDamage) {
@@ -971,6 +988,7 @@ public final class ExplosiveSearch<E> {
         private IntSupplier placeDelay = () -> 0;
         private IntSupplier useDelay = () -> 0;
         private IntSupplier pendingTicks = () -> DEFAULT_PENDING_TICKS;
+        private IntSupplier hurtWindow = () -> 1;
         private SearchListener<E> listener;
         private boolean pruning = true;
         private final List<OptionFilter<E>> filters = new ArrayList<>();
@@ -1085,6 +1103,20 @@ public final class ExplosiveSearch<E> {
          */
         public B pendingTicks(IntSupplier ticks) {
             this.pendingTicks = Validate.notNull(ticks, "ticks");
+            return self();
+        }
+
+        /**
+         * The targets' hurt cooldown, in ticks, read live: after a hit lands in
+         * full, how long until another can. Inside it an explosive set off is
+         * judged and ranked by what it beats the window's highest hit by, so one
+         * that would land nothing is left standing until the window closes. 1, the
+         * one-explosion-a-tick rule alone, unless set; at most
+         * {@link AttackLog#HISTORY}. Placing is never judged by it: a placed
+         * explosive can wait. A device that fires at once is.
+         */
+        public B hurtWindow(IntSupplier ticks) {
+            this.hurtWindow = Validate.notNull(ticks, "ticks");
             return self();
         }
 

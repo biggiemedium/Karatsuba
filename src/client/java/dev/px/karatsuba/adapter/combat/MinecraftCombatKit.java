@@ -30,6 +30,8 @@ import dev.px.combat.vector.capture.VectorRecorder;
 import dev.px.core.Core;
 import dev.px.core.entity.EntityService;
 import dev.px.core.entity.EntityTracker;
+import dev.px.core.entity.Tracked;
+import dev.px.core.math.Vec3;
 import dev.px.core.world.BlockView;
 import dev.px.core.world.Obstructions;
 import dev.px.karatsuba.adapter.game.entity.CrystalTracker;
@@ -44,10 +46,12 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.decoration.EndCrystalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * The {@link CombatKit} for 1.21.4, typed by {@code LivingEntity}.
@@ -101,6 +105,10 @@ final class MinecraftCombatKit implements CombatKit<LivingEntity> {
     @Getter(AccessLevel.NONE)
     private BooleanSupplier healthTrusted = () -> true;
 
+    /** The crystal {@link #asIfGone} is searching without; null outside one. */
+    @Getter(AccessLevel.NONE)
+    private Object gone;
+
     MinecraftCombatKit(Core core) {
         this.entities = core.getEntityService();
         this.living = entities.require(LivingTracker.class);
@@ -115,8 +123,8 @@ final class MinecraftCombatKit implements CombatKit<LivingEntity> {
                 EntityTracker.of(Entity.class, entity -> !entity.isRemoved() && !entity.isSpectator()));
         EntityTracker<Entity> solidEntity = entities.register(
                 EntityTracker.of(Entity.class, entity -> !entity.isRemoved() && entity.intersectionChecked));
-        this.everything = Obstructions.of(entities, anyEntity);
-        this.blocking = Obstructions.of(entities, solidEntity);
+        this.everything = region -> occupied(anyEntity, region);
+        this.blocking = region -> occupied(solidEntity, region);
         this.playerBodies = Obstructions.of(entities, players);
 
         this.crystalRules = CrystalRules.<LivingEntity>builder()
@@ -204,6 +212,55 @@ final class MinecraftCombatKit implements CombatKit<LivingEntity> {
     @Override
     public boolean isFriend(LivingEntity entity) {
         return entity instanceof PlayerEntity && Core.social().isFriend(entity.getName().getString());
+    }
+
+    /**
+     * A hit sets {@code timeUntilRegen} to 20, and while it is above 10 another
+     * deals only what it beats {@code lastDamageTaken} by ({@code LivingEntity.damage});
+     * a player counts it down once a server tick ({@code ServerPlayerEntity.tick}).
+     * No damage type skips it: {@code #bypasses_cooldown} is empty in vanilla.
+     */
+    @Override
+    public int hurtCooldown() {
+        return 10;
+    }
+
+    @Override
+    public <T> T asIfGone(Object crystal, Supplier<T> search) {
+        Object before = gone;
+        gone = crystal;
+        try {
+            return search.get();
+        } finally {
+            gone = before;
+        }
+    }
+
+    /**
+     * {@link #everything} and {@link #blocking}: whether you or any entity of
+     * {@code any} but a broken crystal is in {@code region}. As
+     * {@code Obstructions.of}, with that one exception.
+     */
+    private boolean occupied(EntityTracker<Entity> any, dev.px.core.math.Box region) {
+        Tracked<?> self = entities.getSelf();
+        if (self != null && self.getBox().intersects(region)) {
+            return true;
+        }
+        // Any box overlapping the region comes within half its diagonal of its centre.
+        Vec3 centre = region.getCenter();
+        double radius = region.getMin().distanceTo(region.getMax()) / 2d;
+        boolean[] hit = { false };
+        any.forEachWithin(centre.getX(), centre.getY(), centre.getZ(), radius, entity -> {
+            if (!hit[0] && entity.getBox().intersects(region) && !isBroken(entity.get())) {
+                hit[0] = true;
+            }
+        });
+        return hit[0];
+    }
+
+    /** Attacked and dead on the server, or searched without: a crystal whose base is free. */
+    private boolean isBroken(Entity entity) {
+        return entity instanceof EndCrystalEntity && (entity == gone || log.isInhibited(entity));
     }
 
     @Override
