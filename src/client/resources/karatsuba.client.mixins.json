@@ -46,6 +46,7 @@
 		"render.RotatingCubeMapRendererMixin",
 		"render.SkyRenderingMixin",
 		"render.SplashOverlayMixin",
+		"render.TitleScreenMixin",
 		"render.WorldRendererMixin",
 		"sound.SoundSystemMixin",
 		"world.FireworkRocketEntityAccessor",

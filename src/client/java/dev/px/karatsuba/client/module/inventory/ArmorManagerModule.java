@@ -15,6 +15,7 @@ import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.BindSetting;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.core.setting.impl.EnumSetting;
 import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.karatsuba.adapter.combat.Combat;
@@ -26,8 +27,8 @@ import dev.px.karatsuba.adapter.game.item.GameItem;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
-import dev.px.karatsuba.client.module.inventory.manager.ArmorPlanner;
-import dev.px.karatsuba.client.module.movement.TickKey;
+import dev.px.karatsuba.client.module.inventory.armor.ArmorPlanner;
+import dev.px.karatsuba.client.module.movement.control.TickKey;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.service.inventory.InventoryClick;
@@ -35,8 +36,19 @@ import dev.px.karatsuba.client.notify.Notices;
 import dev.px.karatsuba.client.notify.Source;
 
 /**
- * One key between chestplate and elytra, a fresh elytra before the worn one gives
- * out, and a chestplate on before a crystal can catch you in an elytra.
+ * Everything worn: the best armour carried, one key between chestplate and
+ * elytra, a fresh elytra before the worn one gives out, and a chestplate on
+ * before a crystal can catch you in an elytra.
+ *
+ * <h2>Best armour</h2>
+ * {@code Auto Equip} wears the best pieces carried, ranked as {@code Prefer} says
+ * ({@link ArmorPlanner}), and swaps out a piece under {@code Replace Below}
+ * durability. A worn elytra is left on: taking it off is the swap's job. While a
+ * swap is under way, armour waits for it, so the two never pull the chest slot
+ * different ways. Velocity's Blast Protection mode can ask for Blast Protection
+ * first for a while ({@link ArmorPlanner#effective}). Armour asks at
+ * {@link ClaimPriority#HIGH}, and only stops you to click as {@code Stop To Equip}
+ * says: by default, when a slot is bare.
  *
  * <h2>The swap</h2>
  * {@code Swap Bind} puts on whichever of the two you are not wearing: the elytra
@@ -73,13 +85,10 @@ import dev.px.karatsuba.client.notify.Source;
  * tick if moving is all that holds it back (MultiActionsC): in the air that costs
  * nothing, since an elytra ignores the movement keys. Take-off and opening are
  * the real jump key, one tick at a time, so Grim sees exactly what vanilla sends.
- *
- * <p>Set Inventory Manager's {@code Keep Elytra} on (the default), or its armour
- * will take the elytra back off.
  */
-@ModuleInfo(name = "Elytra Swap", description = "One key between chestplate and elytra; a chestplate on before a crystal can catch you",
+@ModuleInfo(name = "Armor Manager", description = "Wears your best armour; one key between chestplate and elytra",
         category = "Inventory")
-public final class ElytraSwapModule extends ClientModule {
+public final class ArmorManagerModule extends ClientModule {
 
     private static final int CHEST = Armor.Piece.CHESTPLATE.inventorySlot();
 
@@ -93,11 +102,34 @@ public final class ElytraSwapModule extends ClientModule {
     private static final int RESTORE_TIMEOUT = 40;
 
     /**
-     * Above Inventory Manager's armour ({@link ClaimPriority#HIGH}): a tie goes to
-     * whoever asked first, so at equal priority a waiting armour upgrade would hold
-     * the click slot and the swap you pressed for would never get it.
+     * Above Velocity's Blast Protection ({@code HIGH + 10}): a tie goes to whoever
+     * asked first, so at equal priority a waiting armour upgrade would hold the
+     * click slot and the swap you pressed for would never get it.
      */
     private static final int SWAP_PRIORITY = ClaimPriority.HIGH + 15;
+
+    // ---------------------------------------------------------------- armour
+
+    private final BooleanSetting autoEquip = bool("Auto Equip", true)
+            .describe("Wear the best armour you carry");
+
+    private final EnumSetting<ArmorPlanner.Preference> prefer = enumOf("Prefer", ArmorPlanner.Preference.PROTECTION)
+            .describe("PROTECTION for all damage; BLAST for crystal and bed fights")
+            .visibleWhen(autoEquip);
+
+    private final NumberSetting<Integer> replaceBelow = integer("Replace Below", 5, 0, 50)
+            .describe("Swap out a piece with less than this percent durability left; 0 never")
+            .visibleWhen(autoEquip);
+
+    private final EnumSetting<StopMode> stopToEquip = enumOf("Stop To Equip", StopMode.BARE_SLOT)
+            .describe("When to stop you for a tick to put armour on: never, only into a bare slot, or always")
+            .visibleWhen(autoEquip);
+
+    private final GroupSetting armourGroup = group("Armour Options", true)
+            .containing(prefer, replaceBelow, stopToEquip)
+            .visibleWhen(autoEquip);
+
+    // ---------------------------------------------------------------- elytra
 
     private final BindSetting swapBind = bind("Swap Bind")
             .describe("Put on whichever of chestplate and elytra you are not wearing");
@@ -140,6 +172,8 @@ public final class ElytraSwapModule extends ClientModule {
     private final GroupSetting guardGroup = group("Guard Options", true)
             .containing(guardDamage, lookAhead, enemyNear, enemyReach, reEquip)
             .visibleWhen(guard);
+
+    private final ArmorPlanner armourPlanner = new ArmorPlanner();
 
     private final TickKey jump = new TickKey(Inputs.Control.JUMP);
 
@@ -216,6 +250,39 @@ public final class ElytraSwapModule extends ClientModule {
         display = guardedOff ? "Guard" : wearingElytra ? "Elytra" : "";
     }
 
+    // ---------------------------------------------------------------- armour
+
+    /**
+     * Plans the best armour at the end of the tick, from the inventory as this
+     * tick left it; the service sends the click at the start of the next. Waits
+     * while a swap is under way, which owns the chest slot and the hotbar slot it
+     * lent until it is done.
+     */
+    @Subscribe(stage = Stage.POST)
+    private void onTickEnd(TickEvent event) {
+        if (!autoEquip.isOn() || !Players.present() || swapping()) {
+            return;
+        }
+        // Blast first while Velocity's Blast Protection mode asks for it, so its
+        // pieces are not taken straight back off. A worn elytra stays on.
+        ArmorPlanner.Plan plan = armourPlanner.next(ArmorPlanner.effective(prefer.get()),
+                replaceBelow.getInt() / 100f, true);
+        if (plan == null) {
+            return;
+        }
+        InventoryClick click = plan.click();
+        StopMode stop = stopToEquip.get();
+        if (stop == StopMode.ALWAYS || (stop == StopMode.BARE_SLOT && plan.fillsEmptySlot())) {
+            click = click.stopping();
+        }
+        Services.inventory().click(this, click, ClaimPriority.HIGH);
+    }
+
+    /** @return whether a swap, its take-off, or putting its borrowed hotbar slot back is under way */
+    private boolean swapping() {
+        return target != Target.NONE || openAfter || borrowedSlot != Inventories.NOT_FOUND;
+    }
+
     // ------------------------------------------------------------------ swap
 
     private void pursue(ArmorStats chest) {
@@ -226,7 +293,7 @@ public final class ElytraSwapModule extends ClientModule {
                 : chest != null && !chest.isElytra();
         if (done) {
             if (announce) {
-                Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", target == Target.ELYTRA ? "Elytra on" : "Chestplate on");
+                Notices.info(Source.MODULE_MESSAGES, "Armor Manager", target == Target.ELYTRA ? "Elytra on" : "Chestplate on");
             }
             target = Target.NONE;
             guarding = false;
@@ -237,7 +304,7 @@ public final class ElytraSwapModule extends ClientModule {
                 ? bestElytra(chest != null && chest.isElytra() ? chest.getDurability() : -1f)
                 : bestChestplate();
         if (source < 0) {
-            Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", target == Target.ELYTRA ? "No elytra" : "No chestplate");
+            Notices.info(Source.MODULE_MESSAGES, "Armor Manager", target == Target.ELYTRA ? "No elytra" : "No chestplate");
             target = Target.NONE;
             guarding = false;
             openAfter = false;
@@ -372,7 +439,7 @@ public final class ElytraSwapModule extends ClientModule {
                 guardedOff = true;
                 openAfter = false;
                 safeTicks = 0;
-                Notices.info(Source.MODULE_MESSAGES, "Elytra Swap", "Crystal: chestplate on");
+                Notices.info(Source.MODULE_MESSAGES, "Armor Manager", "Crystal: chestplate on");
             }
             return;
         }
@@ -456,7 +523,7 @@ public final class ElytraSwapModule extends ClientModule {
      * is enabled, so these are on the bus for the module's whole life instead,
      * and pressing the bind with the module off turns it on to do the swap.
      */
-    public ElytraSwapModule() {
+    public ArmorManagerModule() {
         Core.bus().on(KeyEvent.class, event -> {
             Bind bind = swapBind.get();
             if (event.isPressed() && !bind.isMouse() && bind.isBound()
@@ -515,5 +582,15 @@ public final class ElytraSwapModule extends ClientModule {
         NONE,
         ELYTRA,
         CHEST
+    }
+
+    /** When armour may stop the player for a tick to go on. */
+    public enum StopMode {
+        /** Wait for the player to stand still. */
+        NEVER,
+        /** Stop only to fill a bare slot: a piece just broke, or was never on. */
+        BARE_SLOT,
+        /** Stop for any upgrade. */
+        ALWAYS
     }
 }

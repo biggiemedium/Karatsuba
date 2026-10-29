@@ -14,9 +14,10 @@ import dev.px.karatsuba.client.module.combat.PhaseModule;
 import dev.px.karatsuba.client.module.combat.SurroundModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.combat.WebAuraModule;
-import dev.px.karatsuba.client.module.inventory.InventoryManagerModule;
+import dev.px.karatsuba.client.module.inventory.ArmorManagerModule;
+import dev.px.karatsuba.client.module.inventory.HotbarReplenishModule;
+import dev.px.karatsuba.client.module.inventory.InventoryCleanerModule;
 import dev.px.karatsuba.client.module.inventory.XCarryModule;
-import dev.px.karatsuba.client.module.inventory.ElytraSwapModule;
 import dev.px.karatsuba.client.module.mining.AutoToolModule;
 import dev.px.karatsuba.client.module.mining.EnderChestFarmerModule;
 import dev.px.karatsuba.client.module.mining.SmartMineModule;
@@ -83,8 +84,6 @@ public final class Modules {
                 // Movement
                 new BlinkModule(),
                 new ElytraFlyModule(),
-                new ParkourModule(),
-                new SafeWalkModule(),
                 new SpeedModule(),
                 new SprintModule(),
                 new StepModule(),
@@ -99,8 +98,9 @@ public final class Modules {
                 new SmartMineModule(),
 
                 // Inventory
-                new ElytraSwapModule(),
-                new InventoryManagerModule(),
+                new ArmorManagerModule(),
+                new HotbarReplenishModule(),
+                new InventoryCleanerModule(),
                 new XCarryModule(),
 
                 // Render

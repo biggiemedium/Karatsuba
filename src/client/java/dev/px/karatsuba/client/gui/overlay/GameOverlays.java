@@ -30,4 +30,12 @@ public final class GameOverlays {
         MenuPanorama.install(OverlayStyle.MENU_PANORAMA);
         ChatChrome.install(CHAT);
     }
+
+    /**
+     * Starts decoding the loading screen's photo, so its first frame finds it
+     * ready. After Core has started, since the decode runs on its thread pool.
+     */
+    public static void prefetch() {
+        LOADING.prefetch();
+    }
 }

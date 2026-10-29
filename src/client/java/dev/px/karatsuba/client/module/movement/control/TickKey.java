@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.movement;
+package dev.px.karatsuba.client.module.movement.control;
 
 import dev.px.core.Core;
 import dev.px.core.event.Stage;

@@ -41,8 +41,10 @@ import dev.px.karatsuba.client.service.action.Outcome;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -73,6 +75,13 @@ import java.util.Set;
  * The placement planner picks each click and any support under it, and
  * {@code Services.actions()} sends one a tick &mdash; turned to, swapped to and
  * checked against the server's view of your head, as every module's are.
+ *
+ * <h2>Refused, but sent</h2>
+ * The client refuses a block into a cell where it still shows a crystal already
+ * hit (Crystal Aura's, above all), though the packet goes and the server, having
+ * taken the attack first, places it. Such a cell is left alone until the
+ * server's block arrives or a round trip passes, rather than clicked again every
+ * tick. See {@code documentation/knowledge/PLACEMENT.md}.
  */
 @ModuleInfo(name = "Hole Fill", description = "Fills holes enemies are about to use, with blocks or webs",
         category = "Combat")
@@ -80,6 +89,9 @@ public final class HoleFillModule extends ClientModule {
 
     private static final String[] BLOCKS = {"obsidian", "crying_obsidian", "ender_chest"};
     private static final String WEB = "cobweb";
+
+    /** Ticks past the round trip a block that went out unseen is waited for, for jitter. */
+    private static final int PENDING_SLACK = 3;
 
     private final EnumSetting<Mode> mode = enumOf("Mode", Mode.PREDICT)
             .describe("PREDICT fills holes an enemy is heading for; ALL fills every hole in reach");
@@ -173,6 +185,14 @@ public final class HoleFillModule extends ClientModule {
     /** Which cells a placement can go into. */
     private Clicks replaceable;
 
+    /** What stands in a web's way: only you. Blocks use {@code kit.blocking()}. */
+    private Obstructions onlyYou;
+
+    private long tick;
+
+    /** Cells whose block went out though the client refused it, and the tick: see {@link #went}. */
+    private final Map<Vec3i, Long> sent = new HashMap<>();
+
     /** Cells being filled, appearing, shown or fading. */
     private final CellBoxes shown = new CellBoxes();
 
@@ -185,10 +205,12 @@ public final class HoleFillModule extends ClientModule {
         blockStrict = kit.planner(kit.strictStyle()).build();
         blockVanilla = kit.planner(kit.vanillaStyle()).build();
         // A web goes into a player: only you are in its way.
-        Obstructions onlyYou = Obstructions.of(Core.entities());
+        onlyYou = Obstructions.of(Core.entities());
         webStrict = webPlanner(kit, kit.strictStyle(), onlyYou);
         webVanilla = webPlanner(kit, kit.vanillaStyle(), onlyYou);
         replaceable = kit.clicks(kit.vanillaStyle());
+        tick = 0;
+        sent.clear();
         started.clear();
         shown.clear();
         display = "";
@@ -197,6 +219,7 @@ public final class HoleFillModule extends ClientModule {
     @Override
     protected void onDisable() {
         started.clear();
+        sent.clear();
         if (search != null) {
             search.close();
         }
@@ -206,6 +229,10 @@ public final class HoleFillModule extends ClientModule {
 
     @Subscribe(stage = Stage.PRE)
     private void onTick(TickEvent event) {
+        tick++;
+        if (replaceable != null) {
+            forgetSent();
+        }
         if (search == null || !Players.present()) {
             display = "";
             return;
@@ -245,20 +272,28 @@ public final class HoleFillModule extends ClientModule {
         PlacementPlanner planner = webs
                 ? (strict.isOn() ? webStrict : webVanilla)
                 : (strict.isOn() ? blockStrict : blockVanilla);
-        Plan plan = planner.plan(Players.eyePosition(), cells, Players.serverRotation());
+        Obstructions inTheWay = webs ? onlyYou : kit.blocking();
+        // A cell whose block went out unseen is the server's until it answers.
+        List<Vec3i> plannable = cells.stream().filter(cell -> !sent.containsKey(cell)).toList();
+        Plan plan = planner.plan(Players.eyePosition(), plannable, Players.serverRotation());
         if (plan.getSteps().isEmpty()) {
             return;
         }
         Plan.Step step = plan.getSteps().get(0);
+        if (sent.containsKey(step.getCell())) {
+            // A support planned into a cell already in flight: wait for the server's.
+            return;
+        }
         Target owner = ownerOf(targets, step.getCell());
         Services.actions().submit(this, Action.click(step.getClick())
                 .holding(item)
                 .priority(ClaimPriority.NORMAL)
                 .then(outcome -> {
-                    if (outcome != Outcome.SENT || owner == null || step.isSupport()) {
+                    if (!went(outcome, step.getCell(), inTheWay) || owner == null || step.isSupport()) {
                         return;
                     }
-                    // The client shows the placement at once, so this counts it already.
+                    // The client shows the placement at once, and one refused but sent
+                    // is in sent, so this counts it already.
                     if (openCells(owner.hole()) > 0) {
                         started.add(owner.hole());
                     } else if (owner.fill() != null) {
@@ -276,10 +311,39 @@ public final class HoleFillModule extends ClientModule {
                 }));
     }
 
+    /**
+     * @return whether the click reached the server. A {@link Outcome#REFUSED} one
+     *         did when nothing in its cell counts as in the way, which leaves only
+     *         crystals already hit: the client still shows them, the server has
+     *         removed them. That cell is then remembered in {@link #sent}
+     */
+    private boolean went(Outcome outcome, Vec3i cell, Obstructions inTheWay) {
+        if (outcome == Outcome.SENT) {
+            return true;
+        }
+        if (outcome != Outcome.REFUSED || inTheWay.any(Box.block(cell.getX(), cell.getY(), cell.getZ()))) {
+            return false;
+        }
+        sent.put(cell, tick);
+        return true;
+    }
+
+    /** Forgets cells the server has answered for, or never did. */
+    private void forgetSent() {
+        int due = pendingTicks();
+        sent.entrySet().removeIf(entry -> tick - entry.getValue() > due || !replaceable.isReplaceable(entry.getKey()));
+    }
+
+    /** One round trip, rounded up, and a little for jitter: how long the server's answer is waited for. */
+    private static int pendingTicks() {
+        return (int) Math.ceil(Core.lag().getPing() / 50d) + PENDING_SLACK;
+    }
+
     @Subscribe
     private void onWorld(WorldEvent event) {
         shown.clear();
         started.clear();
+        sent.clear();
     }
 
     @Subscribe
@@ -347,11 +411,11 @@ public final class HoleFillModule extends ClientModule {
         return new ArrayList<>(cells);
     }
 
-    /** @return how many of the hole's cells (with the stack) are still open */
+    /** @return how many of the hole's cells (with the stack) are still open and not in flight */
     private int openCells(Hole hole) {
         int open = 0;
         for (Vec3i cell : cellsOf(hole)) {
-            if (replaceable.isReplaceable(cell)) {
+            if (replaceable.isReplaceable(cell) && !sent.containsKey(cell)) {
                 open++;
             }
         }

@@ -1,5 +1,6 @@
 package dev.px.karatsuba.client.module.combat;
 
+import dev.px.combat.place.Clicks;
 import dev.px.combat.place.Occupancy;
 import dev.px.combat.place.PlacementPlanner;
 import dev.px.combat.place.PlacementStyle;
@@ -36,8 +37,10 @@ import dev.px.karatsuba.client.service.action.Outcome;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -66,12 +69,22 @@ import java.util.Set;
  * <h2>Sending</h2>
  * One web a tick through {@code Services.actions()}, turned to, swapped to and
  * checked against the server's view of your head like every placement.
+ *
+ * <h2>Refused, but sent</h2>
+ * A click the client refuses still goes to the server. When nothing in the cell
+ * is in a web's way, the server may well place it, so the cell is left alone
+ * until the server's web arrives or a round trip passes, rather than clicked
+ * again every tick, and it counts toward {@code Delay}. See
+ * {@code documentation/knowledge/PLACEMENT.md}.
  */
 @ModuleInfo(name = "Web Aura", description = "Places cobwebs on enemies, where they are or will be",
         category = "Combat")
 public final class WebAuraModule extends ClientModule {
 
     private static final String WEB = "cobweb";
+
+    /** Ticks past the round trip a web that went out unseen is waited for, for jitter. */
+    private static final int PENDING_SLACK = 3;
 
     private final EnumSetting<Mode> mode = enumOf("Mode", Mode.PREDICT)
             .describe("NOW webs where they are; PREDICT where they will be; LIKELY wherever they likely pass");
@@ -133,11 +146,18 @@ public final class WebAuraModule extends ClientModule {
     private Targeting<?> targeting;
     private PlacementPlanner strictPlanner;
     private PlacementPlanner vanillaPlanner;
+    /** What stands in a web's way: only you. */
+    private Obstructions onlyYou;
+    /** For asking whether a cell still takes a web. */
+    private Clicks clicks;
 
     private final CellBoxes shown = new CellBoxes();
 
     private long tick;
     private long lastWeb = Long.MIN_VALUE / 2;
+
+    /** Cells whose web went out though the client refused it, and the tick: see {@link #went}. */
+    private final Map<Vec3i, Long> sent = new HashMap<>();
 
     private String display = "";
 
@@ -150,9 +170,10 @@ public final class WebAuraModule extends ClientModule {
         CombatKit<?> kit = Combat.kit();
         targeting = targeting(kit);
         // A web goes into a player: only you are in its way.
-        Obstructions onlyYou = Obstructions.of(Core.entities());
+        onlyYou = Obstructions.of(Core.entities());
         strictPlanner = planner(kit, kit.strictStyle(), onlyYou);
         vanillaPlanner = planner(kit, kit.vanillaStyle(), onlyYou);
+        clicks = kit.clicks(kit.vanillaStyle());
         reset();
     }
 
@@ -165,6 +186,9 @@ public final class WebAuraModule extends ClientModule {
     @Subscribe(stage = Stage.PRE)
     private void onTick(TickEvent event) {
         tick++;
+        if (clicks != null) {
+            forgetSent();
+        }
         if (targeting == null || !Players.present()) {
             display = "";
             shown.update(List.of(), animations.isOn());
@@ -179,7 +203,9 @@ public final class WebAuraModule extends ClientModule {
         }
 
         PlacementPlanner planner = strict.isOn() ? strictPlanner : vanillaPlanner;
-        Plan plan = planner.plan(Players.eyePosition(), webbing.cells(), Players.serverRotation());
+        // A cell whose web went out unseen is the server's until it answers.
+        List<Vec3i> plannable = webbing.cells().stream().filter(cell -> !sent.containsKey(cell)).toList();
+        Plan plan = planner.plan(Players.eyePosition(), plannable, Players.serverRotation());
         List<Vec3i> open = webbing.cells().stream()
                 .filter(cell -> plan.getSkipped().get(cell) != Plan.Skip.FILLED)
                 .toList();
@@ -189,14 +215,47 @@ public final class WebAuraModule extends ClientModule {
         if (plan.getSteps().isEmpty() || tick - lastWeb < delay.getInt()) {
             return;
         }
-        Services.actions().submit(this, Action.click(plan.getSteps().get(0).getClick())
+        Plan.Step step = plan.getSteps().get(0);
+        if (sent.containsKey(step.getCell())) {
+            // A support planned into a cell already in flight: wait for the server's.
+            return;
+        }
+        Services.actions().submit(this, Action.click(step.getClick())
                 .holding(WEB)
                 .priority(ClaimPriority.NORMAL)
                 .then(outcome -> {
-                    if (outcome == Outcome.SENT) {
+                    if (went(outcome, step.getCell())) {
                         lastWeb = tick;
                     }
                 }));
+    }
+
+    /**
+     * @return whether the click reached the server. A {@link Outcome#REFUSED} one
+     *         did when nothing in its cell is in a web's way: the packet goes
+     *         whatever the client predicts. That cell is then remembered in
+     *         {@link #sent}
+     */
+    private boolean went(Outcome outcome, Vec3i cell) {
+        if (outcome == Outcome.SENT) {
+            return true;
+        }
+        if (outcome != Outcome.REFUSED || onlyYou.any(Box.block(cell.getX(), cell.getY(), cell.getZ()))) {
+            return false;
+        }
+        sent.put(cell, tick);
+        return true;
+    }
+
+    /** Forgets cells the server has answered for, or never did. */
+    private void forgetSent() {
+        int due = pendingTicks();
+        sent.entrySet().removeIf(entry -> tick - entry.getValue() > due || !clicks.isReplaceable(entry.getKey()));
+    }
+
+    /** One round trip, rounded up, and a little for jitter: how long the server's answer is waited for. */
+    private static int pendingTicks() {
+        return (int) Math.ceil(Core.lag().getPing() / 50d) + PENDING_SLACK;
     }
 
     @Subscribe
@@ -310,6 +369,7 @@ public final class WebAuraModule extends ClientModule {
     private void reset() {
         tick = 0;
         lastWeb = Long.MIN_VALUE / 2;
+        sent.clear();
         shown.clear();
         display = "";
     }

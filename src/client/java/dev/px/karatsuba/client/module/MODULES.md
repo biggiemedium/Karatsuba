@@ -64,10 +64,10 @@ moves and composes like a task while staying a toggle. The task system itself
 | Category | Modules |
 |---|---|
 | Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Phase (Pearl, Walk), Surround, Velocity, Web Aura |
-| Movement | Elytra Fly (Bounce, Firework), Parkour, Safe Walk, Speed, Sprint, Step |
+| Movement | Elytra Fly (Bounce, Firework), Speed, Sprint, Step |
 | Building | Scaffold |
 | Mining | Auto Tool, Ender Chest Farmer, Smart Mine |
-| Inventory | Elytra Swap, Inventory Manager, XCarry |
+| Inventory | Armor Manager, Hotbar Replenish, Inventory Cleaner, XCarry |
 | Render | Block Overlay (crosshair + breaking), Combat Info, ESP, Free Cam, Hole ESP, Name Tags, No Block Render, Predict ESP, Projectiles, Render Adjustments, Search, Shaders |
 | Utility | Anti AFK, Anti Hunger, Anti Sound, Auto Eat, Fake Player, Middle Click, Recorder |
 | Automation | Auto Combat (holes) |
@@ -106,15 +106,10 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Movement
 
-- **Safe Walk** · done: presses the real sneak key for the tick Core's simulation
-  says you would walk off a drop of at least Min Drop, so vanilla's ledge clip
-  stops you and Grim sees shift held. Steps aside while jump is held.
 - **Step** · done: when a tick of walking barely moves you and a simulated jump
   lands higher than vanilla's 0.6 step, presses jump for one tick. No step-height
   change.
-- **Parkour** · done: presses jump on the last ground tick before a drop of at
-  least Min Drop. Runs before Safe Walk, so both can be on together.
-- **Elytra Swap** · in Inventory (it manages gear), needs in-game testing. The bind works with the module off (pressing it turns the module on): one bind between chestplate and
+- **Elytra swap** · part of **Armor Manager** (Inventory), needs in-game testing. Its bind works with the module off (pressing it turns the module on): one bind between chestplate and
   elytra (Take Off jumps and opens it with the real jump key), a fresher elytra
   swapped in mid-flight before the worn one gives out, and **Crystal Guard**: while
   in an elytra, each crystal an enemy could set off is scored with the 1.21.4
@@ -124,7 +119,7 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   falling. The chest slot never empties mid-swap (pieces in the main inventory go
   via a borrowed hotbar slot, which is put back after).
 - **Elytra Fly** · done (needs in-game testing), modal like Velocity. **Bounce** (Meteor's, i.e. Elytra Recast): forward held, head locked low, jump held on the ground and re-pressed in the air so vanilla re-opens the elytra; waits for two airborne movement packets and a released jump (Grim PacketEntityAction/ElytraF/ElytraB), never forces sprint (SprintF). **Firework** (Lambda's): keys steer a silent look, a rocket kept burning; hover freezes the body only while a rocket is attached, inside Grim's firework box (`UncertaintyHandler.tickFireworksBox`). Rockets push along the sent look (`FireworkRocketEntityMixin`). Packet-stall hover and velocity sets left out.
-- Shared pieces: `Ledges` (simulation questions) and `TickKey` (a one-tick key
+- Shared pieces, in `movement/control/`: `Ledges` (simulation questions) and `TickKey` (a one-tick key
   press, always released at tick end).
 - **Speed** · rework: Grim simulates every tick from your keys, so a "speed" there
   is good sprint-jumping, not a velocity edit. Either rework it into that or retire it.
@@ -170,7 +165,7 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   pause are the game's. It pauses (no packet, progress kept) in a tick where
   `ActionService` sent something. While it is on, holding the attack key never digs by
   hand (`Digging.holdOffHand`). Queued blocks draw as `CellBoxes`; the one being mined grows from
-  its middle with eased progress, Start to Finish colour (`smartmine/MiningBox`, after
+  its middle with eased progress, Start to Finish colour (`mining/render/MiningBox`, after
   Shoreline's Speed Mine). Queued blocks past Dissolve Range drop out. It steps aside
   (no claims, vanilla clicks) when you pick a slot (`HotbarPickEvent`), hit, use or
   place, and resumes after Resume After seconds. Digging is `Services.digging()`
@@ -183,7 +178,7 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   no Silk Touch (`Inventories.bestHarvestingTool`), 8 obsidian a chest. Swaps a chest or
   pickaxe up from the main inventory. Keep (chests left alone), Stop At; stops on a full
   inventory, no pickaxe, a blocked cell or being out of reach, and reports what it made.
-  Waits while you click or pick a slot. Shares `mining/Sightline` and `mining/MiningBox`
+  Waits while you click or pick a slot. Shares `service/dig/Sightline` and `mining/render/MiningBox`
   with Smart Mine.
 - **Packet Mine** · M: queue blocks, break them at exactly the server's break rate
   with the best tool (silent swap), rebreak when replaced. Grim checks break timing,
@@ -194,16 +189,21 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 
 ### Inventory
 
-- **Inventory Manager** · done (needs in-game testing): one module, three switchable
-  jobs that decide together. **Armour** wears the best pieces (Protection or Blast
-  preference, replaces nearly broken ones, never Binding, keeps a worn elytra) and
-  may stop you a tick to fill a bare slot. **Refill** has no kit: it tops up hotbar
-  stacks and refills a slot whose item was used up, never junk. **Cleaner** throws a
-  blacklist (an `ItemSetting`) or everything outside the hotbar not on a whitelist,
-  with its own bind for looting. All clicks go through `Services.inventory().click()`:
-  one a tick, only while the server believes you are still, armour > refill > cleaner,
-  all below Auto Totem. Kits per profile were dropped: they break the moment you
-  rearrange your inventory to go base hunting.
+- **Armor Manager, Hotbar Replenish, Inventory Cleaner** · done (needs in-game
+  testing). Split from Inventory Manager on 2026-10-29, with Elytra Swap folded into
+  Armor Manager. Planners in `inventory/armor/` and `inventory/replenish/`.
+  **Armor Manager** wears the best pieces (Protection or Blast preference, replaces
+  nearly broken ones, never Binding, keeps a worn elytra), may stop you a tick to
+  fill a bare slot, waits while its own elytra swap is under way, and holds the
+  elytra swap above. **Hotbar Replenish** has no kit: it tops up hotbar stacks and
+  refills a slot whose item was used up, never with what Inventory Cleaner calls junk
+  (`inventory/cleaner/Junk`, published while the cleaner is on). **Inventory
+  Cleaner** throws what is on its list (an `ItemSetting`), from the hotbar too with
+  Clean Hotbar; blacklist only, no whitelist (user, 2026-10-29). Toggle it with its
+  module bind for looting. All clicks go through `Services.inventory().click()`: one a tick, only
+  while the server believes you are still, armour > refill > cleaner, all below Auto
+  Totem. Kits per profile were dropped: they break the moment you rearrange your
+  inventory to go base hunting.
 - **Auto Eat** · done in **Utility** (needs in-game testing): the first module built
   from flow steps. Two Core reflexes around the automation's `Eat` step: a golden
   apple whenever health (absorption not counted) is at or below Apple Health, a
@@ -295,7 +295,7 @@ navigation library. See `automation/package-info.java`.
 
 ## Suggested order
 
-1. **Inventory Manager:** Auto Eat, Packet Mine and Elytra Assist all want items in
+1. **Inventory modules** (Armor Manager, Hotbar Replenish, Inventory Cleaner): Auto Eat, Packet Mine and Elytra Assist all want items in
    the right place first.
 2. **Packet Mine:** finishes the combat loop (break surround → crystal), and opens Mining.
 3. **Scaffold:** opens Building, and proves the Move Fix under load.

@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.inventory.manager;
+package dev.px.karatsuba.client.module.inventory.replenish;
 
 import dev.px.karatsuba.adapter.game.item.GameItem;
 import dev.px.karatsuba.adapter.game.item.Inventories;

@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.inventory.manager;
+package dev.px.karatsuba.client.module.inventory.armor;
 
 import dev.px.karatsuba.adapter.game.item.Armor;
 import dev.px.karatsuba.adapter.game.item.ArmorStats;

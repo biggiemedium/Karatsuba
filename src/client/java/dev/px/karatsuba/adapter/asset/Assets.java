@@ -83,15 +83,38 @@ public final class Assets {
         if (TEXTURES.containsKey(path)) {
             return TEXTURES.get(path);
         }
-        Future<NanoVGTexture.Decoded> pending = DECODING.computeIfAbsent(path,
-                ignored -> Core.threads().submit(() -> decodeOffThread(path)));
+        Future<NanoVGTexture.Decoded> pending = startDecoding(path);
         if (!pending.isDone()) {
+            return null;
+        }
+        if (pending.isCancelled()) {
+            // Never ran (submitted while Core's pool was down, say): try again rather
+            // than keep the backdrop missing for the rest of the session.
+            DECODING.remove(path);
             return null;
         }
         DECODING.remove(path);
         Texture loaded = upload(path, pending);
         TEXTURES.put(path, loaded);
         return loaded;
+    }
+
+    /**
+     * Starts decoding a backdrop on a worker now, so that the first
+     * {@link #backdrop} call for it finds the pixels ready, or nearer to it. For
+     * the loading screen's photo, started at boot before the screen draws a frame:
+     * otherwise its first frames are its base colour while the decode runs. Does
+     * nothing for one already started or loaded, or before Core's thread pool is
+     * up, which would drop the task. Render thread only.
+     */
+    public static void prefetch(String path) {
+        if (!TEXTURES.containsKey(path) && Core.threads().isRunning()) {
+            startDecoding(path);
+        }
+    }
+
+    private static Future<NanoVGTexture.Decoded> startDecoding(String path) {
+        return DECODING.computeIfAbsent(path, ignored -> Core.threads().submit(() -> decodeOffThread(path)));
     }
 
     private static NanoVGTexture.Decoded decodeOffThread(String path) throws IOException {

@@ -124,6 +124,10 @@ public final class Karatsuba {
         AutoSave.install();
 
         core.start();
+
+        // After start(), whose thread pool the decode runs on: submitted before it,
+        // the task is dropped. Still ahead of the loading screen's first frame.
+        GameOverlays.prefetch();
     }
 
     /**

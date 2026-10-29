@@ -7,7 +7,7 @@ import dev.px.core.input.MouseButton;
 import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
-import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.core.setting.impl.EnumSetting;
 import dev.px.karatsuba.adapter.game.entity.GameEntity;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.game.entity.Targets;
@@ -15,7 +15,8 @@ import dev.px.karatsuba.client.notify.Notices;
 import dev.px.karatsuba.client.notify.Source;
 
 /**
- * Puts several actions on the middle mouse button.
+ * Puts one action on the middle mouse button, chosen by {@code Action}: toggle a
+ * friend, throw a pearl, or use a firework.
  *
  * <p>The worked example for <b>the crosshair seam and the inventory seam</b>
  * together, and for how much a module shrinks once those exist. The original
@@ -39,14 +40,9 @@ public final class MiddleClickModule extends ClientModule {
     private static final String ENDER_PEARL = "ender_pearl";
     private static final String FIREWORK = "firework_rocket";
 
-    private final BooleanSetting friend = bool("Friend", true)
-            .describe("Add or remove the player under the cursor");
-
-    private final BooleanSetting pearl = bool("Pearl", false)
-            .describe("Throw an ender pearl from the hotbar");
-
-    private final BooleanSetting firework = bool("Firework", false)
-            .describe("Use a firework rocket from the hotbar");
+    private final EnumSetting<Action> action = enumOf("Action", Action.FRIEND)
+            .describe("FRIEND adds or removes the player under the cursor; PEARL throws an ender pearl; "
+                    + "FIREWORK uses a firework rocket, from the hotbar");
 
     /**
      * Handles the click.
@@ -61,15 +57,16 @@ public final class MiddleClickModule extends ClientModule {
         if (event.getButton() != MouseButton.MIDDLE || !event.isPressed()) {
             return;
         }
-        if (friend.isOn()) {
-            toggleFriend();
+        switch (action.get()) {
+            case FRIEND -> toggleFriend();
+            case PEARL -> Inventories.useFromHotbar(ENDER_PEARL);
+            case FIREWORK -> Inventories.useFromHotbar(FIREWORK);
         }
-        if (pearl.isOn()) {
-            Inventories.useFromHotbar(ENDER_PEARL);
-        }
-        if (firework.isOn()) {
-            Inventories.useFromHotbar(FIREWORK);
-        }
+    }
+
+    @Override
+    public String getDisplayInfo() {
+        return action.get().label;
     }
 
     /**
@@ -94,6 +91,22 @@ public final class MiddleClickModule extends ClientModule {
         } else {
             Core.social().add(name);
             Notices.success(Source.MODULE_MESSAGES, "Social", "Added " + name);
+        }
+    }
+
+    /** What the middle button does: one thing at a time. */
+    public enum Action {
+        /** Add or remove the player under the cursor. */
+        FRIEND("Friend"),
+        /** Throw an ender pearl from the hotbar. */
+        PEARL("Pearl"),
+        /** Use a firework rocket from the hotbar. */
+        FIREWORK("Firework");
+
+        private final String label;
+
+        Action(String label) {
+            this.label = label;
         }
     }
 }

@@ -13,7 +13,7 @@ import dev.px.karatsuba.adapter.combat.CombatKit;
 import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
-import dev.px.karatsuba.client.module.inventory.manager.ArmorPlanner;
+import dev.px.karatsuba.client.module.inventory.armor.ArmorPlanner;
 import dev.px.karatsuba.client.module.mode.SubMode;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
@@ -34,9 +34,9 @@ import dev.px.karatsuba.client.service.inventory.InventoryClick;
  * one an enemy could set off), or for {@code Hold} seconds after one was, or
  * after any explosion's push: beds and anchors are not seen coming, but the
  * next one is covered. Through {@link ArmorPlanner#preferBlastFor}, so
- * Inventory Manager ranks Blast Protection first too instead of undoing the
+ * Armor Manager ranks Blast Protection first too instead of undoing the
  * swap, and puts the usual armour back once the request lapses. Without
- * Inventory Manager the blast pieces stay on.
+ * Armor Manager the blast pieces stay on.
  *
  * <h2>Grim</h2>
  * Every click goes through {@code Services.inventory()}, which sends one a tick
@@ -47,8 +47,8 @@ import dev.px.karatsuba.client.service.inventory.InventoryClick;
 public final class BlastProtectionVelocity extends SubMode<VelocityModule.Mode> {
 
     /**
-     * Above Inventory Manager's armour ({@link ClaimPriority#HIGH}), below Elytra
-     * Swap's, so a chestplate going on for its crystal guard is not held up.
+     * Above Armor Manager's armour ({@link ClaimPriority#HIGH}), below its elytra
+     * swap, so a chestplate going on for its Crystal Guard is not held up.
      */
     private static final int PRIORITY = ClaimPriority.HIGH + 10;
 
@@ -97,7 +97,7 @@ public final class BlastProtectionVelocity extends SubMode<VelocityModule.Mode> 
     }
 
     /**
-     * Plans at the end of the tick, as Inventory Manager does; the service sends
+     * Plans at the end of the tick, as Armor Manager does; the service sends
      * the click at the start of the next.
      */
     @Subscribe(stage = Stage.POST)
@@ -111,8 +111,8 @@ public final class BlastProtectionVelocity extends SubMode<VelocityModule.Mode> 
         if (!ArmorPlanner.blastPreferred()) {
             return;
         }
-        // Never a worn-out threshold and never over an elytra: that is Inventory
-        // Manager's and Elytra Swap's call.
+        // Never a worn-out threshold and never over an elytra: that is Armor
+        // Manager's call.
         ArmorPlanner.Plan plan = planner.next(ArmorPlanner.Preference.BLAST, 0f, true);
         if (plan != null) {
             InventoryClick click = plan.click();

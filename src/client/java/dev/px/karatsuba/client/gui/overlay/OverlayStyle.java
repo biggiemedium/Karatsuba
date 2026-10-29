@@ -17,11 +17,27 @@ public final class OverlayStyle {
 
     // --------------------------------------------------------------- images
 
-    /** The loading screen's backdrop by day: cherry trees at sunrise, 3840x2160. */
-    public static final String LOADING_DAY = "/assets/karatsuba/texture/background/cherry-trees.png";
+    /**
+     * The loading screen's backdrop by day: cherry trees at sunrise, 3840x2160. A
+     * JPEG (quality 92) rather than the 11 MB PNG it came as, which stb took about
+     * five times as long to decode (45 ms against 241 ms); the PNG is kept in
+     * {@code dev/originals/}.
+     */
+    public static final String LOADING_DAY = "/assets/karatsuba/texture/background/cherry-trees.jpg";
 
     /** The loading screen's backdrop by night: a torchlit harbour, 1920x1080. */
     public static final String LOADING_NIGHT = "/assets/karatsuba/texture/background/background-night.png";
+
+    /**
+     * Each backdrop at 64x36, blurred: a few kilobytes, loaded on the spot, and
+     * stretched over the screen until the full photo has decoded and fades in
+     * over it, so the first frames are a soft version of the photo rather than its
+     * flat base colour. Made from the full photos; remake them if those change.
+     */
+    public static final String LOADING_DAY_PLACEHOLDER =
+            "/assets/karatsuba/texture/background/cherry-trees-placeholder.png";
+    public static final String LOADING_NIGHT_PLACEHOLDER =
+            "/assets/karatsuba/texture/background/background-night-placeholder.png";
 
     /** The hour, on the player's own clock, the day backdrop takes over: 06:00. */
     public static final int DAY_STARTS = 6;
@@ -31,13 +47,13 @@ public final class OverlayStyle {
 
     /**
      * The panorama turning behind the title screen and every menu out of a world:
-     * an End city, six 1280x1280 faces, {@code panorama_0.png} to
+     * the legacy set, six 1017x1017 faces, {@code panorama_0.png} to
      * {@code panorama_5.png}. A path under {@code assets/karatsuba/} without the
      * suffix, since the game loads these itself rather than through {@code Assets}.
-     * Each panorama has a folder of its own under {@code panorama/}; {@code tbtt/}
-     * holds another set.
+     * Each panorama has a folder of its own under {@code panorama/};
+     * {@code end-city/} and {@code tbtt/} hold others.
      */
-    public static final String MENU_PANORAMA = "texture/background/panorama/end-city/panorama";
+    public static final String MENU_PANORAMA = "texture/background/panorama/legacy/panorama";
 
     // ---------------------------------------------------------------- colour
 

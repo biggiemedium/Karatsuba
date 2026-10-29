@@ -20,7 +20,7 @@ import dev.px.karatsuba.adapter.movement.Displacement;
 import dev.px.karatsuba.adapter.movement.EntityPush;
 import dev.px.karatsuba.client.module.mode.SubMode;
 import dev.px.karatsuba.client.module.movement.StrafeModule;
-import dev.px.karatsuba.client.module.movement.TickKey;
+import dev.px.karatsuba.client.module.movement.control.TickKey;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.settings.ClientSettings;

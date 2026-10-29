@@ -12,7 +12,7 @@ import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.module.mode.SubMode;
 import dev.px.karatsuba.client.module.movement.StrafeModule;
-import dev.px.karatsuba.client.module.movement.TickKey;
+import dev.px.karatsuba.client.module.movement.control.TickKey;
 import dev.px.karatsuba.client.service.Services;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 

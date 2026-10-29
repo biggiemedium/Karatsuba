@@ -1,14 +1,12 @@
-package dev.px.karatsuba.client.module.movement;
+package dev.px.karatsuba.client.module.movement.control;
 
 import dev.px.core.Core;
 import dev.px.core.math.Vec3;
-import dev.px.core.math.Vec3i;
 import dev.px.core.movement.simulation.MotionState;
 import dev.px.core.movement.simulation.MovementInput;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
-import dev.px.karatsuba.adapter.world.Blocks;
 
 import java.util.List;
 
@@ -67,23 +65,6 @@ public final class Ledges {
     public static List<MotionState> ahead(MovementInput input, int ticks) {
         MotionState now = now();
         return now == null ? List.of() : Core.simulation().trace(now, input, ticks);
-    }
-
-    /**
-     * @return how many blocks of fall lie below a position: the cells of air
-     *         straight down from the feet before something solid, up to {@code max}
-     *         (so {@code max} means "at least that far")
-     */
-    public static int dropBelow(Vec3 feet, int max) {
-        int x = (int) Math.floor(feet.getX());
-        int z = (int) Math.floor(feet.getZ());
-        int top = (int) Math.floor(feet.getY() - 1.0E-3d);
-        for (int depth = 0; depth < max; depth++) {
-            if (Blocks.isSolid(Vec3i.of(x, top - depth, z))) {
-                return depth;
-            }
-        }
-        return max;
     }
 
     /** @return the horizontal distance between two positions */

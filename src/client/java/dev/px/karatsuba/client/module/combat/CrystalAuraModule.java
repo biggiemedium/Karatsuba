@@ -297,7 +297,7 @@ public final class CrystalAuraModule extends ClientModule {
             .describe("Slide the box to a new base instead of fading one out and another in")
             .visibleWhen(render);
 
-    private final NumberSetting<Integer> moveTime = integer("Move Time", 150, 50, 500)
+    private final NumberSetting<Integer> moveTime = integer("Move Time", 150, 50, 300)
             .step(10)
             .describe("Milliseconds the slide to a new base takes")
             .visibleWhen(() -> render.isOn() && interpolate.isOn());

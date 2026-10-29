@@ -33,21 +33,25 @@ import java.time.LocalTime;
  * <h2>The backdrop</h2>
  * Chosen when each showing begins and kept for it. Decoded on a worker
  * ({@link Assets#backdrop}): at 4K it would otherwise freeze the first frame.
- * Until it arrives the screen is that photo's base colour, and then it fades in. It pushes in slowly while loading goes on, unless the player
+ * The decode starts at boot ({@link #prefetch}), before the screen's first frame.
+ * Until it arrives the screen is a blurred 64x36 copy of it, loaded on the spot,
+ * and then the photo fades in over that. It pushes in slowly while loading goes on, unless the player
  * has turned animations off.
  */
 public final class LoadingOverlay implements LoadingScreen {
 
     /** Which photo, chosen by the clock as each showing begins. */
     private enum Backdrop {
-        DAY(OverlayStyle.LOADING_DAY, OverlayStyle.DAY_BASE),
-        NIGHT(OverlayStyle.LOADING_NIGHT, OverlayStyle.NIGHT_BASE);
+        DAY(OverlayStyle.LOADING_DAY, OverlayStyle.LOADING_DAY_PLACEHOLDER, OverlayStyle.DAY_BASE),
+        NIGHT(OverlayStyle.LOADING_NIGHT, OverlayStyle.LOADING_NIGHT_PLACEHOLDER, OverlayStyle.NIGHT_BASE);
 
         private final String path;
+        private final String placeholder;
         private final Color base;
 
-        Backdrop(String path, Color base) {
+        Backdrop(String path, String placeholder, Color base) {
             this.path = path;
+            this.placeholder = placeholder;
             this.base = base;
         }
 
@@ -72,6 +76,14 @@ public final class LoadingOverlay implements LoadingScreen {
 
     /** A gap between frames longer than this means the screen went away and came back. */
     private static final long NEW_SHOWING_NANOS = 1_000_000_000L;
+
+    /**
+     * Starts decoding the photo the first showing will use, at boot, so it is
+     * ready (or nearly) by the screen's first frame rather than starting then.
+     */
+    public void prefetch() {
+        Assets.prefetch(backdrop.path);
+    }
 
     @Override
     public void render(float screenWidth, float screenHeight, float progress, float opacity, float finished) {
@@ -100,34 +112,53 @@ public final class LoadingOverlay implements LoadingScreen {
         }
     }
 
-    /** The photo, filling the screen without stretching, cropped to centre. */
+    /**
+     * The photo, filling the screen without stretching, cropped to centre. Until
+     * it has decoded, its blurred placeholder in its place, which it then fades in
+     * over; the base colour only if neither can be read.
+     */
     private void drawBackdrop(float width, float height) {
         Render.rect(0f, 0f, width, height, this.backdrop.base);
 
-        Texture backdrop = Assets.backdrop(this.backdrop.path);
-        if (backdrop == null || !backdrop.isValid()) {
-            return;
-        }
-        if (backdropShownAt == 0L) {
-            backdropShownAt = System.nanoTime();
-        }
-        float fade = Animations.enabled()
-                ? Easing.STANDARD.apply(Animations.progress(backdropShownAt, OverlayStyle.BACKDROP_FADE)) : 1f;
         float drift = Animations.enabled()
                 ? Easing.DECELERATE.apply(Animations.progress(shownAt, OverlayStyle.DRIFT)) : 0f;
-
         float zoom = 1f + (OverlayStyle.DRIFT_SCALE - 1f) * drift;
-        float cover = Math.max(width / backdrop.getWidth(), height / backdrop.getHeight()) * zoom;
-        float drawnWidth = backdrop.getWidth() * cover;
-        float drawnHeight = backdrop.getHeight() * cover;
-        float x = (width - drawnWidth) / 2f;
-        float y = (height - drawnHeight) / 2f;
-        Render.clipped(0f, 0f, width, height, () ->
-                Render.texture(backdrop, x, y, drawnWidth, drawnHeight, Color.WHITE.withAlpha(fade)));
+
+        Texture backdrop = Assets.backdrop(this.backdrop.path);
+        boolean ready = backdrop != null && backdrop.isValid();
+        float fade = 0f;
+        if (ready) {
+            if (backdropShownAt == 0L) {
+                backdropShownAt = System.nanoTime();
+            }
+            fade = Animations.enabled()
+                    ? Easing.STANDARD.apply(Animations.progress(backdropShownAt, OverlayStyle.BACKDROP_FADE)) : 1f;
+        }
+        if (fade < 1f) {
+            // Same crop and push in as the photo, so the two line up as it fades in.
+            Texture placeholder = Assets.texture(this.backdrop.placeholder);
+            if (placeholder != null && placeholder.isValid()) {
+                cover(placeholder, width, height, zoom, 1f);
+            }
+        }
+        if (ready) {
+            cover(backdrop, width, height, zoom, fade);
+        }
 
         float scrimTop = height * (1f - OverlayStyle.SCRIM_REACH);
         Render.gradientV(0f, scrimTop, width, height - scrimTop,
                 OverlayStyle.SCRIM.withAlpha(0), OverlayStyle.SCRIM);
+    }
+
+    /** Draws {@code texture} covering the screen, centred and cropped, {@code zoom} times larger. */
+    private static void cover(Texture texture, float width, float height, float zoom, float alpha) {
+        float cover = Math.max(width / texture.getWidth(), height / texture.getHeight()) * zoom;
+        float drawnWidth = texture.getWidth() * cover;
+        float drawnHeight = texture.getHeight() * cover;
+        float x = (width - drawnWidth) / 2f;
+        float y = (height - drawnHeight) / 2f;
+        Render.clipped(0f, 0f, width, height, () ->
+                Render.texture(texture, x, y, drawnWidth, drawnHeight, Color.WHITE.withAlpha(alpha)));
     }
 
     /**

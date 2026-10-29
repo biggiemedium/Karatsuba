@@ -3,7 +3,7 @@ package dev.px.karatsuba.client.module.combat.velocity;
 import dev.px.karatsuba.adapter.event.game.player.KnockbackEvent;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.Players;
-import dev.px.karatsuba.client.module.movement.TickKey;
+import dev.px.karatsuba.client.module.movement.control.TickKey;
 
 /**
  * Jumps on the tick a hit lands, with the real jump key; see {@link JumpResetVelocity}.

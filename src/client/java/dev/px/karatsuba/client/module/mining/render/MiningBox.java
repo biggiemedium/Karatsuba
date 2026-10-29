@@ -1,4 +1,4 @@
-package dev.px.karatsuba.client.module.mining;
+package dev.px.karatsuba.client.module.mining.render;
 
 import dev.px.core.math.Box;
 import dev.px.core.math.Vec3;

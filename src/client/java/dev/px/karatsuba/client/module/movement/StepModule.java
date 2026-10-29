@@ -5,6 +5,8 @@ import dev.px.core.event.Stage;
 import dev.px.core.event.Subscribe;
 import dev.px.core.event.impl.TickEvent;
 import dev.px.karatsuba.client.module.ClientModule;
+import dev.px.karatsuba.client.module.movement.control.Ledges;
+import dev.px.karatsuba.client.module.movement.control.TickKey;
 import dev.px.core.module.Module;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.simulation.MotionState;

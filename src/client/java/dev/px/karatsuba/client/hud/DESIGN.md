@@ -176,7 +176,7 @@ stay still.
 
 2.13b **The player chooses which notifications show.** Every notification comes
 from a source (`client/notify/Notices`): **Module Toggles** (a module switched on
-or off), **Module Messages** (what a module reports: Auto Totem, Elytra Swap,
+or off), **Module Messages** (what a module reports: Auto Totem, Armor Manager,
 Recorder...), **Tasks** (automation finishing, failing, stopping), **Server**
 (lag, server software, anticheat) and **Client** (profiles, config, accounts,
 updates, the interface switch). The Notifications element's **Show** group has a

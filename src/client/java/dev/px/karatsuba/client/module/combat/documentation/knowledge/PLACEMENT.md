@@ -35,7 +35,8 @@ the game and the kit see it. Facts marked *(bytecode)* were checked against the
 | Seam | Used for | Ignores |
 |---|---|---|
 | `kit.everything()` | crystals (`CrystalRules`) and Breach's crystal room | crystals hit and still inhibited in the kit's `AttackLog`, and the one named by `asIfGone` |
-| `kit.blocking()` | blocks, beds, anchors, every `kit.planner` (Surround, Hole Fill, Web Aura, Bed Aura, Ender Chest Farmer) | the same |
+| `kit.blocking()` | blocks, beds, anchors, every `kit.planner` (Surround, Hole Fill's blocks, Bed Aura, Ender Chest Farmer) | the same |
+| `Obstructions.of(Core.entities())` | cobwebs (Web Aura, Hole Fill's webs): a web has no collision box, so only you are in its way | every entity but you |
 
 Ignoring hit crystals is right for all of them, because the server removes a
 crystal when it handles the attack. **A module that attacks a crystal itself
@@ -65,7 +66,10 @@ Then:
 - **Crystals:** record it as placed.
 - **Blocks:** the client shows no ghost block for such a click, so remember the
   cell and don't plan it again until the server's block arrives or a round trip
-  passes (Surround's `sent`).
+  passes (`sent` in Surround, Hole Fill and Web Aura).
+- **Leaving the cell out of the request isn't enough.** The planner can still
+  put a *support* into it for another cell. When the first step's cell is in
+  `sent`, wait the tick (Hole Fill and Web Aura do this; Surround doesn't yet).
 
 Ghost blocks from clicks the client *did* accept are settled by `PlacementSync`.
 

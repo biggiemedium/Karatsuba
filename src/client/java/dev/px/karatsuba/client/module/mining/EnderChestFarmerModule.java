@@ -27,6 +27,7 @@ import dev.px.karatsuba.adapter.world.Blocks;
 import dev.px.karatsuba.client.automation.Automation;
 import dev.px.karatsuba.client.automation.plan.EnderChestFarm;
 import dev.px.karatsuba.client.module.ClientModule;
+import dev.px.karatsuba.client.module.mining.render.MiningBox;
 import dev.px.karatsuba.client.notify.Notices;
 import dev.px.karatsuba.client.notify.Source;
 import dev.px.karatsuba.client.render.ThemeColors;

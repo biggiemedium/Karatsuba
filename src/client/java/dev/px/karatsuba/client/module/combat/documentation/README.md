@@ -65,8 +65,8 @@ Begun 2026-10-29: make each combat module less laggy and more reliable.
 | [Breach](modules/BREACH.md) | Planned, step 1 of 4 built | Steps 2–4 |
 | Bed Aura | Not yet | `hurtWindow` on its search; bed uses predicted `REFUSED`; aims at the edge of reach |
 | Kill Aura | Not yet | Aims at the target's eyes through its own rotation: reach at the edge, eyes in the box; no hurt-cooldown model |
-| Hole Fill | Not yet | A `REFUSED` block place repeated every tick |
-| Web Aura | Not yet | The same |
+| [Hole Fill](modules/HOLE_FILL.md) | `REFUSED` fixed, untested | Debug log; the rest of the checklist |
+| [Web Aura](modules/WEB_AURA.md) | `REFUSED` fixed, untested | Debug log; the rest of the checklist |
 | Auto Totem | Not yet | — |
 | Auto XP | Not yet | — |
 | Phase | Not yet | Attacks whatever is in the way every tick until it is gone: a crystal there should be inhibited once hit |

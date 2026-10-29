@@ -92,7 +92,7 @@ A minimap of nearby players and their predicted heading, using
 `Core.prediction()`, with friends coloured apart. Pairs with Predict ESP.
 
 ### 8. Inventory Preview · S
-Your main inventory as a grid, showing what Inventory Manager would move next and
+Your main inventory as a grid, showing what Armor Manager, Hotbar Replenish and Inventory Cleaner would move next and
 what the hotbar refill is waiting on.
 
 ---
@@ -103,7 +103,7 @@ what the hotbar refill is waiting on.
 2. **Combat Info and Armour:** the combat set already exists and has no HUD.
 3. **Connection:** merge TPS, Ping and Server.
 4. **Target HUD**, then the rest as the modules they show arrive (Radar with
-   Predict ESP, Inventory Preview with Inventory Manager).
+   Predict ESP, Inventory Preview with the inventory modules).
 
 ## Questions to settle
 
