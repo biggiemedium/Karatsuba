@@ -393,7 +393,8 @@ public final class ActionService implements Service {
             return Outcome.BUSY;
         }
         InventoryService.OffhandResult result = Services.inventory()
-                .toOffhand(action.getItem(), profile.checks(), action.isStopping());
+                .toOffhand(action.getItem(), profile.checks(), action.isStopping(), action.isInventoryFirst(),
+                        action.isUrgent());
         swapped = result == InventoryService.OffhandResult.SENT;
         switch (result) {
             case ALREADY:
@@ -442,6 +443,13 @@ public final class ActionService implements Service {
                 if (profile.swap() == SwapMode.HOLD) {
                     // Claimed this tick; another module's slot claim won.
                     return Outcome.WAITING;
+                }
+                if (Players.usingMainHand()) {
+                    // Any held-slot packet ends the main hand's item on the server,
+                    // and the swap back does not restart it: a silent swap mid-bite
+                    // would leave the client eating alone until the server's
+                    // correction arrives. Waits for the item to finish instead.
+                    return Outcome.BUSY;
                 }
                 swapTo = slot;
             }

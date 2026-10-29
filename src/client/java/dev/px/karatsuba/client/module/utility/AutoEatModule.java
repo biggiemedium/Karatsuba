@@ -13,6 +13,7 @@ import dev.px.core.math.Vec3;
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.movement.rotation.RotationPriority;
 import dev.px.core.setting.impl.BooleanSetting;
+import dev.px.core.setting.impl.GroupSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.karatsuba.adapter.game.entity.Entities;
 import dev.px.karatsuba.adapter.game.entity.GameEntity;
@@ -23,26 +24,32 @@ import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 
 /**
- * Eats when it matters, not when a number crosses a line: a golden apple when a
- * fight is going badly, a meal once it is safe to sit through one.
+ * Eats a golden apple when health is low and food when hunger is.
  *
  * <h2>Built on flows, not on a tick handler</h2>
  * The prototype for a module that is smarter by being made of flow steps. It
  * registers two of Core's <b>reflexes</b> while on and cancels them when off:
  *
  * <ul>
- *   <li><b>Golden apple</b>: low on health, in a fight or with no other way to
- *       heal. Enchanted or plain, whichever the hotbar has, in the order set.</li>
- *   <li><b>Meal</b>: hungry and out of a fight, or hurt and below the hunger
- *       that natural regeneration needs. Given up the moment an enemy closes to
- *       melee range or an apple is needed instead.</li>
+ *   <li><b>Golden apple</b>: health (absorption not counted) at or below
+ *       {@code Apple Health}, fight or not. Enchanted or plain, whichever the
+ *       hotbar has, in the order set.</li>
+ *   <li><b>Meal</b>: hunger at or below {@code Hunger Below}, or hurt, below the
+ *       hunger natural regeneration needs and out of a fight. Never started, and
+ *       given up, with an enemy in melee range or an apple needed instead.</li>
  * </ul>
  *
  * <p>The eating itself is the automation's {@link Eat} step, so it is done the
- * way a player does it: the slot switched to in the open, the use held until the
- * game finishes. A reflex pauses only the flows that need the use button, so a
+ * way a player does it: the slot really switched to, the use held until the
+ * server says the item was eaten. A reflex pauses only the flows that need the use button, so a
  * task walking somewhere keeps walking while this eats, and one that was using
  * the button picks up where it left off.
+ *
+ * <h2>Silent Swap</h2>
+ * The hotbar and the hand keep showing the player's own slot while the food is
+ * held. Only the drawing changes: a swap that only the server sees cannot last
+ * the 32 ticks of a bite, because Grim tracks item use and its slowdown from the
+ * slot and use packets (see {@code anticheat/Grim.md}, Simulation).
  *
  * <h2>When it counts as a fight</h2>
  * A player who is not a friend within {@code Enemy Range}, health lost in the
@@ -57,7 +64,7 @@ import dev.px.karatsuba.client.service.claim.ClaimPriority;
  * every combat module. Nothing swings while eating: the action service refuses an
  * attack while an item is in use, as Grim does.
  */
-@ModuleInfo(name = "Auto Eat", description = "Eats golden apples in a fight and food when it is safe",
+@ModuleInfo(name = "Auto Eat", description = "Eats golden apples when health is low and food when hungry",
         category = "Utility")
 public final class AutoEatModule extends ClientModule {
 
@@ -66,8 +73,6 @@ public final class AutoEatModule extends ClientModule {
 
     /** Hunger at and above which health regenerates by itself. */
     private static final int REGEN_HUNGER = 18;
-    /** Hunger at and below which sprinting stops: worth eating for even mid-fight. */
-    private static final int SPRINT_HUNGER = 6;
     /** Blocks: an enemy this near is in melee range, too close to start a meal. */
     private static final double MELEE = 4d;
     /** Ticks after losing health that still count as being in a fight. */
@@ -75,12 +80,15 @@ public final class AutoEatModule extends ClientModule {
     /** Ticks to leave meals alone after one could not be eaten. */
     private static final long BACK_OFF = 40L;
 
+    private final BooleanSetting silentSwap = bool("Silent Swap", true)
+            .describe("Keep your hotbar and hand showing your own slot while eating; the server still sees the food held");
+
     private final BooleanSetting apples = bool("Golden Apples", true)
-            .describe("Eat a golden apple when low on health in a fight");
+            .describe("Eat a golden apple whenever health is low");
 
     private final NumberSetting<Float> appleHealth = number("Apple Health", 10f, 1f, 20f)
             .step(0.5f)
-            .describe("Health plus absorption at or below which an apple is eaten")
+            .describe("Health at or below which an apple is eaten; absorption is not counted")
             .visibleWhen(apples);
 
     private final BooleanSetting enchantedFirst = bool("Enchanted First", false)
@@ -88,15 +96,18 @@ public final class AutoEatModule extends ClientModule {
             .visibleWhen(apples);
 
     private final NumberSetting<Integer> appleGap = integer("Apple Gap", 20, 0, 100)
-            .describe("Ticks between apples, so the last one's absorption shows first")
+            .describe("Ticks between apples, so regeneration has a moment to heal first")
             .visibleWhen(apples);
 
     private final BooleanSetting overCombat = bool("Over Combat", true)
             .describe("Take the hotbar from combat modules for an apple")
             .visibleWhen(apples);
 
+    private final GroupSetting appleGroup = group("Apples", true)
+            .containing(apples, appleHealth, enchantedFirst, appleGap, overCombat);
+
     private final NumberSetting<Integer> hungerBelow = integer("Hunger Below", 14, 1, 19)
-            .describe("Eat food at or below this hunger, once out of a fight");
+            .describe("Eat food at or below this hunger");
 
     private final BooleanSetting keepRegen = bool("Keep Regen", true)
             .describe("Also eat while hurt and below 18 hunger, so health keeps regenerating");
@@ -158,19 +169,30 @@ public final class AutoEatModule extends ClientModule {
     /** The best apple there is, in the order set; the time noted either way, so a failure is not retried at once. */
     private Step appleStep() {
         Step eat = Flow.firstOf(
-                Eat.item(ENCHANTED_GAPPLE).priority(this::appleClaim).when(c -> enchantedFirst.isOn()),
-                Eat.item(GAPPLE).priority(this::appleClaim),
-                Eat.item(ENCHANTED_GAPPLE).priority(this::appleClaim));
+                Eat.item(ENCHANTED_GAPPLE).priority(this::appleClaim).silent(silentSwap::isOn)
+                        .when(c -> enchantedFirst.isOn()),
+                Eat.item(GAPPLE).priority(this::appleClaim).silent(silentSwap::isOn),
+                Eat.item(ENCHANTED_GAPPLE).priority(this::appleClaim).silent(silentSwap::isOn));
         return eat.orElse(Flow.action("no apple to eat", c -> { }))
                 .then(Flow.action("note the apple", c -> lastApple = c.tick()))
                 .named("golden apple");
     }
 
-    /** The best food for hunger, given up if a fight closes in or an apple is needed. */
+    /**
+     * The best food for hunger, given up if a fight closes in or an apple is
+     * needed. Any meal the server did not finish &mdash; given up, cut short, or
+     * never started &mdash; leaves meals alone for a moment, so a fight at the edge
+     * of melee range does not start and drop one every tick.
+     */
     private Step mealStep() {
-        return Eat.food().priority(ClaimPriority.NORMAL)
-                .until(c -> nearestEnemy() <= MELEE || isRunning(apple))
-                .orElse(Flow.action("back off", c -> mealsFrom = c.tick() + BACK_OFF))
+        Eat eat = Eat.food().priority(ClaimPriority.NORMAL).silent(silentSwap::isOn);
+        return eat.until(c -> nearestEnemy() <= MELEE || isRunning(apple))
+                .orElse(Flow.action("not eaten", c -> { }))
+                .then(Flow.action("back off unless eaten", c -> {
+                    if (!eat.ate()) {
+                        mealsFrom = c.tick() + BACK_OFF;
+                    }
+                }))
                 .named("meal");
     }
 
@@ -187,11 +209,8 @@ public final class AutoEatModule extends ClientModule {
         if (!Inventories.hotbarHas(GAPPLE) && !Inventories.hotbarHas(ENCHANTED_GAPPLE)) {
             return false;
         }
-        if (Players.healthPool() > appleHealth.getFloat()) {
-            return false;
-        }
-        // Out of a fight an apple is a waste while health will come back by itself.
-        return inFight(c) || !canRegenerate();
+        // Health alone: absorption hearts do not hold an apple back, and neither does being out of a fight.
+        return Players.health() <= appleHealth.getFloat();
     }
 
     private boolean wantsMeal(FlowContext c) {
@@ -201,19 +220,13 @@ public final class AutoEatModule extends ClientModule {
         }
         int food = Players.foodLevel();
         if (food <= hungerBelow.getInt()) {
-            // Starving enough to stop sprinting is worth eating for even mid-fight.
-            return !inFight(c) || food <= SPRINT_HUNGER;
+            return true;
         }
         return keepRegen.isOn() && food < REGEN_HUNGER && Players.health() < Players.maxHealth() && !inFight(c);
     }
 
     private boolean inFight(FlowContext c) {
         return Players.onFire() || c.tick() - lastHurt < HURT_MEMORY || nearestEnemy() <= enemyRange.getFloat();
-    }
-
-    /** @return whether health comes back without an apple: fed enough already, or food to get there */
-    private static boolean canRegenerate() {
-        return Players.foodLevel() >= REGEN_HUNGER || Inventories.bestFoodSlot() != Inventories.NOT_FOUND;
     }
 
     /** @return the distance to the nearest player who is not a friend, or infinity */

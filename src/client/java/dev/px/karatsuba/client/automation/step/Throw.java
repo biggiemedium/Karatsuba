@@ -5,6 +5,7 @@ import dev.px.core.flow.FlowContext;
 import dev.px.core.flow.Status;
 import dev.px.core.flow.Step;
 import dev.px.core.flow.StopReason;
+import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.game.item.Inventories;
 import dev.px.karatsuba.adapter.projectile.ProjectileKit;
@@ -16,6 +17,8 @@ import dev.px.karatsuba.client.service.action.Outcome;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.projectile.aim.Aim;
 import dev.px.projectile.aim.AimSolver;
+
+import java.util.function.Supplier;
 
 /**
  * Throws one item so it lands on a point: an ender pearl to a ledge, a splash
@@ -39,6 +42,8 @@ public final class Throw extends Step {
     private final Shot.Item kind;
     private final String item;
     private final Vec3 point;
+    /** Instead of a point to land on: the rotation to throw along, worked out by the caller; null when it has none. */
+    private final Supplier<Vec2> along;
 
     private AimSolver solver;
     private Outcome outcome;
@@ -49,12 +54,31 @@ public final class Throw extends Step {
         this.kind = kind;
         this.item = item;
         this.point = point;
+        this.along = null;
+        uses(Control.ROTATION, Control.USE);
+    }
+
+    private Throw(Shot.Item kind, String item, Supplier<Vec2> along) {
+        super("throw " + item);
+        this.kind = kind;
+        this.item = item;
+        this.point = null;
+        this.along = along;
         uses(Control.ROTATION, Control.USE);
     }
 
     /** @return a step that throws an ender pearl to land on {@code point} */
     public static Throw pearl(Vec3 point) {
         return new Throw(Shot.Item.ENDER_PEARL, "ender_pearl", point);
+    }
+
+    /**
+     * @return a step that throws an ender pearl along whatever rotation
+     *         {@code along} gives, asked each tick; for a throw judged by more than
+     *         where it lands. It fails when {@code along} gives null
+     */
+    public static Throw pearlAlong(Supplier<Vec2> along) {
+        return new Throw(Shot.Item.ENDER_PEARL, "ender_pearl", along);
     }
 
     /** @return a step that throws {@code item}, which launches as {@code kind}, to land on {@code point} */
@@ -81,15 +105,24 @@ public final class Throw extends Step {
         if (slot == Inventories.NOT_FOUND) {
             return c.fail("no " + item + " in the hotbar");
         }
-        Aim aim = solver.at(Projectiles.kit().you(), point);
-        if (aim == null) {
-            return c.fail("cannot land it there: " + solver.getLastStats());
+        Vec2 rotation;
+        if (along != null) {
+            rotation = along.get();
+            if (rotation == null) {
+                return c.fail("no throw from here does it");
+            }
+        } else {
+            Aim aim = solver.at(Projectiles.kit().you(), point);
+            if (aim == null) {
+                return c.fail("cannot land it there: " + solver.getLastStats());
+            }
+            rotation = aim.getRotation();
         }
         Services.inventory().request(this, slot, ClaimPriority.HIGH);
-        c.look(Gaze.toward(aim.getRotation()));
-        if (Services.inventory().getServerSlot() == slot && Gaze.serverFaces(aim.getRotation(), AIMED)) {
+        c.look(Gaze.toward(rotation));
+        if (Services.inventory().getServerSlot() == slot && Gaze.serverFaces(rotation, AIMED)) {
             Services.actions().submit(this, Action.use()
-                    .look(aim.getRotation())
+                    .look(rotation)
                     .rotate(false)
                     .priority(ClaimPriority.HIGH)
                     .then(sent -> outcome = sent));

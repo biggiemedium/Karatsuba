@@ -85,13 +85,45 @@ that "end of tick looks the same to the server" was wrong.
 | **Walking under a silent rotation**: the move uses the camera's yaw, the packet says another | `adapter.game.player.Rotations.beforeMovementTick()` resolves the rotation at the head of `tickMovement` and calls `swapInSilent()`, so the silent yaw is in place for the move **and** the packets. `afterMovementPackets()` → `restore()` puts the camera back. Switched by `Rotations.movementCorrection(BooleanSupplier)`, wired in `client.settings.interaction.InteractionSettings.onRegister()` to `moveFix()` (default on) |
 | **Reported keys don't match the yaw** (Grim narrows to `knownInput`) | `Rotations.correctInput(Input)`, called right after `Input.tick()`, rewrites `input.playerInput` and `movementForward/Sideways` using `core: MovementCorrection.correct()` (only when `MovementCorrection.isNeeded()`, more than 22.5° off). STRICT mode: the result is always -1, 0 or 1 per axis |
 | **Drift from STRICT's eight directions** (up to 22.5°) | Scaffold picks yaws Move Fix maps exactly: `client.module.building.ScaffoldModule.lookAt()` tries the camera's yaw + 180°, then 45° steps (`YAW_ORDER`), so W becomes exactly S |
-| **A jump the keys don't explain** (`player.jump()`, editing velocity) | Real jump key for one tick: `client.module.movement.TickKey.press()` → `adapter.game.player.Inputs.hold(JUMP)` at `TickEvent` PRE, released by `TickKey.release()` from a plain `TickEvent` POST subscription. Used by `ParkourModule.onTickStart()`, `StepModule.onTickStart()`, `ScaffoldModule.telly()`. `JumpResetVelocity.onTickStart()` / `letGo()` do the same by hand |
+| **A jump the keys don't explain** (`player.jump()`, editing velocity) | Real jump key for one tick: `client.module.movement.TickKey.press()` → `adapter.game.player.Inputs.hold(JUMP)` at `TickEvent` PRE, released by `TickKey.release()` from a plain `TickEvent` POST subscription. Used by `ParkourModule.onTickStart()`, `StepModule.onTickStart()`, `ScaffoldModule.telly()`, and Velocity's `client.module.combat.velocity.JumpReset.onTickStart()` |
 | **A crouch the keys don't explain** (faking sneak for the ledge check only) | Real sneak key for one tick: `TickKey(SNEAK).press()` in `SafeWalkModule.onTickStart()` and `ScaffoldModule.normal()` (Edge Sneak). Vanilla's own `clipAtLedge` does the stopping, and Grim sees shift |
 | **Predicting edges and jumps from guesses** | `client.module.movement.Ledges.ahead()` / `held()` step `core: Core.simulation().trace()` with the player's own physics (`adapter.movement.MotionBridge.currentState()`), so a module only presses a key when vanilla physics says it matters |
-| **Silent multi-tick item use** (eating while showing another slot) | Not built, on purpose. Grim tracks `USE_ITEM`, `RELEASE_USE_ITEM` and slot changes and applies the use slowdown. `InventoryService.silently()` swaps and swaps back inside one call, so no silent hold outlives a tick |
+| **Silent multi-tick item use** (eating with the server holding another slot than the client) | Not built, on purpose. Grim tracks `USE_ITEM`, `RELEASE_USE_ITEM` and slot changes and applies the use slowdown. `InventoryService.silently()` swaps and swaps back inside one call, so no silent hold outlives a tick. Auto Eat's **Silent Swap** is visual only: the food is really selected on both sides (`InventoryService.conceal()`), and only the hotbar highlight, item popup and first-person hand draw the player's slot (`adapter.game.item.ShownSlot`, `InGameHudMixin`, `HeldItemRendererMixin`) |
+| **Eating out of step with Grim** (see **Item use** below) | `client.automation.step.Eat`: done only on the server's `CONSUME_ITEM`; a deadline lets go of a use the server never finishes; `ActionService` refuses a silent swap while the main hand is in use; `InventoryService` lets a player's pick win outright mid-use |
 | **No Push liquids / blocks** | Not built. Grim simulates fluid pushing and push-out-of-blocks (`PlayerBaseTick.updateFluidHeightAndDoFluidPushing`, `moveTowardsClosestSpace`) |
 
 ---
+
+## Being inside blocks (Phase)
+
+Read from 2.3.73 (`checks/impl/prediction/Phase`) and vanilla 1.21.4 bytecode on 2026-10-28.
+
+| Fact | Where |
+|---|---|
+| **Phase** flags, with setback, only a movement whose new box meets a block collision box the **previous tick's box did not**. Skipped for teleports (`isTeleport`) and while setbacks block offsets. Ignored for anvils and chests only on 1.8 clients | `Phase.onPredictionComplete` |
+| So being inside blocks is not flagged in itself: a server teleport into them, or a block whose shape grows around you (a door, trapdoor or fence gate closing), meets boxes the old box already met, or comes with a teleport | same |
+| Vanilla collision ignores a block whose cell already holds the moving box's leading face: `VoxelShape.calculateMaxDistance` only checks cells past `getCoordIndex(box.max − 1e-7)` (and the mirror for negative moves). A box already in a block moves freely through it, and is stopped only by the next solid cell. Inside a one-thick wall, that means out the other side. Grim's collision is the same, so this is simulated, not flagged | `VoxelShape.calculateMaxDistance` |
+| The client pushes itself out: each tick, for each of four points ±0.35 × width round the box, a column that collides sets the velocity on one axis to 0.1 toward the nearest free neighbour. Client-side only; the server never pushes | `ClientPlayerEntity.tickMovement` → `pushOutOfBlocks`, `wouldCollideAt` |
+| **Grim does not require the push.** For 1.14+ clients, out of a vehicle, where a column *suffocates* it only adds ±0.15 uncertainty on that axis (and marks the 0.03 estimator as pushing); its base prediction has no push. Skipping the push is legal, and closer to Grim's prediction than vanilla. Karatsuba: `adapter.movement.BlockPushOut`, `ClientPlayerEntityMixin.karatsuba$pushOutOfBlocks`, used by Phase's **Stay** | `PlayerBaseTick.moveTowardsClosestSpace` → `moveTowardsClosestSpaceModern` |
+
+| A landing pearl teleports its thrower to **where the pearl was at the start of the tick it hit** (`getLastRenderPos()`), not the hit point, on 1.21.2+ servers. A pearl thrown at your feet hits in its first tick and puts you back where it left your hand. Older servers used the hit point, which is what Alien's pearl phase aims for | `EnderPearlEntity.onCollision` (1.21.4) |
+
+So: **the only way into a wall is a server teleport**, and an ender pearl is the only one a player can aim (chorus fruit picks a random spot the player fits). **Once in, real movement keys may walk through the blocks already overlapped**; entering any new solid block is a Phase flag. Position-packet clips (vclip, NoClip, "packet phase") are a Phase flag and a TickTimer flag.
+
+## Item use
+
+Read from 2.3.73 (`PacketPlayerDigging`, `NoSlow`) and vanilla 1.21.4 bytecode on 2026-10-28.
+
+| Fact | Where |
+|---|---|
+| Grim marks the player slowed on `USE_ITEM` when *its* view says the item can be used: food only below 20 hunger (Grim's own `food`, from the server's health packets) unless `canAlwaysEat`; never an item on its compensated cooldown | `PacketPlayerDigging.handleUseItem` |
+| It stops on `RELEASE_USE_ITEM`; on `HELD_ITEM_CHANGE` to another slot (main hand, and resets the server's use where the platform does); and at a tick end when the use slot is no longer the last slot sent or the hand is empty | `PacketPlayerDigging.onPacketReceive` |
+| **NoSlow** flags, with setback, the second tick in a row that Grim believes the player slowed but the best prediction needed full speed (offset > 0.001) | `NoSlow.onPredictionComplete` |
+| The vanilla server ends a main-hand use on any held-slot packet to a different slot | `ServerPlayNetworkHandler.onUpdateSelectedSlot` → `clearActiveItem` |
+| The client never finishes an item: `tickItemStackUsage` only consumes when `!world.isClient`. It finishes on the server's entity status 9 (`ServerPlayerEntity.consumeItem` → `PlayerEntity.handleStatus(9)`), and follows the server's own living-flags metadata for using or not (`ClientPlayerEntity.onTrackedDataSet`) | so "the client stopped using" means finished or cut short, and status 9 tells which |
+| Letting go of use calls `ClientPlayerInteractionManager.stopUsingItem`: `syncSelectedSlot()` then `RELEASE_USE_ITEM` | release before any slot change, in the same tick |
+
+So: the client and Grim must agree on "using" every tick. Hazards are a use the server refused without saying (client stuck slowed, Grim not: Simulation), and a slot change the server sees but the client does not act on (Grim stops, client still slowed). `Eat` covers both.
 
 ## Aim
 
@@ -123,16 +155,87 @@ sprint by itself. That is consistent and fine.
 
 | Flag | What it flags | Karatsuba methods |
 |---|---|---|
-| **KnockbackHandler** ("ignored knockback") | Your movement after a velocity packet doesn't contain it. Flags and **sets you back with the knockback applied again** | `client.module.combat.velocity.JumpResetVelocity`: `onKnockback(KnockbackEvent)` marks the hit (ground only, Chance %), `onTickStart()` holds the real jump key at the start of the tick it applies to, and `letGo()` releases it at POST. The knockback is taken in full and bled off by the jump. The `KnockbackEvent` hook in `adapter.mixin.network.ClientPlayNetworkHandlerMixin` runs **after `forceMainThread`**, on the game thread |
-| **ExplosionHandler** | Same, for explosion knockback | Nothing cancels or scales it |
+| **KnockbackHandler** ("ignored knockback") | Your movement after a velocity packet doesn't contain it. Flags and **sets you back with the knockback applied again** | `client.module.combat.velocity.JumpResetVelocity` passes (and Blast Protection mode, which shares it): `JumpReset.onKnockback()` marks the hit (ground only, Chance %, velocity packets only), `JumpReset.onTickStart()` presses a `TickKey(JUMP)` at the start of the tick it applies to, released at POST. The knockback is taken in full. `CancelVelocity` drops it and is flagged. The `KnockbackEvent` hook (`Source.VELOCITY`) in `adapter.mixin.network.ClientPlayNetworkHandlerMixin.karatsuba$onEntityVelocityUpdate` runs **after `forceMainThread`**, on the game thread |
+| **ExplosionHandler** | Same, for explosion knockback | `CancelVelocity` drops it (its **Explosions** setting, on by default) and is flagged. The hook is `ClientPlayNetworkHandlerMixin.karatsuba$explosionKnockback`, a `@ModifyExpressionValue` on `ExplosionS2CPacket.playerKnockback()` in `onExplosion`, posting `KnockbackEvent` with `Source.EXPLOSION`. Vanilla *adds* that push (`addVelocityInternal`), so a cancel removes the push but keeps the sound and particles. Jump Reset ignores explosions. **Passes:** `BlastProtectionVelocity` wears Blast Protection while a crystal could go off (`ArmorPlanner.preferBlastFor()`, which Inventory Manager honours through `ArmorPlanner.effective()`), so the server sends a smaller push; see **Less knockback that Grim never sees** |
 
-Grim exempts knockback only on an accepted teleport or while in a vehicle
-(`MovementCheckRunner` → `KnockbackHandler.forceExempt()`). Nothing a client can
-send in between (extra position packets, digging packets) earns an exemption.
+Grim exempts knockback only in the cases listed under **How the two handlers
+score a push**. Nothing a client can send in between (extra position packets,
+digging packets) earns an exemption.
 
-`CancelVelocity` still exists, but on Grim the setback re-applies the knockback,
-so it can't win there. Scaled, Buffer, Shoreline's Normal / Grim V2 / Walls / Jump
-/ Conceal are all forms of dropping or shrinking the packet, and all are flagged.
+Cancelling and scaling knockback are **allowed** in this client (see rule 6),
+but outside the allowances below none of them pass Grim. Cancel, Scaled,
+Buffer, Shoreline's Normal / Grim V2 / Walls / Jump / Conceal all drop or shrink
+the push, and all are flagged.
+
+### How the two handlers score a push (read 2026-10-27)
+
+- **Offset.** `PredictionEngine.doPredictions` scores every candidate vector
+  that includes the push: `sqrt(UncertaintyHandler.reduceOffset(distanceSquared))`
+  against the real movement, into `KnockbackHandler` / `ExplosionHandler.handlePredictionAnalysis`,
+  which keep the minimum. Candidates *without* the push are scored too, so a
+  cancelled push still leaves the movement itself clean (no Simulation flag):
+  only the two velocity handlers flag.
+- **The `o:` in the alert means different things.** AntiKB prints the
+  knockback offset (`formatOffset(likelyKB.offset)`). AntiExplosion prints the
+  *whole move's* offset (`PredictionComplete.getOffset()`), so a cancelled
+  explosion shows `o: 1.38E-14`: the move fit perfectly without it, and the
+  explosion candidates did not. "ignored knockback" / "ignored explosion" means
+  the offset was never scored (still `Integer.MAX_VALUE`).
+- **Thresholds (dev server config).** Both flag above `threshold: 0.001`.
+  Knockback (`onPredictionComplete`): every flag alerts; a setback comes when
+  that hit's offset is at least `immediate-setback-threshold` (0.1), or when the
+  running advantage (offsets summed, capped at `max-ceiling` 4) reaches
+  `max-advantage` (1). Clean knockback ticks decay the advantage by ×0.999 while
+  it is above 0.05. Explosion uses `flagAndAlertWithSetback` with
+  `setbackvl: 3`: a setback from the third violation.
+- **Small pushes.** If a push could hide inside the 0.03 movement threshold
+  (`PointThreeEstimator.determineCanSkipTick`), its offset becomes the whole
+  move's offset, so ignoring a tiny push passes. Same if a velocity packet came
+  after an explosion (it replaces the motion anyway).
+- **Exempt (`forceExempt`, offset set to 0):** an accepted teleport, riding
+  anything (`MovementCheckRunner`, `PacketPlayerSteer`), and ticks Grim does not
+  simulate (dead, spectator, abilities-flying, or gliding with Grim's
+  elytra exemption).
+
+### `reduceOffset`: the allowance that matters
+
+Three places call it (read 2026-10-27). `PredictionEngine.doPredictions`
+passes the **squared** offset for knockback, explosions and NoSlow, so the
+error forgiven is the square root of the amount below. `MovementCheckRunner`
+passes the main Simulation offset as a **plain distance**
+(`predictedVelocity.vector.distance(actualMovement)`), so there the amount is
+forgiven in blocks: 1.2 for a hard collider (Boat Burst). For a 1.21.4 client:
+
+| Condition (`UncertaintyHandler`) | Squared offset forgiven | Error forgiven |
+|---|---|---|
+| A hard collider (unridden boat or shulker, or strider/boat cases while riding) within 1.0 of the box at the start of the move, that tick and the 3 after (`lastHardCollidingLerpingEntity.hasOccurredSince(3)`) | 1.2 | **≈1.095 blocks**: a whole normal hit, and most explosions |
+| Near a glitchy block | 0.25 | Only for clients **older than 1.9**: never us |
+| Stuck speed (web, berries) while point-three or riding | 0.01 | 0.1 blocks |
+| Bouncy block (slime, bed) while point-three or riding | 0.03 | ≈0.17 blocks |
+
+Seen on the dev server 2026-10-27, Cancel with no collider: `AntiKB (x5) o: 0.47`
+and `AntiExplosion (x3)`.
+
+### Less knockback that Grim never sees (vanilla 1.21.4, server side)
+
+The server works the push out before it is sent, so anything that shrinks it
+there is simply the push Grim expects.
+
+- **Airborne hits add no vertical.** `LivingEntity.takeKnockback`: Y becomes
+  `onGround ? min(0.4, y/2 + strength) : y`. Off the ground (as the server
+  last heard it), the vertical is left as it was, so a hit while descending
+  keeps you descending. Horizontal is `x/2 - push` either way. `strength` is
+  already × `(1 - knockback_resistance)`; netherite gives 0.1 a piece.
+  Grim's GroundSpoof/Simulation make faking `onGround` a flag, so the real way
+  is a real jump: being in the air when the hit lands.
+- **Explosions × `(1 - explosion_knockback_resistance)`** (`ExplosionImpl`,
+  attribute range 0–1). Blast Protection adds 0.15 a level **per piece**
+  (`AttributeEnchantmentEffect.getModifierId` suffixes the slot, so pieces
+  stack): one Blast Protection IV piece takes 60% off, vertical included, and
+  two take all of it. Cancel,
+Scaled, Buffer, Shoreline's Normal / Grim V2 / Walls / Jump / Conceal all drop
+or shrink the push, and all are flagged. Anything shipped as passing Grim still
+needs the bytecode evidence.
 
 Fishing-rod pulls are an uncertainty box built from zero
 (`UncertaintyHandler.fishingRodPullBox`), so ignoring the client-side pull is
@@ -153,8 +256,9 @@ game** until this line says otherwise.
 | **Tap Jump** | Vanilla, nothing to read: `LivingEntity.tickMovement` zeroes `jumpingCooldown` on any tick jump is not held, and only counts it down while held | `Inputs.letGoOfJump()` → `Inputs.applyJumpLetGo()` in `ClientPlayerEntityMixin.karatsuba$afterInput`, after hold-still: the move and the input packet both see jump released. `GrimStrafe.tapsJump()` only does it in the air, out of water, lava and climbables, and not with an elytra on |
 | **Keep Sprint** | `PacketPlayerAttack`: for a 1.21+ client on a 1.9+ server with no knockback enchant it only raises `maxAttackSlow`; `minAttackSlow` stays 0, so `PredictionEngine.addAttackSlowToPossibilities` keeps the unslowed velocity as a candidate | `adapter.movement.AttackSlowdown.skipWhen()`, registered by `GrimStrafe`'s constructor; `PlayerEntityMixin` skips the `setVelocity(×0.6)` and `setSprinting(false)` in `PlayerEntity.attack` for the local player |
 
-These are the only velocity or position edits meant to pass Grim. Each must
-stay inside an allowance Grim grants itself; a new one needs the same bytecode
+These are the only velocity or position edits known to pass Grim. Each stays
+inside an allowance Grim grants itself. Other velocity edits are allowed (rule
+6) but are expected to flag. A new one claimed to pass needs the same bytecode
 evidence before it goes in.
 
 ---
@@ -203,7 +307,7 @@ Read from 2.3.73's `checks/impl/timer` and its `config/en.yml` on 2026-10-22. He
 | Flag | What it flags | Karatsuba methods |
 |---|---|---|
 | **TimerA** (`Timer`) | Each tick packet adds 50 ms to a balance; flagged when the balance passes the server's clock. A pong arriving after a movement moves `lastMovementPlayerClock` to the send time of the transaction it answers, and the balance is never allowed below that minus `drift` (120 ms). Held **with** their pongs, in order, the balance only catches up to real time: latency, not timer | `adapter.network.PacketHold`: one queue, sent in order, one flush. Blink holds everything (`hold.everything()`) |
-| **TimerLimit** | Same balance, but `limitFallBehind` treats the clock as no older than `now − ping-abuse-limit-threshold` (1000 ms by default, -1 off). Once the oldest unanswered transaction is over that, the balance jumps to `now − 1120 ms` and every tick packet after it in the batch adds 50 ms, so a hold longer than about **1000 + 120 − ping ms** flags each extra tick, **with a setback** | `client.module.movement.BlinkModule.holdLimit()`: with Grim Safe on, each hold lasts at most `(Ping Limit + 120 − ping − 150) / 50` ticks (ping from the tab list). Blink always runs as bursts (Mode: Continuous until turned off, Fixed until Max Timeout): each hold is sent when it runs out and another starts a tick later; each new hold starts from a fresh clock, as the batch's last pongs answer recent transactions |
+| **TimerLimit** | Same balance, but `limitFallBehind` treats the clock as no older than `now − ping-abuse-limit-threshold` (1000 ms by default, -1 off). Once the oldest unanswered transaction is over that, the balance jumps to `now − 1120 ms` and every tick packet after it in the batch adds 50 ms, so a hold longer than about **1000 + 120 − ping ms** flags each extra tick, **with a setback** | `client.module.movement.BlinkModule.holdLimit()`: with Grim Safe on, each hold lasts at most `(Ping Limit + 120 − ping − 150) / 50` ticks (ping from the tab list). Blink always runs as bursts (Mode: Continuous until turned off, Fixed until Max Timeout): each hold is sent when it runs out and another starts a tick later; each new hold starts from a fresh clock, as the batch's last pongs answer recent transactions. Servers change the threshold (PvP servers often lower it), so **Adaptive** (default on, `client.module.movement.blink.BurstBudget`) learns the real limit: bursts start at 400 ms and grow 100 ms per burst that lands with no setback within a round trip; a setback cuts the length to 60% and caps it there, per server address, for the session |
 | **NegativeTimer** | The balance more than 1200 ms (`drift`) behind `lastMovementPlayerClock`, while predictions are being checked. With setback | Never reached by a hold inside TimerLimit's budget |
 | **TickTimer** | See above: a flying packet before its `CLIENT_TICK_END`. A hold that took movement and not the tick end (Blink's old "Packets: Movement") delivers a run of flying packets with no tick end between: flagged on every one | Blink no longer holds by kind. `PacketHold.isSplitting()` makes `ActionService` and `DigService` wait while any module does |
 
@@ -273,11 +377,15 @@ the game restart the dig itself.
 4. **Look before you click.** Turn this tick, click next tick, and make sure the
    look hits from where the eyes will be after the next move.
 5. **Never repeat a turn size before consecutive placements.**
-6. **Don't touch velocity**, not even knockback, explosions or currents. The one
-   exception is staying inside an allowance Grim grants itself, with bytecode
-   to show it: see **Strafe extras**.
+6. **Velocity may be touched** (since 2026-10-27). Knockback and explosion
+   pushes go through `KnockbackEvent` (cancel, `scale()` or `setVelocity()`),
+   never by writing the player's velocity directly. Know which edits pass and
+   which flag: only the allowances under **Strafe extras** and Jump Reset are
+   known to pass, and cancelling or shrinking knockback is set back (see
+   **Knockback and explosions**). Say so in the mode's description.
 7. **No fabricated packets**: no extra flying packets, no fake slot or use
-   packets, no cancelling server packets to hide state.
+   packets, no cancelling server packets to hide state. Dropping a knockback
+   push through `KnockbackEvent` is the one allowed exception (rule 6).
 8. **Break only through `adapter.game.player.Digging`**, looking at the block
    with the rotation the server already has, tool in hand before the start.
    Never send digging packets by hand.
@@ -289,14 +397,14 @@ the game restart the dig itself.
 
 | Idea | Why it fails |
 |---|---|
-| Velocity Cancel / Scaled / Buffer | KnockbackHandler setback re-applies the knockback |
+| Velocity Cancel / Scaled / Buffer, as a way past Grim (Cancel ships anyway; rule 6) | KnockbackHandler / ExplosionHandler setback re-applies the knockback |
 | Shoreline V2 Velocity (all modes but fishhook) | Same; NoPush liquids/blocks are simulated |
 | Shoreline V2 Scaffold (burst + gap fill) | MultiPlace; one rotation per tick can't serve several clicks |
 | Leapfrog Scaffold | `player.jump()` (Simulation), click before rotate (RotationPlace), centre-of-block hit, equal turn deltas (DuplicateRotPlace) |
 | Rise Scaffold extras | Direct `jump()`, cancelled slot packets, random use packets, timer, fake sneak slowdown |
-| MeteorPlus Grim Cancel | Drops the velocity (KnockbackHandler), then sends an extra position packet (TickTimer) and a finish-digging packet on the air at your feet (AirLiquidBreak), from another thread at any point in the tick (Post) |
+| MeteorPlus Grim Cancel (re-read on branch 26.3, 2026-10-27; unchanged) | Drops the velocity (KnockbackHandler), then sends an extra position packet (TickTimer: a flying packet with no `CLIENT_TICK_END` since the last one is flagged with setback) and a finish-digging packet on the air at your feet (AirLiquidBreak), from another thread at any point in the tick (Post). The digging packet was meant to earn lenience. In 2.3.73 the only knockback exemptions are the `forceExempt` sites (teleport, riding, unsimulated ticks), and the glitchy-block `reduceOffset` is pre-1.9 clients only |
 | MeteorPlus Grim Cancel v2 | Same packets on every movement packet. Its `canCancel` flag can never become true, so as written it does nothing at all |
-| MeteorPlus Grim Skip | Drops the velocity and the next 6 movement packets: Grim then sees 7 ticks of movement in one packet without the knockback (Simulation, KnockbackHandler) |
+| MeteorPlus Grim Skip (26.3, unchanged) | Drops the velocity and the next 6 movement packets: Grim then sees 7 ticks of movement in one packet without the knockback (Simulation, KnockbackHandler). Explosions are also only dropped after a damage packet arms it |
 | Silent eating | Item use tracked from packets |
 | Shoreline V2 SpeedMine "Speed" < 1 (finish at that share of progress, every block) | FastBreak: each finish adds `(1 − Speed) · dig time` to the balance. Obsidian with netherite Efficiency V (43 ticks) at 0.7 is about 650 ms early, so the second one is cancelled |
 | Shoreline V2 SpeedMine "GRIM" packets (a second START at `pos.below(2000)`) | Points FastBreak at a void block that breaks at once, but MultiBreak (a second START in the tick, other position) and FarBreak (no world-bounds exemption) flag it |

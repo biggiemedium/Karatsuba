@@ -155,7 +155,10 @@ public final class InventoryManagerModule extends ClientModule {
         refillPlanner.observe();
 
         if (armour.isOn()) {
-            ArmorPlanner.Plan plan = armourPlanner.next(prefer.get(), replaceBelow.getInt() / 100f, keepElytra.isOn());
+            // Blast first while Velocity's Blast Protection mode asks for it, so
+            // its pieces are not taken straight back off.
+            ArmorPlanner.Plan plan = armourPlanner.next(ArmorPlanner.effective(prefer.get()),
+                    replaceBelow.getInt() / 100f, keepElytra.isOn());
             if (plan != null) {
                 InventoryClick click = plan.click();
                 StopMode stop = stopToEquip.get();

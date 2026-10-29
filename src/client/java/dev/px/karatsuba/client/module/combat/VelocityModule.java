@@ -2,6 +2,7 @@ package dev.px.karatsuba.client.module.combat;
 
 import dev.px.core.module.ModuleInfo;
 import dev.px.core.setting.impl.GroupSetting;
+import dev.px.karatsuba.client.module.combat.velocity.BlastProtectionVelocity;
 import dev.px.karatsuba.client.module.combat.velocity.CancelVelocity;
 import dev.px.karatsuba.client.module.combat.velocity.JumpResetVelocity;
 import dev.px.karatsuba.client.module.mode.ModalModule;
@@ -18,10 +19,17 @@ import dev.px.karatsuba.client.module.mode.ModalModule;
  *   <tr><th>Mode</th><th>Layer</th><th>How it works</th></tr>
  *   <tr><td>Jump Reset</td><td>the controls</td>
  *       <td>takes the push and jumps on it, which bleeds it off through friction.
- *           What an anticheat that checks knockback is taken (Grim) accepts</td></tr>
+ *           What an anticheat that checks knockback is taken (Grim) accepts.
+ *           Hits only: a jump does nothing against an explosion's push</td></tr>
+ *   <tr><td>Blast Protection</td><td>the armour</td>
+ *       <td>wears Blast Protection while a crystal could go off, so the server
+ *           sends less of the explosion's push: two Blast Protection IV pieces,
+ *           none of it. Nothing is changed client side; hits are jump-reset</td></tr>
  *   <tr><td>Cancel</td><td>semantic event</td>
- *       <td>drops the push entirely. Grim sees the push was not taken and sets
- *           the player back to where it would have put them</td></tr>
+ *       <td>drops the push entirely, or with Scaled on takes a random share of
+ *           it, hits and (by default) explosions. Grim
+ *           sees the push was not taken and sets the player back to where it
+ *           would have put them</td></tr>
  * </table>
  *
  * <p><b>This file has no logic in it at all</b>, which is the point. Adding a
@@ -32,6 +40,7 @@ public final class VelocityModule extends ModalModule<VelocityModule.Mode> {
 
     public enum Mode {
         JUMP_RESET,
+        BLAST_PROTECTION,
         CANCEL
     }
 
@@ -39,7 +48,11 @@ public final class VelocityModule extends ModalModule<VelocityModule.Mode> {
     private final JumpResetVelocity jumpReset = attach(new JumpResetVelocity());
     private final GroupSetting jumpResetPanel = panelFor(jumpReset);
 
+    private final BlastProtectionVelocity blastProtection = attach(new BlastProtectionVelocity());
+    private final GroupSetting blastProtectionPanel = panelFor(blastProtection);
+
     private final CancelVelocity cancel = attach(new CancelVelocity());
+    private final GroupSetting cancelPanel = panelFor(cancel);
 
     public VelocityModule() {
         super(Mode.JUMP_RESET);

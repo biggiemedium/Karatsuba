@@ -81,6 +81,12 @@ public final class Action {
     /** {@link Kind#OFFHAND}: stand the player still for a tick if moving is all that stops the click. */
     private boolean stopping;
 
+    /** {@link Kind#OFFHAND}: from the main inventory before the hotbar, which is left alone while the inventory has one. */
+    private boolean inventoryFirst;
+
+    /** {@link Kind#OFFHAND} with {@link #inventoryFirst}: the hotbar after all, when the inventory click cannot go this tick. */
+    private boolean urgent;
+
     private Action(Kind kind, int entityId, Vec3i block, Direction face, Vec3 hit, boolean airPlace) {
         this.kind = kind;
         this.entityId = entityId;
@@ -132,6 +138,26 @@ public final class Action {
      */
     public Action stopping() {
         this.stopping = true;
+        return this;
+    }
+
+    /**
+     * For an offhand item: take it from the main inventory first, and from the
+     * hotbar only when the main inventory has none. Keeps the hotbar the player
+     * laid out: a hotbar swap leaves the old offhand item in that hotbar slot.
+     */
+    public Action fromInventoryFirst() {
+        this.inventoryFirst = true;
+        return this;
+    }
+
+    /**
+     * With {@link #fromInventoryFirst()}: when the inventory click cannot go out
+     * this tick (moving, an item in use, a click already sent), use a hotbar one
+     * now rather than wait. For a totem the player needs this tick.
+     */
+    public Action urgent() {
+        this.urgent = true;
         return this;
     }
 

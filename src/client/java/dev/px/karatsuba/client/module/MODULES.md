@@ -63,7 +63,7 @@ moves and composes like a task while staying a toggle. The task system itself
 
 | Category | Modules |
 |---|---|
-| Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Surround, Velocity, Web Aura |
+| Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Phase (Pearl, Walk), Surround, Velocity, Web Aura |
 | Movement | Elytra Fly (Bounce, Firework), Parkour, Safe Walk, Speed, Sprint, Step |
 | Building | Scaffold |
 | Mining | Auto Tool, Ender Chest Farmer, Smart Mine |
@@ -206,9 +206,14 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
   rearrange your inventory to go base hunting.
 - **Auto Eat** · done in **Utility** (needs in-game testing): the first module built
   from flow steps. Two Core reflexes around the automation's `Eat` step: a golden
-  apple when low in a fight (or with no other way to heal), a meal when hungry and
-  safe or hurt below regen hunger, given up if an enemy closes to melee. Real held
+  apple whenever health (absorption not counted) is at or below Apple Health, a
+  meal at or below Hunger Below (or hurt below regen hunger, out of a fight), never
+  started and given up with an enemy in melee range. Apple settings in an Apples group. Real held
   right-click, so Grim sees vanilla item use; only flows needing the use button pause.
+  Hardened 2026-10-28: an eat counts only on the server's consume status, a use the
+  server never finishes is let go after its use time at server TPS plus ping, no
+  silent swaps while eating. **Silent Swap** keeps the hotbar and hand showing your
+  slot (visual only; see Grim.md "Item use").
 - **Shulker Preview** · S: a shulker's contents on hover.
 
 ### Render

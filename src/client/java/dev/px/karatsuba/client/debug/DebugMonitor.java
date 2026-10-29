@@ -271,7 +271,9 @@ public final class DebugMonitor {
         Vec3 push = event.getVelocity();
         double horizontal = Math.sqrt(push.getX() * push.getX() + push.getZ() * push.getZ());
         String taken = event.isCancelled() ? " (ignored)" : event.isModified() ? " (modified)" : "";
-        alert(AlertType.KNOCKBACK, String.format(Locale.ROOT, "%.2f h, %.2f v%s", horizontal, push.getY(), taken));
+        String source = event.isExplosion() ? "Explosion " : "";
+        alert(AlertType.KNOCKBACK, String.format(Locale.ROOT, "%s%.2f h, %.2f v%s",
+                source, horizontal, push.getY(), taken));
     }
 
     // -------------------------------------------------------------- packets

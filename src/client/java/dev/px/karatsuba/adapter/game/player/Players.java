@@ -17,6 +17,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.projectile.FireworkRocketEntity;
+import net.minecraft.util.Hand;
 import dev.px.karatsuba.adapter.mixin.world.FireworkRocketEntityAccessor;
 
 /**
@@ -396,6 +397,52 @@ public final class Players {
     public static boolean usingItem() {
         ClientPlayerEntity self = player();
         return self != null && self.isUsingItem();
+    }
+
+    /**
+     * @return whether the item in use is the main hand's, which any held-slot packet
+     *         ends on the server (vanilla {@code onUpdateSelectedSlot} clears it)
+     */
+    public static boolean usingMainHand() {
+        ClientPlayerEntity self = player();
+        return self != null && self.isUsingItem() && self.getActiveHand() == Hand.MAIN_HAND;
+    }
+
+    /**
+     * @return ticks the item in use has been used for, as the client counts them; 0
+     *         when none. The client never finishes an item itself, so for food this
+     *         keeps counting past {@link #itemUseDuration()} until the server says
+     */
+    public static int itemUseTicks() {
+        ClientPlayerEntity self = player();
+        return self == null || !self.isUsingItem() ? 0 : self.getItemUseTime();
+    }
+
+    /** @return ticks the item in use takes to finish, 32 for most food; 0 when none */
+    public static int itemUseDuration() {
+        ClientPlayerEntity self = player();
+        return self == null || !self.isUsingItem() ? 0 : self.getActiveItem().getMaxUseTime(self);
+    }
+
+    /** Items the server has said the player finished using: entity status 9. */
+    private static int finishedUses;
+
+    /**
+     * @return how many items the server has said the player finished using, since
+     *         the game started; compare two readings to see whether one finished
+     *
+     * <p>The only proof a bite counted. The client never finishes eating or
+     * drinking by itself: it waits for the server's {@code CONSUME_ITEM} status,
+     * then finishes the item and stops using it. A use that stops without one was
+     * cut short, by the server, a slot change or the item leaving the hand.
+     */
+    public static int finishedUses() {
+        return finishedUses;
+    }
+
+    /** Called by {@code PlayerEntityMixin} when the server says the local player finished using an item. */
+    public static void noteFinishedUse() {
+        finishedUses++;
     }
 
     /** @return whether a container or inventory screen is open, which a player cannot click the world through */

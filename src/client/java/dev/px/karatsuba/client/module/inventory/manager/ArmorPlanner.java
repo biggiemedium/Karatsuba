@@ -21,8 +21,37 @@ import dev.px.karatsuba.client.service.inventory.InventoryClick;
  * maths has it. {@link Preference#BLAST} weights Blast Protection over Protection,
  * for crystal fights. Never put on: Curse of Binding (it would never come off) or
  * an elytra (that is the player's call).
+ *
+ * <h2>Blast Protection on request</h2>
+ * Velocity's Blast Protection mode asks for {@link Preference#BLAST} while an
+ * explosion is likely ({@link #preferBlastFor}), and whoever plans armour passes
+ * its own choice through {@link #effective} so it keeps the blast pieces on
+ * rather than taking them straight back off. The request expires on its own, so
+ * nothing has to remember to withdraw it: once it lapses, the usual set goes
+ * back on.
  */
 public final class ArmorPlanner {
+
+    /** {@code System.nanoTime()} until which Blast Protection is asked for. */
+    private static long blastUntil = System.nanoTime();
+
+    /** Ranks Blast Protection first for the next {@code millis}, or longer if already asked. */
+    public static void preferBlastFor(long millis) {
+        long until = System.nanoTime() + millis * 1_000_000L;
+        if (until - blastUntil > 0) {
+            blastUntil = until;
+        }
+    }
+
+    /** @return whether Blast Protection is currently asked for */
+    public static boolean blastPreferred() {
+        return blastUntil - System.nanoTime() > 0;
+    }
+
+    /** @return {@link Preference#BLAST} while it is asked for, otherwise {@code chosen} */
+    public static Preference effective(Preference chosen) {
+        return blastPreferred() ? Preference.BLAST : chosen;
+    }
 
     /** Which protection to rank first. */
     public enum Preference {

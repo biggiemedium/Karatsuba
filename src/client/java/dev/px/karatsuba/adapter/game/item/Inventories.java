@@ -221,6 +221,19 @@ public final class Inventories {
         return best;
     }
 
+    /**
+     * @return whether the item in this slot is cooling down, so using it does
+     *         nothing: the client refuses, and Grim does not expect the slowdown
+     */
+    public static boolean onCooldown(int slot) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null || slot < 0 || slot >= SLOT_COUNT) {
+            return false;
+        }
+        ItemStack stack = player.getInventory().getStack(slot);
+        return !stack.isEmpty() && player.getItemCooldownManager().isCoolingDown(stack);
+    }
+
     /** @return whether this hotbar slot holds something edible, even with a full hunger bar */
     public static boolean alwaysEdible(int slot) {
         PlayerInventory inventory = inventory();

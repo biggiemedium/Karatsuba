@@ -1,5 +1,6 @@
 package dev.px.karatsuba.adapter.mixin.network;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.network.WeatherEvent;
@@ -17,11 +18,14 @@ import net.minecraft.network.packet.s2c.play.GameStateChangeS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerRespawnS2CPacket;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
+import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Optional;
 
 /**
  * Inbound packets, at the point the game handles them rather than the point they
@@ -75,7 +79,7 @@ public abstract class ClientPlayNetworkHandlerMixin {
             return;
         }
 
-        KnockbackEvent event = new KnockbackEvent(
+        KnockbackEvent event = new KnockbackEvent(KnockbackEvent.Source.VELOCITY,
                 Vec3.of(packet.getVelocityX(), packet.getVelocityY(), packet.getVelocityZ()));
 
         if (Events.cancelled(event)) {
@@ -97,6 +101,38 @@ public abstract class ClientPlayNetworkHandlerMixin {
                     target = "Lnet/minecraft/network/NetworkThreadUtils;forceMainThread(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/listener/PacketListener;Lnet/minecraft/util/thread/ThreadExecutor;)V"))
     private void karatsuba$onExplosion(ExplosionS2CPacket packet, CallbackInfo callback) {
         EntityPush.serverVelocity();
+    }
+
+    /**
+     * An explosion's knockback on the local player.
+     *
+     * <p>The vanilla body ends {@code packet.playerKnockback().ifPresent(player::addVelocityInternal)},
+     * after the sound and the particles. Wrapping that {@code Optional} rather than
+     * cancelling the handler means a cancelled push still leaves the explosion seen
+     * and heard. The server only fills it in for the player it was sent to, so
+     * there is nothing to filter.
+     *
+     * <p>Game thread only: on the Netty pass {@code forceMainThread} throws before
+     * this point.
+     */
+    @ModifyExpressionValue(method = "onExplosion",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/network/packet/s2c/play/ExplosionS2CPacket;playerKnockback()Ljava/util/Optional;"))
+    private Optional<Vec3d> karatsuba$explosionKnockback(Optional<Vec3d> knockback) {
+        if (knockback.isEmpty() || !Events.isArmed()) {
+            return knockback;
+        }
+        Vec3d push = knockback.get();
+        KnockbackEvent event = new KnockbackEvent(KnockbackEvent.Source.EXPLOSION,
+                Vec3.of(push.x, push.y, push.z));
+        if (Events.cancelled(event)) {
+            return Optional.empty();
+        }
+        if (event.isModified()) {
+            Vec3 scaled = event.getVelocity();
+            return Optional.of(new Vec3d(scaled.getX(), scaled.getY(), scaled.getZ()));
+        }
+        return knockback;
     }
 
     /**

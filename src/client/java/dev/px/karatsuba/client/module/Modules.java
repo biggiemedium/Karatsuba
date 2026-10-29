@@ -10,6 +10,7 @@ import dev.px.karatsuba.client.module.combat.BedAuraModule;
 import dev.px.karatsuba.client.module.combat.CrystalAuraModule;
 import dev.px.karatsuba.client.module.combat.HoleFillModule;
 import dev.px.karatsuba.client.module.combat.KillAuraModule;
+import dev.px.karatsuba.client.module.combat.PhaseModule;
 import dev.px.karatsuba.client.module.combat.SurroundModule;
 import dev.px.karatsuba.client.module.combat.VelocityModule;
 import dev.px.karatsuba.client.module.combat.WebAuraModule;
@@ -74,6 +75,7 @@ public final class Modules {
                 new CrystalAuraModule(),
                 new HoleFillModule(),
                 new KillAuraModule(),
+                new PhaseModule(),
                 new SurroundModule(),
                 new VelocityModule(),
                 new WebAuraModule(),

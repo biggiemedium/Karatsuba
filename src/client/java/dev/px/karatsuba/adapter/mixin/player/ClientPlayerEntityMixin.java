@@ -9,6 +9,7 @@ import dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.MovementKeys;
 import dev.px.karatsuba.adapter.game.player.Rotations;
+import dev.px.karatsuba.adapter.movement.BlockPushOut;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.network.ClientPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -161,6 +162,14 @@ public abstract class ClientPlayerEntityMixin {
         // Before a silent rotation is put back, for the same reason.
         MotionBridge.afterMovementPackets(self());
         Rotations.afterMovementPackets();
+    }
+
+    /** The push out of blocks, skipped while {@link BlockPushOut} says so; see there for why Grim allows it. */
+    @Inject(method = "pushOutOfBlocks", at = @At("HEAD"), cancellable = true)
+    private void karatsuba$pushOutOfBlocks(double x, double z, CallbackInfo callback) {
+        if (BlockPushOut.skipped()) {
+            callback.cancel();
+        }
     }
 
     private ClientPlayerEntity self() {

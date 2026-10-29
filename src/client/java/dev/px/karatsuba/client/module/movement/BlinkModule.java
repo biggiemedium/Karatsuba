@@ -35,6 +35,9 @@ import dev.px.karatsuba.adapter.network.PacketHold;
 import dev.px.karatsuba.client.automation.step.HoldPackets;
 import dev.px.karatsuba.client.module.ClientModule;
 import dev.px.karatsuba.client.module.movement.blink.BlinkTrail;
+import dev.px.karatsuba.client.module.movement.blink.BurstBudget;
+import dev.px.karatsuba.client.notify.Notices;
+import dev.px.karatsuba.client.notify.Source;
 import dev.px.karatsuba.client.render.ThemeColors;
 
 /**
@@ -58,6 +61,17 @@ import dev.px.karatsuba.client.render.ThemeColors;
  * goes on as a run of such holds, each let go as a burst: until it is turned off
  * ({@link Mode#CONTINUOUS}) or until Max Timeout ({@link Mode#FIXED}).
  * The rules are in {@code anticheat/Grim.md}.
+ *
+ * <h2>Servers set up differently</h2>
+ * Grim Safe's budget assumes the server's threshold is Ping Limit and the ping is
+ * what the tab list says. A server with a lower threshold, or a connection that
+ * jitters, sets back every burst that runs past what it really allows.
+ * {@code Adaptive} learns that instead ({@link BurstBudget}): bursts start short and
+ * grow while they land clean, and a setback within a round trip of a burst landing
+ * cuts the length back and caps it there, for that server, for the session. A
+ * burst also goes out early once you are {@link #BURST_DISTANCE} blocks from where
+ * the server last saw you: the vanilla server sets back a batch that moves you
+ * about ten blocks in one of its ticks, whatever the anticheat.
  *
  * <h2>Other modules while it holds</h2>
  * Whatever they send joins the hold in order and reaches the server with the
@@ -83,6 +97,12 @@ public class BlinkModule extends ClientModule {
     private static final int MARGIN_MS = 150;
 
     private static final int TICK_MS = 50;
+
+    /** Blocks from where the server last saw you at which a burst goes out early: inside vanilla's ten. */
+    private static final double BURST_DISTANCE = 8d;
+
+    /** Ticks past the round trip a setback may take to come back and still be blamed on the last burst. */
+    private static final int JUDGE_SLACK = 10;
 
     /** How long a blink goes on. Either way it is a run of bursts, each a hold let go in one go. */
     public enum Mode {
@@ -113,8 +133,11 @@ public class BlinkModule extends ClientModule {
             .describe("Fixed: seconds the blink lasts in all. Continuous without Grim Safe: seconds each burst holds")
             .visibleWhen(() -> mode.get() == Mode.FIXED || !grimSafe.isOn());
 
+    private final BooleanSetting adaptive = bool("Adaptive", true)
+            .describe("Learn how long this server lets a burst hold: start short, grow while bursts land, cut back after a setback");
+
     private final GroupSetting grim = group("Grim", true)
-            .containing(grimSafe, pingLimit);
+            .containing(grimSafe, pingLimit, adaptive);
 
     private final BooleanSetting holeReached = bool("Hole Reached", true)
             .describe("Once you are safely in a hole other than the one you started in");
@@ -173,6 +196,18 @@ public class BlinkModule extends ClientModule {
     private FlowHandle flow;
     private long startTick;
 
+    /** What this server has shown it lets a burst hold. */
+    private final BurstBudget budget = new BurstBudget();
+
+    /** The burst under way: the tick it began, and where the server last saw you. */
+    private long burstStart;
+    private Vec3 burstFrom;
+
+    /** The burst last let go, until it is judged: when, and how many ticks it held. */
+    private long lastBurstTick;
+    private int lastBurstHeld;
+    private boolean judging;
+
     /** The hole the blink started in, or null; reaching it again is not arriving. */
     private Hole startHole;
     private Vec3 startPosition;
@@ -202,9 +237,16 @@ public class BlinkModule extends ClientModule {
         // On now rather than when the flow first ticks, so nothing sent before then slips out.
         hold.everything().lasting(holdLimit()).start();
         Step once = Flow.sequence(
-                Flow.action("budget", c -> hold.lasting(holdLimit())),
-                HoldPackets.with(hold),
-                Flow.action("delivered", c -> trail.deliver()));
+                Flow.action("budget", c -> {
+                    hold.lasting(holdLimit());
+                    burstStart = Core.flows().getTick();
+                    burstFrom = Players.position();
+                }),
+                HoldPackets.with(hold).until(c -> tooFarForOneBurst()),
+                Flow.action("delivered", c -> {
+                    burstDelivered();
+                    trail.deliver();
+                }));
         flow = Core.flows().start("Blink", Flow.loop(once).until(c -> letGo()).named("blink"), RotationPriority.NORMAL);
     }
 
@@ -213,14 +255,19 @@ public class BlinkModule extends ClientModule {
         if (flow != null && !flow.isDone()) {
             flow.cancel();
         }
+        boolean wasHolding = hold.isActive();
         flow = null;
         hold.release(); // let out all packets once done
+        if (wasHolding) {
+            burstDelivered();
+        }
         trail.deliver();
     }
 
     /** End of the tick: the flow ended (an event, the timeout, or the hold let go elsewhere), so Blink does too. */
     @Subscribe(stage = Stage.POST)
     private void onTickEnd(TickEvent event) {
+        judgeQuietly();
         lastTickPosition = tickPosition;
         tickPosition = Players.present() ? Players.position() : tickPosition;
         if (flow == null || flow.isDone()) {
@@ -241,10 +288,39 @@ public class BlinkModule extends ClientModule {
         }
     }
 
-    @Subscribe
+    /** Also while off: the setback for the last burst can come back after Blink has ended. */
+    @Subscribe(ignoreListening = true)
     private void onTeleport(ServerTeleportEvent event) {
-        if (!event.isSpawn()) {
+        if (event.isSpawn()) {
+            return;
+        }
+        if (isListening()) {
             setbackSeen = true;
+        }
+        if (judging && Core.flows().getTick() - lastBurstTick <= judgeWindow()) {
+            judging = false;
+            if (adaptive.isOn()) {
+                budget.setBack(lastBurstHeld);
+                Notices.info(Source.MODULE_MESSAGES, "Blink", "Set back after a " + lastBurstHeld * TICK_MS
+                        + " ms burst; bursts here now hold " + budget.ticks() * TICK_MS + " ms");
+            }
+        }
+    }
+
+    /** Also while off: what is learned is kept per server, so it must follow the server. */
+    @Subscribe(ignoreListening = true)
+    private void onServer(WorldEvent event) {
+        if (!event.isUnloaded()) {
+            budget.server(event.getServerAddress());
+            judging = false;
+        }
+    }
+
+    /** Also while off, to judge the burst let go as Blink ended. */
+    @Subscribe(stage = Stage.POST, ignoreListening = true)
+    private void onTickEndAlways(TickEvent event) {
+        if (!isListening()) {
+            judgeQuietly();
         }
     }
 
@@ -302,11 +378,43 @@ public class BlinkModule extends ClientModule {
         } else {
             ticks = maxTimeout.getInt() * 20;
         }
+        if (adaptive.isOn()) {
+            // One more than the budget: the last line takes one off for the tick-end the hold lets go at.
+            ticks = Math.min(ticks, budget.ticks() + 1);
+        }
         if (mode.get() == Mode.FIXED) {
             ticks = Math.min(ticks, maxTimeout.getInt() * 20 - (int) (Core.flows().getTick() - startTick));
         }
         // A hold lets go at the end of the tick after its limit: one more tick-end than the limit.
         return Math.max(1, ticks - 1);
+    }
+
+    /** Notes a burst going out, to be judged by what the server does in the next round trip. */
+    private void burstDelivered() {
+        lastBurstTick = Core.flows().getTick();
+        lastBurstHeld = (int) Math.max(1L, lastBurstTick - burstStart);
+        judging = true;
+    }
+
+    /** A burst that has gone a round trip without a setback landed clean: let the next one hold a little longer. */
+    private void judgeQuietly() {
+        if (judging && Core.flows().getTick() - lastBurstTick > judgeWindow()) {
+            judging = false;
+            if (adaptive.isOn()) {
+                budget.landed(lastBurstHeld);
+            }
+        }
+    }
+
+    /** @return ticks after a burst in which a setback is its doing: the round trip and slack */
+    private static int judgeWindow() {
+        int ping = PlayerList.ping(Players.entityId());
+        return (ping == PlayerList.UNKNOWN_PING ? 10 : (int) Math.ceil(ping / (double) TICK_MS)) + JUDGE_SLACK;
+    }
+
+    /** @return whether this burst has carried you far enough that the vanilla server would set it back */
+    private boolean tooFarForOneBurst() {
+        return burstFrom != null && Players.present() && Players.position().distanceTo(burstFrom) >= BURST_DISTANCE;
     }
 
     /** @return whether an Auto Toggle event has happened, or Fixed's Max Timeout. Read at the start of each tick, by the flow. */
@@ -363,6 +471,7 @@ public class BlinkModule extends ClientModule {
     public String getDisplayInfo() {
         return flow != null && !flow.isDone()
                 ? String.format("%.1fs", (Core.flows().getTick() - startTick) / 20f)
+                        + (adaptive.isOn() ? " " + budget.ticks() * TICK_MS + "ms" : "")
                 : "";
     }
 }

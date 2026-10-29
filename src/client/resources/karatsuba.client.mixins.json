@@ -35,6 +35,7 @@
 		"render.ChatScreenMixin",
 		"render.ChunkOcclusionDataBuilderMixin",
 		"render.EntityRendererMixin",
+		"render.HeldItemRendererMixin",
 		"render.ClientWorldMixin",
 		"render.GameRendererMixin",
 		"render.InGameHudMixin",

@@ -13,6 +13,9 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.decoration.EndCrystalEntity;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.decoration.painting.PaintingEntity;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectCategory;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -246,6 +249,17 @@ public final class Entities {
      * filtering afterwards would build a {@link GameEntity} for every mob in render
      * distance to throw most of them away.
      */
+    /**
+     * End crystals, item frames and paintings whose box meets {@code area}: the
+     * entities that are not alive but still stop a thrown pearl, or take up the
+     * space a player would land in. Each breaks to a single hit.
+     */
+    public static List<GameEntity> fixturesIn(Box area) {
+        net.minecraft.util.math.Box box = Voxels.toGameBox(area);
+        return matching(1f, entity -> (entity instanceof EndCrystalEntity || entity instanceof ItemFrameEntity
+                || entity instanceof PaintingEntity) && entity.getBoundingBox().intersects(box));
+    }
+
     public static List<GameEntity> matching(float partialTicks, Predicate<Entity> filter) {
         ClientWorld world = world();
         ClientPlayerEntity self = MinecraftClient.getInstance().player;

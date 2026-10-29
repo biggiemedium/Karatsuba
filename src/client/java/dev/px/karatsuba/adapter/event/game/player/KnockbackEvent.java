@@ -34,9 +34,26 @@ import lombok.Getter;
  *
  * <p>Only ever posted for the local player. Velocity updates for other entities
  * pass through untouched.
+ *
+ * <h2>Two sources, applied differently</h2>
+ * A velocity packet <em>replaces</em> the player's motion; an explosion's
+ * knockback is <em>added</em> to it ({@code Entity.addVelocityInternal}). Either
+ * way {@link #getVelocity()} is what the packet carried and what the game would
+ * apply, so scaling and cancelling mean the same thing for both. A mode that
+ * should only act on one checks {@link #getSource()}.
  */
 @Getter
 public final class KnockbackEvent extends CancellableEvent {
+
+    /** Where the push came from. */
+    public enum Source {
+        /** A velocity packet: a hit, a plugin, a wind charge. Replaces the motion. */
+        VELOCITY,
+        /** An explosion's knockback: a crystal, an anchor, TNT. Added to the motion. */
+        EXPLOSION
+    }
+
+    private final Source source;
 
     /** The push the server sent, in blocks per tick. */
     private Vec3 velocity;
@@ -44,8 +61,14 @@ public final class KnockbackEvent extends CancellableEvent {
     /** Whether a handler replaced it, so the adapter knows to apply its own. */
     private boolean modified;
 
-    public KnockbackEvent(Vec3 velocity) {
+    public KnockbackEvent(Source source, Vec3 velocity) {
+        this.source = source;
         this.velocity = velocity;
+    }
+
+    /** @return whether this is an explosion's knockback rather than a velocity packet */
+    public boolean isExplosion() {
+        return source == Source.EXPLOSION;
     }
 
     /** Replaces the push outright. Ignored if null. */

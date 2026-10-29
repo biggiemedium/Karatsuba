@@ -9,7 +9,9 @@ import dev.px.core.event.impl.WorldEvent;
 import dev.px.core.service.Service;
 import dev.px.karatsuba.adapter.event.game.player.HotbarPickEvent;
 import dev.px.karatsuba.adapter.game.item.Inventories;
+import dev.px.karatsuba.adapter.game.item.ShownSlot;
 import dev.px.karatsuba.adapter.game.player.Inputs;
+import dev.px.karatsuba.adapter.game.player.PlayerList;
 import dev.px.karatsuba.adapter.game.player.Players;
 import dev.px.karatsuba.client.service.claim.ClaimPriority;
 import dev.px.karatsuba.client.service.claim.Claims;
@@ -17,6 +19,9 @@ import dev.px.karatsuba.client.service.inventory.InventoryClick;
 import dev.px.karatsuba.client.service.inventory.InventoryProfile;
 import lombok.Getter;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -35,6 +40,9 @@ import java.util.function.Supplier;
  *   <li><b>Silent swaps</b> &mdash; {@link #silently}: the server is told another
  *       slot, the action runs, and the slot is put back and told to the server
  *       again, all in the same call. The hotbar never moves.</li>
+ *   <li><b>Concealed claims</b> &mdash; {@link #conceal}: a visible claim that is
+ *       really selected, on both sides, but drawn as the player's own slot. For an
+ *       item used over many ticks, which no silent swap can hold.</li>
  *   <li><b>The offhand</b> &mdash; {@link #toOffhand}: an item put in the
  *       offhand by the swap-hands key from the hotbar, or one inventory click from
  *       the main inventory.</li>
@@ -84,6 +92,13 @@ public final class InventoryService implements Service {
     /** When the winning inventory click is sent, within {@link Stage#PRE}: after the action service. */
     private static final int CLICK_PRIORITY = Priority.HIGH;
 
+    /** Ticks past the round trip to wait for an offhand swap's answer: jitter, and the server's own tick. */
+    private static final int SETTLE_MARGIN = 3;
+    private static final int MIN_SETTLE = 3;
+    private static final int MAX_SETTLE = 40;
+    /** The round trip, in ticks, when the tab list has no ping for the player. */
+    private static final int UNKNOWN_ROUND_TRIP = 10;
+
     /** What {@link #toOffhand} did. */
     public enum OffhandResult {
         /** The item was already in the offhand; nothing was sent. */
@@ -106,6 +121,9 @@ public final class InventoryService implements Service {
 
     private final Claims<InventoryClick> clicks = new Claims<>();
 
+    /** Owners whose claim is drawn as the player's own slot this tick: see {@link #conceal}. */
+    private final Set<Object> concealed = Collections.newSetFromMap(new IdentityHashMap<>());
+
     private InventoryProfile profile = new InventoryProfile() { };
 
     /** Counts ticks, advanced at the end of each, so the whole of a tick's start reads one value. */
@@ -113,6 +131,12 @@ public final class InventoryService implements Service {
 
     /** The tick of the last inventory click, from here or the offhand. */
     private long lastClickTick = Long.MIN_VALUE / 2;
+
+    /** What the offhand held when the last swap went out, while it is unanswered; null otherwise. */
+    private String offhandBefore;
+
+    /** The tick by which the server has certainly answered the last offhand swap. */
+    private long offhandAnswerBy;
 
     /**
      * The slot the player had before visible claims took over, or
@@ -144,6 +168,7 @@ public final class InventoryService implements Service {
         tickStart = bus.on(TickEvent.class, Priority.HIGHEST, event -> {
             if (event.getStage() == Stage.PRE) {
                 claims.beginTick();
+                concealed.clear();
             }
         });
         tickEnd = bus.on(TickEvent.class, APPLY_PRIORITY, event -> {
@@ -166,9 +191,20 @@ public final class InventoryService implements Service {
         // The player picking a slot while the hotbar is claimed: that pick, not the
         // slot from before the claim, is what they get back when it ends.
         pickSubscription = bus.on(HotbarPickEvent.class, event -> {
-            if (playerSlot != Inventories.NOT_FOUND) {
-                playerSlot = event.getSlot();
+            if (playerSlot == Inventories.NOT_FOUND) {
+                return;
             }
+            if (Players.usingMainHand()) {
+                // The pick has ended the item in use on the client already. Selecting
+                // the claim back at the end of the tick would keep the server, which
+                // never heard the pick, eating on alone. So the pick wins outright;
+                // whoever still wants the hotbar asks again next tick.
+                claims.clear();
+                playerSlot = Inventories.NOT_FOUND;
+                ShownSlot.clear();
+                return;
+            }
+            playerSlot = event.getSlot();
         });
     }
 
@@ -209,6 +245,22 @@ public final class InventoryService implements Service {
             return;
         }
         claims.file(owner, slot, priority, holdTicks);
+    }
+
+    /**
+     * Draws this owner's claim, for this tick, as the player's own slot: while it
+     * wins, the hotbar and the hand keep showing what the player had
+     * ({@link ShownSlot}). Ask alongside {@link #request}, every tick.
+     *
+     * <p>The claimed slot is still really selected and told to the server; only
+     * what is drawn changes. That is the only kind of hidden hold Grim accepts for
+     * an item used over many ticks, since it tracks the use, and its slowdown, from
+     * the slot and use packets.
+     */
+    public void conceal(Object owner) {
+        if (owner != null) {
+            concealed.add(owner);
+        }
     }
 
     /** Lets go early. Never required &mdash; a claim expires on its own. */
@@ -297,20 +349,69 @@ public final class InventoryService implements Service {
      * ({@link Inputs#holdStill()}), so it goes out at the start of the next.
      */
     public OffhandResult toOffhand(String itemId, boolean strict, boolean stopping) {
+        return toOffhand(itemId, strict, stopping, false, false);
+    }
+
+    /**
+     * As {@link #toOffhand(String, boolean, boolean)}, choosing where the item comes from.
+     *
+     * <p>With {@code inventoryFirst}, the main inventory is used whenever it has the
+     * item, and the hotbar only when it has none: a hotbar swap leaves the old
+     * offhand item in that hotbar slot, which rearranges the player's hotbar. With
+     * {@code urgent} as well, a hotbar one is used after all on a tick the inventory
+     * click cannot go out (moving, an item in use, a click already sent).
+     *
+     * <h2>One swap in flight</h2>
+     * Nothing more is sent while the last offhand swap is unanswered. The
+     * swap-hands key is not applied by the client: the offhand changes only when
+     * the server's slot update arrives, a round trip later. Asking again in the
+     * meantime sends a second swap, which the server applies too and swaps
+     * straight back &mdash; the client and server trading the item every tick on
+     * any ping over 50 ms. A swap counts as answered once the offhand holds
+     * anything other than it did when the swap went out (the server's update, or
+     * a pop), or after the round trip and a margin, should the server have
+     * refused it without a word.
+     */
+    public OffhandResult toOffhand(String itemId, boolean strict, boolean stopping, boolean inventoryFirst,
+                                   boolean urgent) {
         if (Inventories.offhandHolds(itemId)) {
             return OffhandResult.ALREADY;
         }
         if (strict && Players.inContainer()) {
             return OffhandResult.BUSY;
         }
-        int hotbar = Inventories.findInHotbar(itemId);
-        if (hotbar != Inventories.NOT_FOUND) {
-            return Inventories.swapHotbarWithOffhand(hotbar) ? OffhandResult.SENT : OffhandResult.FAILED;
+        if (offhandInFlight()) {
+            return OffhandResult.WAITING;
         }
+        int hotbar = Inventories.findInHotbar(itemId);
         int stored = Inventories.findInInventory(itemId);
-        if (stored == Inventories.NOT_FOUND) {
+        if (stored == Inventories.NOT_FOUND && hotbar == Inventories.NOT_FOUND) {
             return OffhandResult.NO_ITEM;
         }
+        boolean fromInventory = stored != Inventories.NOT_FOUND
+                && (inventoryFirst || hotbar == Inventories.NOT_FOUND);
+        if (fromInventory && urgent && hotbar != Inventories.NOT_FOUND && !offhandClickNow(strict)) {
+            fromInventory = false;
+        }
+        return fromInventory ? offhandFromInventory(stored, strict, stopping) : offhandFromHotbar(hotbar);
+    }
+
+    /** The swap-hands key with a hotbar slot selected: no inventory click, and the slot put back. */
+    private OffhandResult offhandFromHotbar(int slot) {
+        if (slot != Inventories.selectedSlot() && Players.usingMainHand()) {
+            // The two slot packets around the swap would end the main hand's item on the server.
+            return OffhandResult.WAITING;
+        }
+        String before = Inventories.offhandItem();
+        if (!Inventories.swapHotbarWithOffhand(slot)) {
+            return OffhandResult.FAILED;
+        }
+        inFlight(before);
+        return OffhandResult.SENT;
+    }
+
+    /** One swap click from the main inventory, when the server would accept one. */
+    private OffhandResult offhandFromInventory(int slot, boolean strict, boolean stopping) {
         if (strict && (clickedThisTick() || Players.usingItem())) {
             return OffhandResult.WAITING;
         }
@@ -320,11 +421,43 @@ public final class InventoryService implements Service {
             }
             return OffhandResult.WAITING;
         }
-        if (!Inventories.swapInventoryWithOffhand(stored)) {
+        String before = Inventories.offhandItem();
+        if (!Inventories.swapInventoryWithOffhand(slot)) {
             return OffhandResult.FAILED;
         }
         lastClickTick = tick;
+        inFlight(before);
         return OffhandResult.SENT;
+    }
+
+    /** @return whether an offhand click from the main inventory could go out this tick */
+    private boolean offhandClickNow(boolean strict) {
+        return !strict || (!clickedThisTick() && !Players.usingItem() && standingStill());
+    }
+
+    /** Notes an offhand swap sent while the offhand held {@code before}. */
+    private void inFlight(String before) {
+        offhandBefore = before;
+        offhandAnswerBy = tick + settleTicks();
+    }
+
+    /** @return whether the last offhand swap is still waiting for the server */
+    private boolean offhandInFlight() {
+        if (offhandBefore == null) {
+            return false;
+        }
+        if (tick >= offhandAnswerBy || !Inventories.offhandItem().equals(offhandBefore)) {
+            offhandBefore = null;
+            return false;
+        }
+        return true;
+    }
+
+    /** @return ticks to wait for the server to answer a swap: the round trip, and a margin for jitter */
+    private static int settleTicks() {
+        int ping = PlayerList.ping(Players.entityId());
+        int roundTrip = ping == PlayerList.UNKNOWN_PING ? UNKNOWN_ROUND_TRIP : (int) Math.ceil(ping / 50d);
+        return Math.max(MIN_SETTLE, Math.min(MAX_SETTLE, roundTrip + SETTLE_MARGIN));
     }
 
     // ---------------------------------------------------------- inventory clicks
@@ -455,6 +588,7 @@ public final class InventoryService implements Service {
                 Inventories.selectSlot(playerSlot);
                 playerSlot = Inventories.NOT_FOUND;
             }
+            ShownSlot.clear();
             return;
         }
         if (playerSlot == Inventories.NOT_FOUND) {
@@ -463,12 +597,21 @@ public final class InventoryService implements Service {
             playerSlot = Inventories.selectedSlot();
         }
         Inventories.selectSlot(winner.getValue());
+        // Shown and selected change in the same place, so no frame draws one without the other.
+        if (concealed.contains(winner.getOwner())) {
+            ShownSlot.show(playerSlot);
+        } else {
+            ShownSlot.clear();
+        }
     }
 
     /** Drops every claim without restoring, for when the world it referred to has gone. */
     private void reset() {
         claims.clear();
         clicks.clear();
+        concealed.clear();
         playerSlot = Inventories.NOT_FOUND;
+        ShownSlot.clear();
+        offhandBefore = null;
     }
 }

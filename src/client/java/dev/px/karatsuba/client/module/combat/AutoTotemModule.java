@@ -56,13 +56,30 @@ import dev.px.karatsuba.client.notify.Source;
  * </ul>
  *
  * <h2>Getting it there</h2>
- * Through {@code Services.actions()}, ahead of everything else. From the hotbar it
- * is the swap-hands key, with no inventory click; from the main inventory it is
- * one click, which with the Interaction checks (Client Settings) on waits until you stand
- * still &mdash; Grim flags an inventory click while moving. In danger, or right after
- * a pop, {@code Stop In Danger} does not wait: it lets go of your movement keys for
- * one tick and the click goes out at the start of the next. A swap never shares a
- * tick with an attack or a click.
+ * Through {@code Services.actions()}, ahead of everything else, and from the main
+ * inventory first: the hotbar is used only when the main inventory has none, so
+ * your hotbar stays as you laid it out. A main-inventory item is one click, which
+ * with the Interaction checks (Client Settings) on waits until you stand still
+ * &mdash; Grim flags an inventory click while moving. A hotbar item is the
+ * swap-hands key, with no click. A totem you need now is the exception: in danger,
+ * when the click cannot go this tick, a hotbar totem goes in instead, and with
+ * {@code Stop In Danger} a totem only in the main inventory stops your movement
+ * keys for one tick so the click goes out at the start of the next. A swap never
+ * shares a tick with an attack or a click.
+ *
+ * <h2>Not fighting the server</h2>
+ * <ul>
+ *   <li>One swap at a time: the inventory service sends nothing more until the
+ *       server has answered the last one (see {@code InventoryService#toOffhand}).
+ *       The swap-hands key is applied by the server, not the client, so asking
+ *       again before the answer swaps the item straight back out.</li>
+ *   <li>Its choices hold: a totem stays in for a second after the last sign of
+ *       danger, the fighting item for a moment after it went in, and an enemy has
+ *       to step a little past {@code Combat Range} before the fighting item goes.
+ *       Health hovering at {@code Safe Health}, or an enemy at the edge of range,
+ *       swaps once rather than every tick. A totem for danger, and an apple for a
+ *       right click, never wait.</li>
+ * </ul>
  */
 @ModuleInfo(name = "Auto Totem", description = "Keeps a totem in your offhand, or your fighting item while it is safe",
         category = "Combat")
@@ -75,6 +92,15 @@ public final class AutoTotemModule extends ClientModule {
 
     /** How far a crystal can be and still be worth checking: past this none can hurt. */
     private static final double CRYSTAL_RANGE = 12d;
+
+    /** Ticks a totem stays in after the last sign of danger. */
+    private static final long DANGER_HOLD = 20L;
+
+    /** Ticks the fighting item stays before anything but a totem or an apple for a right click replaces it. */
+    private static final long CHOICE_HOLD = 10L;
+
+    /** Blocks past {@code Combat Range} an enemy may step before the fighting item goes back. */
+    private static final double RANGE_SLACK = 1.5d;
 
     private final EnumSetting<Mode> mode = enumOf("Mode", Mode.SMART)
             .describe("TOTEM always holds a totem; SMART holds your fighting item while it is safe");
@@ -119,6 +145,21 @@ public final class AutoTotemModule extends ClientModule {
 
     private String display = "";
 
+    private long ticks;
+    private long dangerUntil = Long.MIN_VALUE / 2;
+    /** The item last chosen, and the tick it was. */
+    private String chosen;
+    private long chosenAt = Long.MIN_VALUE / 2;
+    /** Set by {@link #wanted} when its choice is an apple for a right click, which never waits. */
+    private boolean forUse;
+
+    @Override
+    protected void onEnable() {
+        dangerUntil = Long.MIN_VALUE / 2;
+        chosen = null;
+        chosenAt = Long.MIN_VALUE / 2;
+    }
+
     @Subscribe(stage = Stage.PRE)
     private void onTick(TickEvent event) {
         if (!Players.present()) {
@@ -128,14 +169,41 @@ public final class AutoTotemModule extends ClientModule {
         int totems = Inventories.count(TOTEM);
         display = (mode.get() == Mode.TOTEM ? "Totem " : "Smart ") + totems;
 
-        String wanted = wanted();
+        ticks++;
+        boolean danger = mode.get() == Mode.SMART && inDanger();
+        if (danger) {
+            dangerUntil = ticks + DANGER_HOLD;
+        }
+        boolean threatened = ticks < dangerUntil;
+        String wanted = steady(wanted(threatened));
         if (wanted != null && !Inventories.offhandHolds(wanted)) {
-            Action action = Action.offhand(wanted).priority(ClaimPriority.HIGHEST);
-            if (stopInDanger.isOn() && TOTEM.equals(wanted) && inDanger()) {
-                action.stopping();
+            Action action = Action.offhand(wanted).priority(ClaimPriority.HIGHEST).fromInventoryFirst();
+            if (TOTEM.equals(wanted) && danger) {
+                action.urgent();
+                if (stopInDanger.isOn()) {
+                    action.stopping();
+                }
             }
             Services.actions().submit(this, action);
         }
+    }
+
+    /**
+     * Holds the fighting item a moment once it is in, so a choice on the edge of
+     * a threshold swaps once rather than every tick. A totem and an apple for a
+     * right click always go straight in.
+     */
+    private String steady(String wanted) {
+        if (wanted == null || wanted.equals(chosen)) {
+            return wanted;
+        }
+        boolean immediate = TOTEM.equals(wanted) || forUse;
+        if (!immediate && chosen != null && !TOTEM.equals(chosen) && ticks - chosenAt < CHOICE_HOLD && has(chosen)) {
+            return chosen;
+        }
+        chosen = wanted;
+        chosenAt = ticks;
+        return wanted;
     }
 
     /**
@@ -145,7 +213,8 @@ public final class AutoTotemModule extends ClientModule {
     @Subscribe
     private void onPop(TotemPopEvent event) {
         if (event.isSelf() && Inventories.count(TOTEM) > 0) {
-            Action action = Action.offhand(TOTEM).priority(ClaimPriority.HIGHEST);
+            dangerUntil = ticks + DANGER_HOLD;
+            Action action = Action.offhand(TOTEM).priority(ClaimPriority.HIGHEST).fromInventoryFirst().urgent();
             if (stopInDanger.isOn()) {
                 action.stopping();
             }
@@ -177,15 +246,20 @@ public final class AutoTotemModule extends ClientModule {
 
     // --------------------------------------------------------------- choosing
 
-    /** @return the item the offhand should hold now; null when none of it is to hand */
-    private String wanted() {
+    /**
+     * @param threatened in danger now, or within {@link #DANGER_HOLD} of it
+     * @return the item the offhand should hold now; null when none of it is to hand
+     */
+    private String wanted(boolean threatened) {
+        forUse = false;
         String totem = has(TOTEM) ? TOTEM : null;
-        if (mode.get() == Mode.TOTEM || inDanger()) {
+        if (mode.get() == Mode.TOTEM || threatened) {
             return totem;
         }
         if (gappleOnUse.isOn() && Inputs.pressed(Inputs.Control.USE) && holdingWeapon()) {
             String apple = has(GAPPLE) ? GAPPLE : has(GOLDEN_APPLE) ? GOLDEN_APPLE : null;
             if (apple != null) {
+                forUse = true;
                 return apple;
             }
         }
@@ -235,7 +309,9 @@ public final class AutoTotemModule extends ClientModule {
         if (self == null) {
             return false;
         }
-        double range = combatRange.getDouble();
+        // A little further while the fighting item is in, so an enemy on the edge does not swap it every tick.
+        boolean holdingSmart = !Inventories.offhandItem().isEmpty() && !Inventories.offhandHolds(TOTEM);
+        double range = combatRange.getDouble() + (holdingSmart ? RANGE_SLACK : 0d);
         for (Tracked<E> player : kit.players().getAll()) {
             if (!kit.isFriend(player.get()) && player.distanceTo(self) <= range) {
                 return true;
