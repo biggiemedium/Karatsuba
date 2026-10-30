@@ -26,10 +26,11 @@ final class AccountsLook {
     }
 
     static void register(WidgetRendererRegistry look) {
-        // An account: monogram (the dot while in use), its name, how it signs in, ›.
+        // An account: face, or monogram (the dot while in use), its name, how it signs in, ›.
         look.register(WidgetRenderer.of(AccountRow.class, (row, c) -> c.align(Align.STRETCH).row(r -> r
                 .height(CELL_HEIGHT).padding(CELL_INSET, 0f).gap(GAP_CONTROL).align(Align.CENTER)
-                .custom(AVATAR_SIZE, AVATAR_SIZE, (x, y, w, h) -> avatar(x, y, w, row.name(), row.isInUse(), caption()))
+                .custom(AVATAR_SIZE, AVATAR_SIZE, (x, y, w, h) ->
+                        avatar(x, y, w, row.name(), row.face(), row.isInUse(), caption()))
                 .text(text(), row.name(), LABEL.get())
                 .fill().text(text(), row.status(), LABEL_SECONDARY.get()).space(6f - GAP_CONTROL, 0f)
                 .custom(6f, 9f, (x, y, w, h) -> Glyphs.draw(Glyph.FORWARD, x - 1.5f, y, h, LABEL_TERTIARY.get())))));
@@ -38,7 +39,7 @@ final class AccountsLook {
         look.register(WidgetRenderer.of(AccountHeader.class, (header, c) -> c.align(Align.STRETCH).row(r -> r
                 .padding(CELL_INSET, 10f).gap(GAP_CONTROL + 4f).align(Align.CENTER)
                 .custom(AVATAR_LARGE, AVATAR_LARGE, (x, y, w, h) ->
-                        avatar(x, y, w, header.name(), header.isInUse(), heading()))
+                        avatar(x, y, w, header.name(), header.face(), header.isInUse(), heading()))
                 .column(names -> names.gap(3f)
                         .text(textStrong(), header.name(), LABEL.get())
                         .text(caption(), header.caption(), LABEL_SECONDARY.get())))));

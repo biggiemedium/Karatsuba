@@ -64,7 +64,7 @@ moves and composes like a task while staying a toggle. The task system itself
 | Category | Modules |
 |---|---|
 | Combat | Auto Totem, Auto XP, Bed Aura, Crystal Aura, Hole Fill, Kill Aura, Phase (Pearl, Walk), Surround, Velocity, Web Aura |
-| Movement | Elytra Fly (Bounce, Firework), Speed, Sprint, Step |
+| Movement | Blink, Elytra Fly (Bounce, Firework), Sprint, Step, Strafe (Vanilla, Grim) |
 | Building | Scaffold |
 | Mining | Auto Tool, Ender Chest Farmer, Smart Mine |
 | Inventory | Armor Manager, Hotbar Replenish, Inventory Cleaner, XCarry |
@@ -121,8 +121,9 @@ Effort: **S** about a day, **M** a few days, **L** a week or more.
 - **Elytra Fly** · done (needs in-game testing), modal like Velocity. **Bounce** (Meteor's, i.e. Elytra Recast): forward held, head locked low, jump held on the ground and re-pressed in the air so vanilla re-opens the elytra; waits for two airborne movement packets and a released jump (Grim PacketEntityAction/ElytraF/ElytraB), never forces sprint (SprintF). **Firework** (Lambda's): keys steer a silent look, a rocket kept burning; hover freezes the body only while a rocket is attached, inside Grim's firework box (`UncertaintyHandler.tickFireworksBox`). Rockets push along the sent look (`FireworkRocketEntityMixin`). Packet-stall hover and velocity sets left out.
 - Shared pieces, in `movement/control/`: `Ledges` (simulation questions) and `TickKey` (a one-tick key
   press, always released at tick end).
-- **Speed** · rework: Grim simulates every tick from your keys, so a "speed" there
-  is good sprint-jumping, not a velocity edit. Either rework it into that or retire it.
+- **Speed** · removed 2026-10-30. It scaled the ground velocity through
+  `Services.motion()`, which Grim's simulation flags. Good sprint-jumping is
+  Strafe's Grim mode.
 
 ### Travel (category added with its first module)
 

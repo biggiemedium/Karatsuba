@@ -6,6 +6,7 @@ import dev.px.core.account.AccountType;
 import dev.px.core.account.AuthResult;
 import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
+import dev.px.karatsuba.adapter.asset.PlayerFaces;
 import dev.px.karatsuba.adapter.concurrent.GameThread;
 import dev.px.karatsuba.client.config.AutoSave;
 import dev.px.karatsuba.client.notify.Notices;
@@ -63,6 +64,13 @@ public final class Accounts {
      * Kept so the list can tell which saved account the game is playing as.
      */
     private static final String IN_GAME_NAME = "inGameName";
+
+    /**
+     * The UUID the account plays as, from its last sign-in: what its face is looked
+     * up by ({@link PlayerFaces}). An account saved before this was recorded learns
+     * it the first time it is seen in use.
+     */
+    private static final String UUID = "uuid";
 
     /**
      * The sign-in running now, or the last one; null before any.
@@ -178,6 +186,37 @@ public final class Accounts {
      */
     public static String inGameName(Account account) {
         return account.isOffline() ? account.getName() : account.getMeta(IN_GAME_NAME, null);
+    }
+
+    /**
+     * @return what to call {@code account}: the name it plays as, or, before its
+     *         first sign-in tells us that, the label it was saved under (an email)
+     */
+    public static String displayName(Account account) {
+        String name = inGameName(account);
+        return name != null ? name : account.getName();
+    }
+
+    /**
+     * @return the UUID {@code account} plays as, as text; null before it has signed
+     *         in. One in use without one recorded (saved before UUIDs were) takes
+     *         the session's, once.
+     */
+    public static String uuid(Account account) {
+        String uuid = account.getMeta(UUID, null);
+        if (uuid == null && isInUse(account)) {
+            uuid = PlayerFaces.currentUuid();
+            if (uuid != null) {
+                account.setMeta(UUID, uuid);
+                AutoSave.markDirty();
+            }
+        }
+        return uuid;
+    }
+
+    /** @return the UUID the game is playing as now, as text; null if the session has none */
+    public static String currentUuid() {
+        return PlayerFaces.currentUuid();
     }
 
     /** @return whether the game is playing as {@code account} now */
@@ -354,6 +393,7 @@ public final class Accounts {
         if (!account.isOffline()) {
             account.setMeta(IN_GAME_NAME, name);
         }
+        account.setMeta(UUID, result.getSession().getUuid());
         signIn.finish(SignIn.Step.DONE, name);
         Notices.success(Source.CLIENT, "Accounts", "Signed in as " + name);
 

@@ -11,6 +11,7 @@
 		"game.SimpleOptionAccessor",
 		"input.KeyboardMixin",
 		"input.MouseMixin",
+		"network.AllowedAddressResolverMixin",
 		"network.ClientConnectionMixin",
 		"network.ClientPlayNetworkHandlerMixin",
 		"network.ClientWorldAccessor",

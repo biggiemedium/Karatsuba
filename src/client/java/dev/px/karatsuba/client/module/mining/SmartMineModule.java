@@ -114,7 +114,7 @@ public final class SmartMineModule extends ClientModule {
             .describe("The most blocks one vein mark adds")
             .visibleWhen(() -> select.get() == Select.VEIN);
 
-    private final EnumSetting<Order> order = enumOf("Order", Order.NEAREST)
+    private final EnumSetting<Order> order = enumOf("Order", Order.MARKED)
             .describe("NEAREST mines the closest marked block first; MARKED goes in the order you marked them");
 
     private final NumberSetting<Double> dissolveRange = decimal("Dissolve Range", 8d, 4d, 16d)

@@ -8,6 +8,7 @@ import dev.px.karatsuba.adapter.account.MicrosoftAuth;
 import dev.px.karatsuba.adapter.account.MinecraftAuthProvider;
 import dev.px.karatsuba.adapter.asset.Assets;
 import dev.px.karatsuba.adapter.asset.GameTextures;
+import dev.px.karatsuba.adapter.asset.PlayerFaces;
 import dev.px.karatsuba.adapter.asset.RemoteImages;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.combat.Combat;
@@ -199,6 +200,7 @@ public final class MinecraftAdapter {
     public static void shutdown() {
         Assets.dispose();
         RemoteImages.dispose();
+        PlayerFaces.dispose();
         GameTextures.dispose();
         SceneTexture.release();
         Silhouettes.release();

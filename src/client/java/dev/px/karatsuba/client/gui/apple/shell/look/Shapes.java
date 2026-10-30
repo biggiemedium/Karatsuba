@@ -6,6 +6,7 @@ import dev.px.core.layout.Bounds;
 import dev.px.core.layout.Content;
 import dev.px.core.render.Color;
 import dev.px.core.render.Render;
+import dev.px.core.render.Texture;
 import dev.px.core.render.font.Font;
 import dev.px.gui.Widget;
 
@@ -224,10 +225,23 @@ final class Shapes {
      * the account in use), always beside words that say so (§4.2).
      */
     static void avatar(float x, float y, float size, String name, boolean present, Font font) {
+        avatar(x, y, size, name, null, present, font);
+    }
+
+    /**
+     * As {@link #avatar(float, float, float, String, boolean, Font)}, with the
+     * player's face in the circle in place of the monogram when there is one
+     * (Minecraft's equivalent of a contact photo); the monogram while it loads.
+     */
+    static void avatar(float x, float y, float size, String name, Texture face, boolean present, Font font) {
         float r = size / 2f;
-        Render.circle(x + r, y + r, r, AVATAR.get());
-        String initial = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
-        Render.text(font, initial, x + r - font.widthOf(initial) / 2f, y + r - font.getHeight() / 2f, Color.WHITE);
+        if (face != null) {
+            Render.roundTexture(face, x, y, size, size, r, Color.WHITE);
+        } else {
+            Render.circle(x + r, y + r, r, AVATAR.get());
+            String initial = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
+            Render.text(font, initial, x + r - font.widthOf(initial) / 2f, y + r - font.getHeight() / 2f, Color.WHITE);
+        }
         if (present) {
             float dot = Math.max(2.5f, size * 0.15f);
             float cx = x + size - dot;

@@ -84,7 +84,7 @@ public final class Modules {
                 // Movement
                 new BlinkModule(),
                 new ElytraFlyModule(),
-                new SpeedModule(),
+                new NoSlowModule(),
                 new SprintModule(),
                 new StepModule(),
                 new StrafeModule(),

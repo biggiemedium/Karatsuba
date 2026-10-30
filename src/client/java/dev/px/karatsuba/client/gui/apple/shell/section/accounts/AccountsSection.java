@@ -172,7 +172,7 @@ public final class AccountsSection implements Section {
     @Override
     public String heading() {
         if (open != null) {
-            return open.getName();
+            return Accounts.displayName(open);
         }
         return addOpen ? "Add Account" : title();
     }
@@ -320,7 +320,7 @@ public final class AccountsSection implements Section {
 
     private void remove(Account account) {
         Accounts.remove(account.getName());
-        offerUndo(listUndo, "Removed " + account.getName(), () -> {
+        offerUndo(listUndo, "Removed " + Accounts.displayName(account), () -> {
             if (Accounts.find(account.getName()).isEmpty()) {
                 Accounts.restore(account);
             }
@@ -330,7 +330,7 @@ public final class AccountsSection implements Section {
 
     private void forget(Account account) {
         Accounts.KeptSignIn kept = Accounts.forget(account);
-        offerUndo(pageUndo, "Forgot the sign-in for " + account.getName(), () -> Accounts.keep(account, kept));
+        offerUndo(pageUndo, "Forgot the sign-in for " + Accounts.displayName(account), () -> Accounts.keep(account, kept));
     }
 
     /** Shows {@code bar} saying {@code text}, and makes {@code action} what Undo and Ctrl+Z do. */
@@ -383,8 +383,9 @@ public final class AccountsSection implements Section {
         }
 
         // Who the game is playing as: a heading, so no dot here; the row below has the dot and "In use".
-        list.card(null).add(new AccountHeader(Accounts::current,
-                () -> Accounts.inUse().map(account -> "Saved as " + account.getName()).orElse("Not a saved account"),
+        list.card(null).add(new AccountHeader(Accounts::current, Accounts::currentUuid,
+                () -> Accounts.inUse().map(account -> AccountWords.kind(account) + " account")
+                        .orElse("Not a saved account"),
                 () -> false));
 
         Column saved = list.group("Saved");
@@ -411,14 +412,14 @@ public final class AccountsSection implements Section {
         top.add(pageUndo);
         top.visibleWhen(pageUndo::showing);
 
-        detail.card(null).add(new AccountHeader(account::getName, () -> AccountWords.caption(account),
-                () -> Accounts.isInUse(account)));
+        detail.card(null).add(new AccountHeader(() -> Accounts.displayName(account), () -> Accounts.uuid(account),
+                () -> AccountWords.caption(account), () -> Accounts.isInUse(account)));
 
         Column last = detail.group("Account");
         Card facts = last.add(new Card());
         facts.add(new InfoRow("Type", () -> AccountWords.kind(account)));
-        // Only when it says something the header does not: an account added here is named by its email.
-        if (!account.isOffline() && account.getEmail() != null && !account.getEmail().equalsIgnoreCase(account.getName())) {
+        // The header names it by the name it plays as, so its email is only said here.
+        if (!account.isOffline() && account.getEmail() != null) {
             facts.add(new InfoRow("Email", account::getEmail));
         }
         facts.add(new InfoRow("Name in Game", () -> AccountWords.inGameName(account)));

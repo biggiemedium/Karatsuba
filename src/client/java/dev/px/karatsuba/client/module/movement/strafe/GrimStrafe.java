@@ -9,6 +9,7 @@ import dev.px.core.math.Vec3;
 import dev.px.core.movement.rotation.RotationMode;
 import dev.px.core.movement.rotation.RotationPriority;
 import dev.px.core.movement.rotation.RotationRequest;
+import dev.px.core.movement.simulation.MovementInput;
 import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.core.setting.impl.NumberSetting;
 import dev.px.core.util.math.MovementMath;
@@ -70,6 +71,24 @@ import dev.px.karatsuba.client.settings.ClientSettings;
  *       keeps the unslowed velocity as a candidate for 1.21+ clients.</li>
  * </ul>
  *
+ * <h2>More control without leaving vanilla</h2>
+ * In the air the game adds only 0.026 a tick toward the keys while the speed
+ * keeps 91% of itself, so a turn or a stop takes the better part of a hop.
+ * Three opt-in settings get the most out of that push; each only picks the yaw
+ * and the keys, which a {@code Core.controls()} claim reports as W at that yaw.
+ * The measurements are in {@code movement/documentation/modules/STRAFE.md}.
+ *
+ * <ul>
+ *   <li><b>Steer.</b> Faces along the velocity wanted minus the velocity had,
+ *       rather than along the keys, so the push also cancels the old sideways
+ *       speed. About half the drift on a 90&deg; turn; nothing on a reversal,
+ *       where the two are the same.</li>
+ *   <li><b>Air Brake.</b> With no key held in the air, faces against the
+ *       velocity and walks into it, where it used to coast.</li>
+ *   <li><b>Smart Jump.</b> Stays on the ground while a turn of more than 45&deg;
+ *       is pending, where the push is five times the air's, then hops.</li>
+ * </ul>
+ *
  * <p>It needs Move Fix and does nothing without it: walking under a silent yaw
  * with uncorrected keys is the Simulation flag this mode exists to avoid. It asks
  * at low priority, so an aura or Scaffold that needs the head takes it, and Move
@@ -86,10 +105,19 @@ public final class GrimStrafe extends SubMode<StrafeModule.Mode> {
     private final BooleanSetting diagonal = bool("Diagonal", true)
             .describe("Walk on W+A while eating, blocking or sneaking: about 41% faster");
 
-    private final BooleanSetting entityCollide = bool("Entity Collide", false)
+    private final BooleanSetting steer = bool("Steer", false)
+            .describe("Push against your old momentum when turning, not just toward the keys");
+
+    private final BooleanSetting airBrake = bool("Air Brake", false)
+            .describe("Let go of the keys in the air and walk against your momentum to stop");
+
+    private final BooleanSetting smartJump = bool("Smart Jump", false)
+            .describe("Wait on the ground to turn sharply, then hop");
+
+    private final BooleanSetting entityCollide = bool("Entity Collide", true)
             .describe("Beside other entities, take the biggest push Grim allows: 0.08 a tick each");
 
-    private final BooleanSetting boatBurst = bool("Boat Burst", false)
+    private final BooleanSetting boatBurst = bool("Boat Burst", true)
             .describe("Lunge forward for three ticks beside a boat or shulker");
 
     private final NumberSetting<Double> burstDistance = decimal("Burst Distance", 1d, 0.1d, 1.15d)
@@ -124,6 +152,24 @@ public final class GrimStrafe extends SubMode<StrafeModule.Mode> {
      */
     private static final int BURST_TICKS = 3;
 
+    /**
+     * The speed Steer aims for along the keys: about a bunny hop's. Never below the
+     * current speed, so steering only turns the motion and never slows it.
+     */
+    private static final double STEER_SPEED = 0.36d;
+
+    /** Below this gap between the velocity wanted and the one had, Steer faces the keys. */
+    private static final double STEER_DEADBAND = 0.02d;
+
+    /** Air Brake lets go below this speed: the air push is 0.026, so it never walks back. */
+    private static final double BRAKE_STOP_SPEED = 0.03d;
+
+    /** Smart Jump ignores a turn while slower than this; there is nothing to turn. */
+    private static final double TURN_MIN_SPEED = 0.05d;
+
+    /** Smart Jump waits while the velocity is further than about 45 degrees off the keys. */
+    private static final double TURN_COS = 0.7d;
+
     private final TickKey sprintKey = new TickKey(Inputs.Control.SPRINT);
     private final TickKey jumpKey = new TickKey(Inputs.Control.JUMP);
 
@@ -151,22 +197,42 @@ public final class GrimStrafe extends SubMode<StrafeModule.Mode> {
 
         double forward = axis(Inputs.Control.FORWARD, Inputs.Control.BACK);
         double strafe = axis(Inputs.Control.LEFT, Inputs.Control.RIGHT);
+        Vec2 camera = Players.rotation();
         if (!MovementMath.isMoving(forward, strafe)) {
+            if (airBrake.isOn()) {
+                brake(camera);
+            }
             return;
         }
 
         boolean jumping = Players.onGround() && !Players.inWater()
                 && (autoJump.isOn() || Inputs.pressed(Inputs.Control.JUMP));
 
-        Vec2 camera = Players.rotation();
         heading = MovementMath.movementYaw(camera.getYaw(), forward, strafe);
+        if (jumping && smartJump.isOn() && turning()) {
+            // Turn on the ground first, where the push is five times the air's.
+            jumping = false;
+            if (Inputs.pressed(Inputs.Control.JUMP)) {
+                Inputs.letGoOfJump();
+            }
+        }
+
         // Facing 45 degrees right of the heading turns the keys into W+A, which
         // still walks along the heading. Not on a jump from the ground: the
         // sprint jump's push goes along the yaw, and would go 45 degrees astray.
-        float yaw = diagonal.isOn() && slowed() && !jumping ? heading + DIAGONAL_OFFSET : heading;
-        Core.rotations().request(this, RotationRequest.at(yaw, camera.getPitch())
-                .priority(RotationPriority.LOW)
-                .mode(RotationMode.SILENT));
+        boolean diagonalNow = diagonal.isOn() && slowed() && !jumping;
+        if (steer.isOn() && !diagonalNow && freeMoving()) {
+            float yaw = steerYaw();
+            face(yaw, camera);
+            // A jump held mid-air still reaches the game: it may open an elytra.
+            boolean jump = jumping || (!Players.onGround() && Inputs.pressed(Inputs.Control.JUMP));
+            boolean sprinting = Players.sprinting()
+                    || ((sprint.isOn() || Inputs.pressed(Inputs.Control.SPRINT)) && Players.canSprint());
+            walkAlong(yaw, jump, sprinting);
+            return;
+        }
+
+        face(diagonalNow ? heading + DIAGONAL_OFFSET : heading, camera);
 
         if (sprint.isOn()) {
             sprintKey.press();
@@ -235,6 +301,87 @@ public final class GrimStrafe extends SubMode<StrafeModule.Mode> {
     }
 
     /**
+     * In the air with no key held: faces against the velocity and walks into it,
+     * until too slow for the push to do anything but turn round.
+     */
+    private void brake(Vec2 camera) {
+        if (Players.onGround() || !freeMoving()) {
+            return;
+        }
+        Vec3 velocity = Players.velocity();
+        if (MovementMath.speed(velocity) < BRAKE_STOP_SPEED) {
+            return;
+        }
+        float yaw = yawOf(-velocity.getX(), -velocity.getZ());
+        face(yaw, camera);
+        // Sprint kept as it is: sprinting, the air push is 0.026 rather than 0.02.
+        walkAlong(yaw, Inputs.pressed(Inputs.Control.JUMP), Players.sprinting());
+    }
+
+    /**
+     * @return the yaw that pushes the velocity toward {@link #STEER_SPEED} along
+     *         the heading: the heading itself once they are close
+     *
+     * <p>The velocity read at the start of the tick is the one this tick's move
+     * starts from. The wanted speed is never below the current one, so the push
+     * never points backwards along the heading.
+     */
+    private float steerYaw() {
+        Vec3 velocity = Players.velocity();
+        Vec3 along = MovementMath.forward(heading, 1d);
+        double target = Math.max(MovementMath.speed(velocity), STEER_SPEED);
+        double errorX = along.getX() * target - velocity.getX();
+        double errorZ = along.getZ() * target - velocity.getZ();
+        if (Math.hypot(errorX, errorZ) < STEER_DEADBAND) {
+            return heading;
+        }
+        return yawOf(errorX, errorZ);
+    }
+
+    /** @return whether the velocity points far enough off the heading that a hop would lock it in */
+    private boolean turning() {
+        Vec3 velocity = Players.velocity();
+        double speed = MovementMath.speed(velocity);
+        if (speed < TURN_MIN_SPEED) {
+            return false;
+        }
+        Vec3 along = MovementMath.forward(heading, 1d);
+        return (velocity.getX() * along.getX() + velocity.getZ() * along.getZ()) / speed < TURN_COS;
+    }
+
+    /** Silently faces {@code yaw}, keeping the camera's pitch. */
+    private void face(float yaw, Vec2 camera) {
+        Core.rotations().request(this, RotationRequest.at(yaw, camera.getPitch())
+                .priority(RotationPriority.LOW)
+                .mode(RotationMode.SILENT));
+    }
+
+    /**
+     * Reports W at {@code yaw} for this tick in place of the player's keys, sneak
+     * kept. If something else holds the head, the keys are corrected to its yaw.
+     */
+    private void walkAlong(float yaw, boolean jump, boolean sprinting) {
+        Core.controls().move(this, MovementInput.forward(yaw)
+                        .withJump(jump)
+                        .withSneak(Inputs.pressed(Inputs.Control.SNEAK))
+                        .withSprint(sprinting),
+                ClaimPriority.LOW);
+    }
+
+    /**
+     * @return whether the player moves the way Steer and Air Brake were worked
+     *         out for: on land or in the air, not swimming, climbing or gliding
+     */
+    private static boolean freeMoving() {
+        return !Players.inWater() && !Players.inLava() && !Players.climbing() && !Players.gliding();
+    }
+
+    /** @return the yaw whose {@link MovementMath#forward} points along (x, z) */
+    private static float yawOf(double x, double z) {
+        return (float) Math.toDegrees(Math.atan2(-x, z));
+    }
+
+    /**
      * @return whether letting go of jump this tick changes nothing but the
      *         cooldown: it is held, the player is in the air, and jump is not
      *         what swims, climbs or opens an elytra right now
@@ -271,6 +418,7 @@ public final class GrimStrafe extends SubMode<StrafeModule.Mode> {
     /** Lets go of the head and any key held; the module calls it when switched off. */
     public void stop() {
         Core.rotations().release(this);
+        Core.controls().release(this);
         sprintKey.release();
         jumpKey.release();
         Displacement.cancel();

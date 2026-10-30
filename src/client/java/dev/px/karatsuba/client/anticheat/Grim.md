@@ -90,6 +90,8 @@ that "end of tick looks the same to the server" was wrong.
 | **Predicting edges and jumps from guesses** | `client.module.movement.control.Ledges.ahead()` / `held()` step `core: Core.simulation().trace()` with the player's own physics (`adapter.movement.MotionBridge.currentState()`), so a module only presses a key when vanilla physics says it matters |
 | **Silent multi-tick item use** (eating with the server holding another slot than the client) | Not built, on purpose. Grim tracks `USE_ITEM`, `RELEASE_USE_ITEM` and slot changes and applies the use slowdown. `InventoryService.silently()` swaps and swaps back inside one call, so no silent hold outlives a tick. Auto Eat's **Silent Swap** is visual only: the food is really selected on both sides (`InventoryService.conceal()`), and only the hotbar highlight, item popup and first-person hand draw the player's slot (`adapter.game.item.ShownSlot`, `InGameHudMixin`, `HeldItemRendererMixin`) |
 | **Eating out of step with Grim** (see **Item use** below) | `client.automation.step.Eat`: done only on the server's `CONSUME_ITEM`; a deadline lets go of a use the server never finishes; `ActionService` refuses a silent swap while the main hand is in use; `InventoryService` lets a player's pick win outright mid-use |
+| **How big an offset flags** (read 2026-10-30, `OffsetHandler`, `config/en.yml`) | Any offset ≥ `threshold` 0.001 flags and alerts. Setback at one offset ≥ 0.1, or once flagged offsets add up to `max-advantage` 1 block (×0.999 decay a clean tick, capped at 4). No velocity budget worth using; see `module/movement/documentation/knowledge/MOTION.md` |
+| **Steering harder in the air** | `GrimStrafe` Steer and Air Brake pick a yaw and report W at it through `Core.controls().move()` (corrected by `MovementKeys`), so the push goes where wanted with keys, yaw and move agreeing. Smart Jump holds a jump back with `Inputs.letGoOfJump()`. Untested in game |
 | **No Push liquids / blocks** | Not built. Grim simulates fluid pushing and push-out-of-blocks (`PlayerBaseTick.updateFluidHeightAndDoFluidPushing`, `moveTowardsClosestSpace`) |
 
 ---
@@ -122,6 +124,25 @@ Read from 2.3.73 (`PacketPlayerDigging`, `NoSlow`) and vanilla 1.21.4 bytecode o
 | The vanilla server ends a main-hand use on any held-slot packet to a different slot | `ServerPlayNetworkHandler.onUpdateSelectedSlot` → `clearActiveItem` |
 | The client never finishes an item: `tickItemStackUsage` only consumes when `!world.isClient`. It finishes on the server's entity status 9 (`ServerPlayerEntity.consumeItem` → `PlayerEntity.handleStatus(9)`), and follows the server's own living-flags metadata for using or not (`ClientPlayerEntity.onTrackedDataSet`) | so "the client stopped using" means finished or cut short, and status 9 tells which |
 | Letting go of use calls `ClientPlayerInteractionManager.stopUsingItem`: `syncSelectedSlot()` then `RELEASE_USE_ITEM` | release before any slot change, in the same tick |
+
+### The NoSlow check itself (read 2026-10-30)
+
+From 2.3.73 `NoSlow`, `PredictionEngine.loopVectors`/`doPredictions`, `Check`,
+`PacketPlayerDigging` and Paper's `BukkitItemResetHandler`:
+
+| Fact | Where |
+|---|---|
+| **Simulation tries every candidate slowed and unslowed** (`Flip_Use_Item`), every tick. A full-speed move while using never fails Simulation | `PredictionEngine.loopVectors` |
+| Only **non-flipped** candidates feed NoSlow: the best squared offset, through `reduceOffset`, then square-rooted | `doPredictions` → `NoSlow.handlePredictionAnalysis` |
+| On a checked tick Grim thinks slowed: best offset > 0.001 sets `flaggedLastTick`, and flags (alert, +1 VL) if it was already set; ≤ 0.001 clears it and rewards (VL − 0.05). **Setback once VL > 5** (`setbackvl: 5`, `decay: 0.05`) | `NoSlow.onPredictionComplete`, `Check.flagAndAlertWithSetback`, `config.yml` |
+| Ticks Grim does not think slowed, and unchecked ticks, **leave `flaggedLastTick` as it was**, across uses | same |
+| `reset-item-usage-on-item-use: true` (default): every `USE_ITEM` makes Grim reset the server's item use (`clearActiveItem()` on Paper) before the server handles the packet. **A repeated use packet restarts the use** | `PacketPlayerDigging.onPacketReceive`, `BukkitItemResetHandler` |
+| A slowed tick with no movement input has offset 0 (slowed and unslowed are the same move), so it is rewarded | follows from the above |
+
+So the most No Slow that never flags is **alternating**: fast, slowed, fast,
+slowed. That is 0.6 of walking speed. Within 1.0 of a hard collider (see
+"`reduceOffset`" below) the NoSlow offset is forgiven, and every tick can be fast.
+`GrimNoSlow` alternates; `movement/documentation/modules/NO_SLOW.md` has the design.
 
 So: the client and Grim must agree on "using" every tick. Hazards are a use the server refused without saying (client stuck slowed, Grim not: Simulation), and a slot change the server sees but the client does not act on (Grim stops, client still slowed). `Eat` covers both.
 
@@ -417,6 +438,8 @@ the game restart the dig itself.
   entity (see **Strafe extras**). Ignoring a push is inside that box, untested.
 - Strafe extras (Entity Collide, Boat Burst, Tap Jump, Keep Sprint): read from
   the jar, not yet tested in game.
+- Strafe air control (Steer, Air Brake, Smart Jump): built on legal keys, not yet
+  tested in game. Air Brake walking against knockback should pass KnockbackHandler.
 - Fishing-rod pull ignoring: looks accepted, untested in game.
 - Anything not listed above has not been read from the jar yet; check the class
   in `checks/impl/` before relying on it.

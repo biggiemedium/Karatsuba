@@ -1,11 +1,13 @@
 package dev.px.karatsuba.adapter.mixin.player;
 
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.px.core.event.Stage;
 import dev.px.core.math.Vec2;
 import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.player.PlayerMoveEvent;
 import dev.px.karatsuba.adapter.event.game.player.PlayerUpdateEvent;
+import dev.px.karatsuba.adapter.event.game.player.SlowdownEvent;
 import dev.px.karatsuba.adapter.game.player.Inputs;
 import dev.px.karatsuba.adapter.game.player.MovementKeys;
 import dev.px.karatsuba.adapter.game.player.Rotations;
@@ -13,8 +15,11 @@ import dev.px.karatsuba.adapter.movement.BlockPushOut;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.network.ClientPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
@@ -106,6 +111,33 @@ public abstract class ClientPlayerEntityMixin {
         // After both: standing still overrides whatever they wrote.
         Inputs.applyHoldStill(self().input);
         Inputs.applyJumpLetGo(self().input);
+    }
+
+    /** The item-use slowdown for this tick, decided where the game asks whether an item is in use. */
+    @Unique
+    private float karatsuba$useSlowdown = SlowdownEvent.VANILLA;
+
+    /**
+     * The game's one {@code isUsingItem()} check in {@code tickMovement}, which
+     * guards the slowdown: posts {@link SlowdownEvent} once while an item is in
+     * use, and keeps its answer for the two multiplications that follow.
+     */
+    @ModifyExpressionValue(method = "tickMovement",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isUsingItem()Z"))
+    private boolean karatsuba$onUseSlowdown(boolean using) {
+        karatsuba$useSlowdown = using
+                ? Events.post(new SlowdownEvent(self().input.getMovementInput().lengthSquared() > 0f)).applied()
+                : SlowdownEvent.VANILLA;
+        return using;
+    }
+
+    /**
+     * Both inputs' {@code *= 0.2f}. Read from the 1.21.4 bytecode: they are the
+     * only {@code 0.2f} constants in {@code tickMovement}.
+     */
+    @ModifyConstant(method = "tickMovement", constant = @Constant(floatValue = SlowdownEvent.VANILLA))
+    private float karatsuba$useSlowdownMultiplier(float vanilla) {
+        return karatsuba$useSlowdown;
     }
 
     @Inject(method = "tickMovement", at = @At("TAIL"))
