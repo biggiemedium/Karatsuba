@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.movement;
 
 import dev.px.core.module.ModuleInfo;
+import dev.px.core.setting.impl.GroupSetting;
 import dev.px.karatsuba.client.module.mode.ModalModule;
 import dev.px.karatsuba.client.module.movement.noslow.GrimNoSlow;
 import dev.px.karatsuba.client.module.movement.noslow.VanillaNoSlow;
@@ -21,11 +22,12 @@ public class NoSlowModule extends ModalModule<NoSlowModule.Mode> {
         GRIM
     }
 
-    // Field order is the order the panels appear in, so it matches the enum. Neither
-    // mode has settings yet; give each a panelFor(...) field once it does.
+    // Field order is the order the panels appear in, so it matches the enum. Vanilla
+    // has no settings yet; give it a panelFor(...) field once it does.
     private final VanillaNoSlow vanilla = attach(new VanillaNoSlow());
 
     private final GrimNoSlow grim = attach(new GrimNoSlow());
+    private final GroupSetting grimPanel = panelFor(grim);
 
     public NoSlowModule() {
         super(Mode.VANILLA);

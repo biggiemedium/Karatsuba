@@ -74,7 +74,7 @@ reliable, and safe on Grim by construction.
 | Sprint | Not yet | — |
 | Step | Not yet | — |
 | [Elytra Fly](modules/ELYTRA_FLY.md) | **Not yet** hardened. Bounce tested on the dev server (about 30 b/s, no alerts); Firework untested | Hold Glide works 1 bounce in 42; Firework has no "Move Fix off"; launch wait not tied to ping |
-| [No Slow](modules/NO_SLOW.md) | **Not yet** hardened. Grim mode rewritten 2026-10-30 from Grim's bytecode (alternate fast/slowed, no packets); untested in game | Ticks Grim skips other than teleports; whether `itemUseTicks()` counts once a tick |
+| [No Slow](modules/NO_SLOW.md) | **Not yet** hardened. Grim mode rewritten 2026-10-30 from Grim's bytecode (alternate fast/slowed, no packets, Sprint on the fast ticks); untested in game | Sprint on the toggle tick (Simulation); ticks Grim skips other than teleports; whether `itemUseTicks()` counts once a tick |
 | [Blink](modules/BLINK.md) | **Not yet** hardened. Untested since the 2026-10-22 and 10-28 reworks | Adaptive untested where it rubberbanded (Crystal Velocity); tab-list ping; crystal estimate every tick |
 
 Speed was removed on 2026-10-30: it scaled velocity, which Grim flags, and Strafe's

@@ -13,8 +13,8 @@ made a step too early, on state the game has not updated yet.
 | 3 | **`PlayerUpdateEvent` PRE**, the player's `tick` | `ClientPlayerEntityMixin.karatsuba$preTick` |
 | 4 | The rotation resolves: a silent one is swapped in for the move (`Rotations.beforeMovementTick`) | `karatsuba$preMove`, `tickMovement` HEAD |
 | 5 | **`PlayerMoveEvent` PRE.** `MotionService` applies the winning claims last (`LOWEST`) | same |
-| 6 | `Input.tick()`: the keys become this tick's input. Then, in order: Move Fix (`Rotations.correctInput`), movement claims (`MovementKeys.apply`), `Inputs.applyHoldStill`, `Inputs.applyJumpLetGo` | `karatsuba$afterInput` |
-| 7 | Vanilla scales the input for item use and sneaking, decides sprint, and calls `travel` | vanilla |
+| 6 | `Input.tick()`: the keys become this tick's input. Then, in order: Move Fix (`Rotations.correctInput`), movement claims (`MovementKeys.apply`), `Inputs.applyHoldStill`, `Inputs.applyJumpLetGo`, then **`SlowdownEvent`** while an item is in use on foot (its multiplier and sprint permission are kept for step 7) | `karatsuba$afterInput` |
+| 7 | Vanilla stops sprint (`shouldStopSprinting`), scales the input for item use and sneaking, starts sprint (`canStartSprinting`), and calls `travel` | vanilla |
 | 8 | `Entity.move`: a pending `Displacement` is added (own moves only) | `EntityMixin`, HEAD |
 | 9 | `travel` returns: `EntityPush.afterTravel` records the velocity; entity cramming pushes after | `LivingEntityMixin` |
 | 10 | **`PlayerMoveEvent` POST** | `karatsuba$postMove`, `tickMovement` TAIL |

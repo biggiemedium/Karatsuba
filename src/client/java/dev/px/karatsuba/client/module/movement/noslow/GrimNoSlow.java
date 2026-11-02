@@ -1,6 +1,7 @@
 package dev.px.karatsuba.client.module.movement.noslow;
 
 import dev.px.core.event.Subscribe;
+import dev.px.core.setting.impl.BooleanSetting;
 import dev.px.karatsuba.adapter.event.game.player.ServerTeleportEvent;
 import dev.px.karatsuba.adapter.event.game.player.SlowdownEvent;
 import dev.px.karatsuba.adapter.game.player.Players;
@@ -16,6 +17,12 @@ import dev.px.karatsuba.client.module.movement.NoSlowModule;
  * ({@code Grim.md}, "The NoSlow check itself"). So: fast, slowed, fast, slowed.
  * About 0.6 of walking speed, three times vanilla's. No packets are sent.
  *
+ * <p>{@link #sprint} also lets the fast ticks sprint. SprintC is the same latch
+ * for sprinting while slowed, so it alternates on the same ticks, and the
+ * sprint-jump's boost is not scaled by the item: about 1.25× walking when
+ * sprint-jumping ({@code sim/noslow_sim.py}). The sprint packets are vanilla's,
+ * one toggle a tick.
+ *
  * <p>Decided at {@link SlowdownEvent}, which only fires on a tick that is
  * slowed, with this tick's state. Whenever it can't be sure what Grim saw last,
  * it starts slowed: the first tick of every use (Grim's latch outlives a use)
@@ -26,6 +33,9 @@ public final class GrimNoSlow extends SubMode<NoSlowModule.Mode> {
 
     /** A sentinel no real use-tick count is one less than. */
     private static final int NO_USE = Integer.MIN_VALUE;
+
+    private final BooleanSetting sprint = bool("Sprint", true)
+            .describe("Sprint on the full-speed ticks, without holding the key; sprint-jumping while eating beats walking");
 
     public GrimNoSlow() {
         super(NoSlowModule.Mode.GRIM);
@@ -54,6 +64,18 @@ public final class GrimNoSlow extends SubMode<NoSlowModule.Mode> {
             return;
         }
         event.cancel();
+        if (sprint.isOn()) {
+            // Only on this tick: on the slowed one next, vanilla stops the sprint
+            // itself, which is what clears SprintC's latch.
+            event.allowSprint();
+            // Sprint without the key, as Sprint does: not a key press, because a
+            // Toggle Sprint binding flips on a press. Posted before vanilla's sprint
+            // checks, so they still stop it where sprint isn't allowed (sneaking,
+            // a wall, water, blindness).
+            if (Players.movingForward() && Players.canSprint()) {
+                Players.setSprinting(true);
+            }
+        }
         slowedOwed = 1;
     }
 

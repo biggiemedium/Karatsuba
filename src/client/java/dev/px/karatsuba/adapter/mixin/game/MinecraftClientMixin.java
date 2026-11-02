@@ -3,6 +3,7 @@ package dev.px.karatsuba.adapter.mixin.game;
 import dev.px.karatsuba.adapter.event.ScreenBridge;
 import dev.px.karatsuba.adapter.input.InputBridge;
 import dev.px.karatsuba.adapter.render.shader.Silhouettes;
+import dev.px.karatsuba.adapter.screen.DeathScreens;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gui.screen.Screen;
@@ -10,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -31,6 +33,31 @@ public abstract class MinecraftClientMixin {
         if (ScreenBridge.onScreenChange(currentScreen, screen)) {
             callback.cancel();
         }
+    }
+
+    /**
+     * A death screen asked for by name: the server's death message calls
+     * {@code setScreen(new DeathScreen(...))}. See {@code DeathScreens}.
+     *
+     * <p>Changed here, before the method reads it, and not at the
+     * {@code currentScreen} write: by that instruction the screen is already on
+     * the stack, so a change there reaches {@code init} but not the field, and
+     * the game shows a screen it never initialised (Fabric's screen API crashes).
+     */
+    @ModifyVariable(method = "setScreen", argsOnly = true, at = @At("HEAD"))
+    private Screen karatsuba$askedForDeathScreen(Screen screen) {
+        return DeathScreens.onShow(screen);
+    }
+
+    /**
+     * The death screen the game builds itself: every tick the player is dead with
+     * no screen up, {@code setScreen(null)} swaps one in, which HEAD never sees.
+     * Changed as it is stored, so everything after reads the replacement. The
+     * other store, the title screen with no world, passes through untouched.
+     */
+    @ModifyVariable(method = "setScreen", argsOnly = true, at = @At("STORE"))
+    private Screen karatsuba$builtDeathScreen(Screen screen) {
+        return DeathScreens.onShow(screen);
     }
 
     /**

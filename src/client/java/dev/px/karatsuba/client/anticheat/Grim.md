@@ -138,9 +138,13 @@ From 2.3.73 `NoSlow`, `PredictionEngine.loopVectors`/`doPredictions`, `Check`,
 | Ticks Grim does not think slowed, and unchecked ticks, **leave `flaggedLastTick` as it was**, across uses | same |
 | `reset-item-usage-on-item-use: true` (default): every `USE_ITEM` makes Grim reset the server's item use (`clearActiveItem()` on Paper) before the server handles the packet. **A repeated use packet restarts the use** | `PacketPlayerDigging.onPacketReceive`, `BukkitItemResetHandler` |
 | A slowed tick with no movement input has offset 0 (slowed and unslowed are the same move), so it is rewarded | follows from the above |
+| The NoSlow offset is measured to the **widened** start-velocity box (`handleStartingVelocityUncertainty` → `cutBoxToVector`), so entity pushing (0.08 × pushers per axis) loosens it too | `doPredictions` |
+| **SprintC** is the same latch for sprinting: sprinting on a tick Grim thinks slowed sets it, two in a row flag (with setback), a slowed tick without sprint rewards. Checked for clients older than 1.14.2 **or exactly 1.21.4**; touching water skips it (1.13+) | `SprintC.onPredictionComplete` |
+| Grim reads an item's own use speed (`USE_EFFECTS`) only for 1.21.11+ clients; otherwise 0.2 | `PredictionEngine.getItemUseSpeedMultiplier` |
 
 So the most No Slow that never flags is **alternating**: fast, slowed, fast,
-slowed. That is 0.6 of walking speed. Within 1.0 of a hard collider (see
+slowed. That is 0.6 of walking speed, or about 1.25× walking if the fast ticks
+also sprint (SprintC alternates the same way) and sprint-jump. Within 1.0 of a hard collider (see
 "`reduceOffset`" below) the NoSlow offset is forgiven, and every tick can be fast.
 `GrimNoSlow` alternates; `movement/documentation/modules/NO_SLOW.md` has the design.
 

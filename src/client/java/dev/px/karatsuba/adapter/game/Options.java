@@ -3,6 +3,7 @@ package dev.px.karatsuba.adapter.game;
 import dev.px.karatsuba.adapter.mixin.game.SimpleOptionAccessor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.option.Perspective;
 
 /**
  * The game's own settings, for the modules that borrow one.
@@ -91,6 +92,27 @@ public final class Options {
         GameOptions options = options();
         if (options != null) {
             options.getFovEffectScale().setValue(Math.max(0d, Math.min(1d, value)));
+        }
+    }
+
+    /** The camera perspectives the F5 key cycles through, in the game's order. */
+    public enum View {
+        FIRST_PERSON,
+        THIRD_PERSON_BACK,
+        THIRD_PERSON_FRONT
+    }
+
+    /** @return the camera perspective, or first person with no game up */
+    public static View view() {
+        GameOptions options = options();
+        return options == null ? View.FIRST_PERSON : View.values()[options.getPerspective().ordinal()];
+    }
+
+    /** Sets the camera perspective, as F5 would. Borrowed, so restore it. */
+    public static void view(View view) {
+        GameOptions options = options();
+        if (options != null) {
+            options.setPerspective(Perspective.values()[view.ordinal()]);
         }
     }
 

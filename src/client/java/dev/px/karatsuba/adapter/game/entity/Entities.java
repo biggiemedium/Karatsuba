@@ -260,6 +260,17 @@ public final class Entities {
                 || entity instanceof PaintingEntity) && entity.getBoundingBox().intersects(box));
     }
 
+    /**
+     * One entity by id, alive or not, the player included: a body still counts.
+     *
+     * @return the snapshot, or null if it isn't loaded
+     */
+    public static GameEntity byId(int entityId, float partialTicks) {
+        ClientWorld world = world();
+        Entity entity = world == null ? null : world.getEntityById(entityId);
+        return entity == null ? null : GameEntity.of(entity, partialTicks);
+    }
+
     public static List<GameEntity> matching(float partialTicks, Predicate<Entity> filter) {
         ClientWorld world = world();
         ClientPlayerEntity self = MinecraftClient.getInstance().player;

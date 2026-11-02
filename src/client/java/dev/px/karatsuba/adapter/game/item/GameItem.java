@@ -65,8 +65,13 @@ public final class GameItem {
         this.enchantments = enchantmentsOf(stack);
     }
 
-    /** @return a snapshot of the stack; a copy is taken, so later changes to it are not seen */
-    static GameItem of(ItemStack stack) {
+    /**
+     * @return a snapshot of the stack; a copy is taken, so later changes to it are not seen
+     *
+     * <p>Public for the rest of the adapter (a weapon named in a death message);
+     * the client cannot call it, having no {@code ItemStack} to pass.
+     */
+    public static GameItem of(ItemStack stack) {
         return stack == null || stack.isEmpty() ? EMPTY : new GameItem(stack.copy());
     }
 

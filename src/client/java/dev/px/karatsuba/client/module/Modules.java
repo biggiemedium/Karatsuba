@@ -25,6 +25,7 @@ import dev.px.karatsuba.client.module.movement.*;
 import dev.px.karatsuba.client.module.render.BlockOverlayModule;
 import dev.px.karatsuba.client.module.render.EspModule;
 import dev.px.karatsuba.client.module.render.FreeCamModule;
+import dev.px.karatsuba.client.module.render.GameOverModule;
 import dev.px.karatsuba.client.module.render.HoleEspModule;
 import dev.px.karatsuba.client.module.render.NameTagsModule;
 import dev.px.karatsuba.client.module.render.NoBlockRenderModule;
@@ -108,6 +109,7 @@ public final class Modules {
                 new CombatInfoModule(),
                 new EspModule(),
                 new FreeCamModule(),
+                new GameOverModule(),
                 new HoleEspModule(),
                 new NameTagsModule(),
                 new NoBlockRenderModule(),

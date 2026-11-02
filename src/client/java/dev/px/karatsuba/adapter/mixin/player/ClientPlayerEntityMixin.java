@@ -111,33 +111,58 @@ public abstract class ClientPlayerEntityMixin {
         // After both: standing still overrides whatever they wrote.
         Inputs.applyHoldStill(self().input);
         Inputs.applyJumpLetGo(self().input);
+        // Last: the slowdown is decided on the input the move will use, and before
+        // the first sprint check, which runs straight after this.
+        decideUseSlowdown();
     }
 
-    /** The item-use slowdown for this tick, decided where the game asks whether an item is in use. */
+    // ------------------------------------------------------------ item use
+
+    /** The item-use slowdown for this tick, decided by {@link #decideUseSlowdown}. */
     @Unique
     private float karatsuba$useSlowdown = SlowdownEvent.VANILLA;
 
+    /** Whether this tick may sprint although an item is in use; see {@link SlowdownEvent#allowSprint}. */
+    @Unique
+    private boolean karatsuba$sprintWhileUsing;
+
     /**
-     * The game's one {@code isUsingItem()} check in {@code tickMovement}, which
-     * guards the slowdown: posts {@link SlowdownEvent} once while an item is in
-     * use, and keeps its answer for the two multiplications that follow.
+     * Posts {@link SlowdownEvent} on the ticks vanilla slows (an item in use, on
+     * foot), and keeps its answer for the two multiplications and the two sprint
+     * checks later in {@code tickMovement}.
      */
-    @ModifyExpressionValue(method = "tickMovement",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isUsingItem()Z"))
-    private boolean karatsuba$onUseSlowdown(boolean using) {
-        karatsuba$useSlowdown = using
-                ? Events.post(new SlowdownEvent(self().input.getMovementInput().lengthSquared() > 0f)).applied()
-                : SlowdownEvent.VANILLA;
-        return using;
+    @Unique
+    private void decideUseSlowdown() {
+        ClientPlayerEntity self = self();
+        karatsuba$useSlowdown = SlowdownEvent.VANILLA;
+        karatsuba$sprintWhileUsing = false;
+        if (!self.isUsingItem() || self.hasVehicle()) {
+            return;
+        }
+        SlowdownEvent event = Events.post(new SlowdownEvent(self.input.getMovementInput().lengthSquared() > 0f));
+        karatsuba$useSlowdown = event.applied();
+        karatsuba$sprintWhileUsing = event.isSprintAllowed();
     }
 
     /**
      * Both inputs' {@code *= 0.2f}. Read from the 1.21.4 bytecode: they are the
-     * only {@code 0.2f} constants in {@code tickMovement}.
+     * only {@code 0.2f} constants in {@code tickMovement}, and only run on the
+     * ticks {@link #decideUseSlowdown} posts for.
      */
     @ModifyConstant(method = "tickMovement", constant = @Constant(floatValue = SlowdownEvent.VANILLA))
     private float karatsuba$useSlowdownMultiplier(float vanilla) {
         return karatsuba$useSlowdown;
+    }
+
+    /**
+     * The item-use test in vanilla's two sprint rules: {@code shouldStopSprinting},
+     * which runs before the slowdown, and {@code canStartSprinting}, after it. No
+     * other sprint check reads item use.
+     */
+    @ModifyExpressionValue(method = {"shouldStopSprinting", "canStartSprinting"},
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;isUsingItem()Z"))
+    private boolean karatsuba$usingForSprint(boolean using) {
+        return using && !karatsuba$sprintWhileUsing;
     }
 
     @Inject(method = "tickMovement", at = @At("TAIL"))

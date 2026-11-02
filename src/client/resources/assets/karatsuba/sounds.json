@@ -1,0 +1,9 @@
+{
+  "zeldagameover": { "sounds": ["karatsuba:zeldagameover"] },
+  "rainbowgameover": { "sounds": ["karatsuba:rainbowgameover"] },
+  "containerfail1": { "sounds": ["karatsuba:containerfail1"] },
+  "containerfail2": { "sounds": ["karatsuba:containerfail2"] },
+  "containerfail3": { "sounds": ["karatsuba:containerfail3"] },
+  "containerfail4": { "sounds": ["karatsuba:containerfail4"] },
+  "defusefail": { "sounds": ["karatsuba:defusefail"] }
+}

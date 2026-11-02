@@ -4,11 +4,13 @@ import dev.px.core.math.Vec3;
 import dev.px.karatsuba.adapter.event.Events;
 import dev.px.karatsuba.adapter.event.game.player.PlayerJumpEvent;
 import dev.px.karatsuba.adapter.game.entity.PositionStamped;
+import dev.px.karatsuba.adapter.game.player.DeathCause;
 import dev.px.karatsuba.adapter.movement.EntityPush;
 import dev.px.karatsuba.adapter.movement.MotionBridge;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -89,6 +91,18 @@ public abstract class LivingEntityMixin implements PositionStamped {
     private void karatsuba$travelled(Vec3d movementInput, CallbackInfo callback) {
         if ((Object) this instanceof ClientPlayerEntity player && player == MinecraftClient.getInstance().player) {
             EntityPush.afterTravel(player);
+        }
+    }
+
+    /**
+     * Each hit the player takes, as the server described it (the damage packet
+     * becomes this call): its type, attacker and what landed it. Kept for
+     * {@code DeathCause}, which names the hit that killed.
+     */
+    @Inject(method = "onDamaged", at = @At("HEAD"))
+    private void karatsuba$damaged(DamageSource source, CallbackInfo callback) {
+        if ((Object) this == MinecraftClient.getInstance().player) {
+            DeathCause.noteDamage(source);
         }
     }
 }

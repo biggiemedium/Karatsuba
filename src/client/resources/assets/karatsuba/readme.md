@@ -10,7 +10,7 @@ never goes through the game's resource manager.
 | `font/<family>/` | `.ttf` and `.otf` typefaces, one folder per family | `Assets.fontFile(path, size)`, or `Core.fonts().load(name, path, size)` |
 | `texture/icon/` | small UI images: category icons, badges | `Assets.texture(path)` |
 | `texture/background/` | larger images: GUI backdrops, banners | `Assets.texture(path)` |
-| `sound/` | `.ogg` clips | the game's sound system, not Core |
+| `sounds/` | `.ogg` clips, each named in `sounds.json` | `Sounds.play(name, volume)`; the game's sound system, not Core |
 | `shaders/` | GLSL programs and includes | `Core.shaders()`, paths relative to `shaders/`; see `shaders/readme.md` |
 
 `Assets` is `dev.px.karatsuba.adapter.asset.Assets`.
@@ -45,6 +45,11 @@ Render.texture(icon, x, y, 16f, 16f);
 
 ## Sounds
 
-Core has no audio at all, by design — it is a rendering and state library. Play a
-clip through the game: `client.getSoundManager().play(...)`. Files here still need
-a `sounds.json` beside them if you want the game's resource manager to see them.
+Core has no audio at all, by design — it is a rendering and state library. Clips
+are played through the game with `dev.px.karatsuba.adapter.asset.Sounds.play(name,
+volume)`, as interface sounds (not placed in the world).
+
+The game only finds them as `assets/karatsuba/sounds/<name>.ogg`, and only once
+`sounds.json` (next to this file) names them. A new clip is the file plus one line
+there: `"name": { "sounds": ["karatsuba:name"] }`. No registry entry is needed: the
+client never sends these to a server.

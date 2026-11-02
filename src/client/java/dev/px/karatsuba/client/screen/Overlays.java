@@ -30,6 +30,7 @@ public final class Overlays {
     private static final ClickGuiOverlay CLICK_GUI = new ClickGuiOverlay();
     private static final ClientGuiOverlay CLASSIC = new ClientGuiOverlay();
     private static final AppleGuiOverlay APPLE = new AppleGuiOverlay();
+    private static final GameOverOverlay GAME_OVER = new GameOverOverlay();
 
     private Overlays() {
     }
@@ -47,6 +48,14 @@ public final class Overlays {
         OverlayHost.register(CLICK_GUI);
         OverlayHost.register(CLASSIC);
         OverlayHost.register(APPLE);
+        // Last, so it is drawn over everything and asked first: while dead, nothing
+        // behind it takes a key.
+        OverlayHost.register(GAME_OVER);
+    }
+
+    /** Game Over's death screens. */
+    public static GameOverOverlay gameOver() {
+        return GAME_OVER;
     }
 
     /** The HUD, and its editor. */
